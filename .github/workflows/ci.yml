@@ -38,6 +38,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build ESPHome firmware
-        uses: esphome/build-action@v6
+        uses: esphome/build-action@v7
         with:
           yaml-file: ${{ matrix.config }}
