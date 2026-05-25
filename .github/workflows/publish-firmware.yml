@@ -22,7 +22,7 @@ jobs:
     outputs:
       configs: ${{ steps.list.outputs.configs }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: List test YAML files
         id: list
         run: |
@@ -41,7 +41,7 @@ jobs:
       matrix:
         config: ${{ fromJson(needs.discover.outputs.configs) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build ESPHome firmware
         id: build
