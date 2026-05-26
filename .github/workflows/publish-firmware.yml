@@ -45,7 +45,7 @@ jobs:
 
       - name: Build ESPHome firmware
         id: build
-        uses: esphome/build-action@v6
+        uses: esphome/build-action@v7
         with:
           yaml-file: ${{ matrix.config }}
           complete-manifest: "true"          # produce a ready-to-use manifest.json
