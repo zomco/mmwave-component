@@ -22,6 +22,7 @@
 #define M_PI 3.14159265358979323846f
 #endif
 
+namespace esphome {
 namespace r60abd1 {
 
 // ─── 坐标解码 ────────────────────────────────────────────────────────────────
@@ -172,3 +173,4 @@ inline float calibration_residual(Vec2 map_a, Vec2 map_b,
 }
 
 } // namespace r60abd1
+} // namespace esphome

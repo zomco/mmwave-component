@@ -70,7 +70,7 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
    * 避免在代码生成阶段传递 std::vector。
    */
   void add_polygon_point(float x, float y) {
-    cal_.polygon.push_back(::r60abd1::Vec2{x, y});
+    cal_.polygon.push_back(Vec2{x, y});
   }
 
   /** 清空多边形（可在运行时通过按钮实体调用以禁用边界过滤）*/
@@ -128,7 +128,7 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   bool       initialized_{false};
   uint32_t   last_rx_ms_{0};
 
-  ::r60abd1::CalibrationParams cal_;
+  CalibrationParams cal_;
 
   // 传感器指针（全部可为 nullptr，组件自动跳过未注册的传感器）
   binary_sensor::BinarySensor *presence_sensor_    = nullptr;

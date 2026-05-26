@@ -1,11 +1,11 @@
 # ESPHome Millimeter-Wave Radar Components
 
-[![CI](https://github.com/{owner}/{repo}/actions/workflows/ci.yml/badge.svg)](https://github.com/{owner}/{repo}/actions/workflows/ci.yml)
-[![Publish](https://github.com/{owner}/{repo}/actions/workflows/publish.yml/badge.svg)](https://github.com/{owner}/{repo}/actions/workflows/publish.yml)
+[![CI](https://github.com/zomco/esphome-mmwave-components/actions/workflows/ci.yml/badge.svg)](https://github.com/zomco/esphome-mmwave-components/actions/workflows/ci.yml)
+[![Publish](https://github.com/zomco/esphome-mmwave-components/actions/workflows/publish.yml/badge.svg)](https://github.com/zomco/esphome-mmwave-components/actions/workflows/publish.yml)
 
 Custom [ESPHome](https://esphome.io/) external components for multiple millimeter-wave radar models, targeting **ESP32-C3** (with planned ESP32-S3 and other MCU support). Includes built-in **coordinate transformation** and **boundary filtering**.
 
-> **🔌 Install firmware directly in your browser →** [**Open Installer**](https://{owner}.github.io/{repo}/)
+> **🔌 Install firmware directly in your browser →** [**Open Installer**](https://zomco.github.io/esphome-mmwave-components/)
 >
 > No software required. Requires Chrome or Edge with Web Serial support.
 
@@ -85,7 +85,7 @@ r60abd1:
 
 ```yaml
 external_components:
-  - source: github://{owner}/{repo}
+  - source: github://zomco/esphome-mmwave-components
     components: [r60abd1]
 ```
 

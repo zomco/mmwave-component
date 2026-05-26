@@ -266,9 +266,9 @@ void R60ABD1Component::handle_presence_frame_() {
 
     case 0x05: { // 人体方位: 6B (2B x, 2B y, 2B z)，15位符号幅值
       if (data_len_ < 6) break;
-      const int16_t rx = ::r60abd1::decode_coord(rx_buf_[0], rx_buf_[1]);
-      const int16_t ry = ::r60abd1::decode_coord(rx_buf_[2], rx_buf_[3]);
-      const int16_t rz = ::r60abd1::decode_coord(rx_buf_[4], rx_buf_[5]);
+      const int16_t rx = decode_coord(rx_buf_[0], rx_buf_[1]);
+      const int16_t ry = decode_coord(rx_buf_[2], rx_buf_[3]);
+      const int16_t rz = decode_coord(rx_buf_[4], rx_buf_[5]);
       ESP_LOGD(TAG, "Raw pos: x=%d y=%d z=%d cm", rx, ry, rz);
 
       if (raw_x_) raw_x_->publish_state(static_cast<float>(rx));
@@ -484,7 +484,7 @@ void R60ABD1Component::handle_sleep_frame_() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
-  const auto res = ::r60abd1::apply(
+  const auto res = apply(
       static_cast<float>(rx),
       static_cast<float>(ry),
       static_cast<float>(rz),
