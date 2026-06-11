@@ -72,90 +72,90 @@ r60abd1:
 
   # ── 存在与运动传感器 ────────────────────────────────────────────────────────
   presence:
-    name: "presence"
-    friendly_name: "存在检测"
+    id: "presence"
+    name: "存在检测"
     device_class: presence
 
   motion_state:
-    name: "motion_state"
-    friendly_name: "运动状态"
+    id: "motion_state"
+    name: "运动状态"
     # 0=无人, 1=静止, 2=活跃
 
   body_movement:
-    name: "body_movement"
-    friendly_name: "体动幅度"
+    id: "body_movement"
+    name: "体动幅度"
 
   body_distance:
-    name: "body_distance"
-    friendly_name: "目标距离"
+    id: "body_distance"
+    name: "目标距离"
     unit_of_measurement: cm
 
   # ── 原始坐标（调试用，生产可注释掉） ─────────────────────────────────────
   raw_x:
-    name: "raw_x"
-    friendly_name: "原始 X"
+    id: "raw_x"
+    name: "原始 X"
     internal: true
   raw_y:
-    name: "raw_y"
-    friendly_name: "原始 Y"
+    id: "raw_y"
+    name: "原始 Y"
     internal: true
   raw_z:
-    name: "raw_z"
-    friendly_name: "原始 Z"
+    id: "raw_z"
+    name: "原始 Z"
     internal: true
 
   # ── 变换后的房间坐标（供校准卡片 & 自动化使用） ──────────────────────────
   room_x:
-    name: "room_x"
-    friendly_name: "房间 X"
+    id: "room_x"
+    name: "房间 X"
   room_y:
-    name: "room_y"
-    friendly_name: "房间 Y"
+    id: "room_y"
+    name: "房间 Y"
   room_z:
-    name: "room_z"
-    friendly_name: "离地高度"
+    id: "room_z"
+    name: "离地高度"
 
   in_boundary:
-    name: "in_boundary"
-    friendly_name: "在有效区域内"
+    id: "in_boundary"
+    name: "在有效区域内"
 
   # ── 呼吸 ────────────────────────────────────────────────────────────────────
   breath_value:
-    name: "breath_value"
-    friendly_name: "呼吸幅度"
+    id: "breath_value"
+    name: "呼吸幅度"
   breath_state:
-    name: "breath_state"
-    friendly_name: "呼吸状态"
+    id: "breath_state"
+    name: "呼吸状态"
     # normal / high / low / none
 
   # ── 心率 ────────────────────────────────────────────────────────────────────
   heart_rate:
-    name: "heart_rate"
-    friendly_name: "心率"
+    id: "heart_rate"
+    name: "心率"
 
   # ── 睡眠 ────────────────────────────────────────────────────────────────────
   in_bed:
-    name: "in_bed"
-    friendly_name: "在床状态"
+    id: "in_bed"
+    name: "在床状态"
   sleep_state:
-    name: "sleep_state"
-    friendly_name: "睡眠状态"
+    id: "sleep_state"
+    name: "睡眠状态"
     # deep / light / awake / none
   awake_duration:
-    name: "awake_duration"
-    friendly_name: "清醒时长"
+    id: "awake_duration"
+    name: "清醒时长"
   light_sleep_duration:
-    name: "light_sleep_duration"
-    friendly_name: "浅睡时长"
+    id: "light_sleep_duration"
+    name: "浅睡时长"
   deep_sleep_duration:
-    name: "deep_sleep_duration"
-    friendly_name: "深睡时长"
+    id: "deep_sleep_duration"
+    name: "深睡时长"
   sleep_score:
-    name: "sleep_score"
-    friendly_name: "睡眠评分"
+    id: "sleep_score"
+    name: "睡眠评分"
   sleep_quality:
-    name: "sleep_quality"
-    friendly_name: "睡眠质量"
+    id: "sleep_quality"
+    name: "睡眠质量"
     # good / fair / poor / none
 
 # ── 可选：通过 number 实体在 HA 中实时更新校准参数 ──────────────────────────
