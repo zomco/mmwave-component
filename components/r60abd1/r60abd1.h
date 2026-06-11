@@ -59,7 +59,7 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   //    也可在运行时通过 number 实体的 set_action 调用）─────────────────────
   void set_radar_x(float v)      { cal_.radar_x      = v; }
   void set_radar_y(float v)      { cal_.radar_y      = v; }
-  void set_radar_height(float v) { cal_.radar_height = v; }
+  void set_radar_z(float v) { cal_.radar_z = v; }
   void set_yaw(float v)          { cal_.yaw          = v; }
   void set_pitch(float v)        { cal_.pitch        = v; }
   void set_roll(float v)         { cal_.roll         = v; }
@@ -86,7 +86,7 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   void set_raw_z_sensor(sensor::Sensor *s)                    { raw_z_              = s; }
   void set_room_x_sensor(sensor::Sensor *s)                   { room_x_             = s; }
   void set_room_y_sensor(sensor::Sensor *s)                   { room_y_             = s; }
-  void set_height_floor_sensor(sensor::Sensor *s)             { height_floor_       = s; }
+  void set_room_z_sensor(sensor::Sensor *s)             { room_z_       = s; }
   void set_in_boundary_sensor(binary_sensor::BinarySensor *s) { in_boundary_sensor_ = s; }
   void set_breath_value_sensor(sensor::Sensor *s)             { breath_value_       = s; }
   void set_breath_state_sensor(text_sensor::TextSensor *s)    { breath_state_       = s; }
@@ -140,7 +140,7 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   sensor::Sensor               *raw_z_             = nullptr;
   sensor::Sensor               *room_x_            = nullptr;
   sensor::Sensor               *room_y_            = nullptr;
-  sensor::Sensor               *height_floor_      = nullptr;
+  sensor::Sensor               *room_z_      = nullptr;
   binary_sensor::BinarySensor  *in_boundary_sensor_= nullptr;
   sensor::Sensor               *breath_value_      = nullptr;
   text_sensor::TextSensor      *breath_state_      = nullptr;

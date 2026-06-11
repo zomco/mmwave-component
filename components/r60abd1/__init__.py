@@ -31,7 +31,7 @@ R60ABD1Component    = r60abd1_ns.class_(
 # 校准参数
 CONF_RADAR_X        = "radar_x"
 CONF_RADAR_Y        = "radar_y"
-CONF_RADAR_HEIGHT   = "radar_height"
+CONF_RADAR_Z        = "radar_z"
 CONF_YAW            = "yaw"
 CONF_PITCH          = "pitch"
 CONF_ROLL           = "roll"
@@ -47,7 +47,7 @@ CONF_RAW_Y              = "raw_y"
 CONF_RAW_Z              = "raw_z"
 CONF_ROOM_X             = "room_x"
 CONF_ROOM_Y             = "room_y"
-CONF_HEIGHT_FLOOR       = "height_floor"
+CONF_ROOM_Z             = "room_z"
 CONF_IN_BOUNDARY        = "in_boundary"
 CONF_BREATH_VALUE       = "breath_value"
 CONF_BREATH_STATE       = "breath_state"
@@ -77,7 +77,7 @@ CONFIG_SCHEMA = (
             # ── 校准参数（编译期默认值；运行时可通过 number 实体覆盖）────────
             cv.Optional(CONF_RADAR_X,      default=0.0):   cv.float_,
             cv.Optional(CONF_RADAR_Y,      default=0.0):   cv.float_,
-            cv.Optional(CONF_RADAR_HEIGHT, default=220.0): cv.positive_float,
+            cv.Optional(CONF_RADAR_Z, default=220.0): cv.positive_float,
             cv.Optional(CONF_YAW,          default=0.0):   cv.float_range(-180, 180),
             cv.Optional(CONF_PITCH,        default=0.0):   cv.float_range(-90, 90),
             cv.Optional(CONF_ROLL,         default=0.0):   cv.float_range(-90, 90),
@@ -139,7 +139,7 @@ CONFIG_SCHEMA = (
                 accuracy_decimals=1,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-            cv.Optional(CONF_HEIGHT_FLOOR): sensor.sensor_schema(
+            cv.Optional(CONF_ROOM_Z): sensor.sensor_schema(
                 unit_of_measurement=UNIT_CENTIMETER,
                 icon="mdi:human-male-height",
                 accuracy_decimals=1,
@@ -217,7 +217,7 @@ async def to_code(config):
     # 校准参数（编译期写入）
     cg.add(var.set_radar_x(config[CONF_RADAR_X]))
     cg.add(var.set_radar_y(config[CONF_RADAR_Y]))
-    cg.add(var.set_radar_height(config[CONF_RADAR_HEIGHT]))
+    cg.add(var.set_radar_z(config[CONF_RADAR_Z]))
     cg.add(var.set_yaw(config[CONF_YAW]))
     cg.add(var.set_pitch(config[CONF_PITCH]))
     cg.add(var.set_roll(config[CONF_ROLL]))
@@ -236,7 +236,7 @@ async def to_code(config):
         CONF_RAW_Z:           "set_raw_z_sensor",
         CONF_ROOM_X:          "set_room_x_sensor",
         CONF_ROOM_Y:          "set_room_y_sensor",
-        CONF_HEIGHT_FLOOR:    "set_height_floor_sensor",
+        CONF_ROOM_Z:          "set_room_z_sensor",
         CONF_BREATH_VALUE:    "set_breath_value_sensor",
         CONF_HEART_RATE:      "set_heart_rate_sensor",
         CONF_AWAKE_DURATION:  "set_awake_duration_sensor",

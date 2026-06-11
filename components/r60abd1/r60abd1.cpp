@@ -27,7 +27,7 @@ void R60ABD1Component::loop() {
 void R60ABD1Component::dump_config() {
   ESP_LOGCONFIG(TAG, "R60ABD1:");
   ESP_LOGCONFIG(TAG, "  Radar pos:   X=%.1f cm  Y=%.1f cm  H=%.1f cm",
-                cal_.radar_x, cal_.radar_y, cal_.radar_height);
+                cal_.radar_x, cal_.radar_y, cal_.radar_z);
   ESP_LOGCONFIG(TAG, "  Orientation: Yaw=%.1f°  Pitch=%.1f°  Roll=%.1f°",
                 cal_.yaw, cal_.pitch, cal_.roll);
   ESP_LOGCONFIG(TAG, "  Polygon pts: %u", (unsigned)cal_.polygon.size());
@@ -40,7 +40,7 @@ void R60ABD1Component::dump_config() {
   LOG_SENSOR       ("  ", "Raw Z",                raw_z_);
   LOG_SENSOR       ("  ", "Room X",               room_x_);
   LOG_SENSOR       ("  ", "Room Y",               room_y_);
-  LOG_SENSOR       ("  ", "Height Floor",         height_floor_);
+  LOG_SENSOR       ("  ", "Height Floor",         room_z_);
   LOG_BINARY_SENSOR("  ", "In Boundary",          in_boundary_sensor_);
   LOG_SENSOR       ("  ", "Breath Value",         breath_value_);
   LOG_TEXT_SENSOR  ("  ", "Breath State",         breath_state_);
@@ -492,11 +492,11 @@ void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
 
   if (room_x_)       room_x_->publish_state(res.room.x);
   if (room_y_)       room_y_->publish_state(res.room.y);
-  if (height_floor_) height_floor_->publish_state(res.height_floor_cm);
+  if (room_z_)       room_z_->publish_state(res.room_z);
   if (in_boundary_sensor_) in_boundary_sensor_->publish_state(res.in_boundary);
 
   ESP_LOGD(TAG, "Room: x=%.1f y=%.1f h=%.1f cm  [%s]",
-           res.room.x, res.room.y, res.height_floor_cm,
+           res.room.x, res.room.y, res.room_z,
            res.in_boundary ? "inside" : "OUTSIDE");
 }
 

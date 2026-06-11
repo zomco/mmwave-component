@@ -49,7 +49,7 @@ struct Vec2 {
 struct CalibrationParams {
   float radar_x      = 0.f;   // 雷达在房间中的 X 位置（cm）
   float radar_y      = 0.f;   // 雷达在房间中的 Y 位置（cm）
-  float radar_height = 220.f; // 雷达安装高度（cm）
+  float radar_z      = 220.f; // 雷达安装高度（cm）
   float yaw          = 0.f;   // 偏航角（°，顺时针为正）
   float pitch        = 0.f;   // 俯仰角（°，向前倾为正）
   float roll         = 0.f;   // 横滚角（°，向右倾为正）
@@ -58,7 +58,7 @@ struct CalibrationParams {
 
 struct TransformResult {
   Vec2  room;             // 变换后的房间水平坐标（cm）
-  float height_floor_cm; // 目标距地面高度（cm）= radar_height - wz
+  float room_z;        // 目标距地面高度（cm）= radar_z - wz
   bool  in_boundary;     // 是否在多边形内（polygon 为空时始终 true）
 };
 
@@ -122,7 +122,7 @@ inline bool point_in_polygon(float px, float py,
  *   2. world_vec = R * [rx, ry, rz]ᵀ
  *   3. room.x = radar_x + world_vec.x
  *      room.y = radar_y + world_vec.y
- *      height_floor = radar_height − world_vec.z
+ *      room_z = radar_z − world_vec.z
  *   4. 射线法判断 room.(x,y) 是否在 polygon 内
  *
  * 无 IMU 时：pitch/roll 可设为 0（水平安装误差 <5° 可忽略）
@@ -138,7 +138,7 @@ inline TransformResult apply(float rx, float ry, float rz,
   TransformResult res;
   res.room.x          = cal.radar_x + wx;
   res.room.y          = cal.radar_y + wy;
-  res.height_floor_cm = cal.radar_height - wz;
+  res.room_z          = cal.radar_z - wz;
   res.in_boundary     = point_in_polygon(res.room.x, res.room.y, cal.polygon);
   return res;
 }
