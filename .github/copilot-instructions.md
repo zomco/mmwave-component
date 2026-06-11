@@ -44,8 +44,9 @@ The **authoritative radar model status table** lives in `README.md`. The AI must
 │   ├── _config.yml                    # Jekyll site config
 │   └── index.html                     # GitHub Pages install site (ESP Web Tools)
 ├── tests/
-│   └── {radar_model}.yaml             # Firmware config — one per radar model
-└── README.md                          # ← Radar model status table lives here
+│   ├── {radar_model}-{platform}.yaml          # Base config (CI validation + user adoption)
+│   └── {radar_model}-{platform}.factory.yaml  # Factory firmware (CI + Publish + Pages flash)
+└── README.md                                  # ← Radar model status table lives here
 ```
 
 > **Note on platform files:** All entities are declared in `__init__.py`. Do not create `sensor.py`, `binary_sensor.py`, or `number.py`.
@@ -86,7 +87,7 @@ Planned → Developing → Testing → Completed
    - **1-D** (range only): transform projects range along radar +X axis; boundary → `distance_min/distance_max`.
    - **2-D** (X, Y): full 2-D transform; polygon filter applies.
    - **3-D** (X, Y, Z): full 3-D transform; polygon filter on XY projection.
-4. Generate `components/{radar_model}/__init__.py`, `.h`, `.cpp`, and `tests/{radar_model}.yaml`.
+4. Generate `components/{radar_model}/__init__.py`, `.h`, `.cpp`, `tests/{radar_model}-{platform}.yaml`, and `tests/{radar_model}-{platform}.factory.yaml`.
 5. If docs are **missing or incomplete**, report specifically what is missing and leave status as `Planned`.
 6. On success, update `README.md` status to `Developing`.
 
@@ -119,17 +120,18 @@ The three workflow files have distinct, non-overlapping responsibilities.
 ### `ci.yml` — PR Validation
 
 - **Trigger:** Push to non-main branches; pull requests.
-- **What it does:** Compiles every `tests/*.yaml` in parallel using `esphome/build-action@v6`. Fails if any config does not compile.
+- **What it does:** Compiles **all** `tests/*.yaml` files (both base and factory configs) in parallel using `esphome/build-action@v6`. Fails if any config does not compile.
 - **Does not** build artifacts or deploy anything.
 
 ### `publish.yml` — Firmware Build
 
 - **Trigger:** Push to `main`; new GitHub release; `workflow_dispatch`.
 - **What it does:**
-  1. Auto-discovers all `tests/*.yaml` files.
-  2. Builds each with `esphome/build-action@v6` (`complete-manifest: true`).
-  3. Uploads one artifact per model: `firmware-{name}` (e.g. `firmware-r60abd1-ESP32-C3`).
-- **Does not** touch GitHub Pages. Separation of concerns: firmware build failure never breaks the live install site.
+  1. Auto-discovers only `tests/*.factory.yaml` files.
+  2. Stamps the release tag (or `"dev"`) into each factory yaml's `version` field.
+  3. Builds each with `esphome/build-action@v6` (`complete-manifest: true`).
+  4. Uploads one artifact per model: `firmware-{name}` (e.g. `firmware-r60abd1-ESP32-C3`).
+- **Does not** touch GitHub Pages. Base `*.yaml` files are not built here — they are for user adoption via `dashboard_import`, compiled only by CI.
 
 ### `publish-pages.yml` — GitHub Pages Deployment
 
@@ -152,40 +154,51 @@ The three workflow files have distinct, non-overlapping responsibilities.
 
 ---
 
-## Firmware Configuration: `tests/{radar_model}.yaml`
+## Firmware Configuration: `tests/` File Pair
 
-Both `ci.yml` and `publish.yml` auto-discover `tests/*.yaml`. Adding a new YAML file is the only step needed to include a new model in CI and firmware builds — no workflow edits required.
+Each radar model + platform combination is represented by **two files** in `tests/`, following the ESPHome project template convention:
 
-### Required structure
+| File | Purpose | Built by |
+|------|---------|----------|
+| `{radar_model}-{platform}.yaml` | Base config (hardware, UART, component, WiFi). No `esphome.project`. Used for OTA adoption via `dashboard_import`. | `ci.yml` only |
+| `{radar_model}-{platform}.factory.yaml` | Factory firmware: `!include` base + `esphome.project` + `dashboard_import` + provisioning. Distributed via ESP Web Tools. | `ci.yml` + `publish.yml` |
+
+`{platform}` is lowercase, matching the ESPHome board family: `esp32c3`, `esp32s3`, `esp32`, etc.
+
+Adding a new file pair is the only step needed to include a new model/platform in CI and firmware builds — no workflow edits required.
+
+### Base config: `tests/{radar_model}-{platform}.yaml`
 
 ```yaml
 substitutions:
-  name: r60abd1
-  friendly_name: "R60ABD1 Radar"
+  name: "{radar_model}"              # must be lowercase, no spaces
+  friendly_name: "{Radar Model}"
 
 esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
-  project:
-    name: "mmwave-radar.${name}"      # required — used in manifest.json
-    version: "1.0.0"                  # bump on each release
+  name_add_mac_suffix: true          # prevents hostname collision on shared networks
+  min_version: "2024.6.0"
 
-# Target MCU: ESP32-C3 by default; adapt board for ESP32-S3 and others
+# Adapt board and framework for each platform
 esp32:
-  board: esp32-c3-devkitm-1
+  board: esp32-c3-devkitm-1         # esp32-c3-devkitm-1 | esp32s3box | etc.
   framework:
-    type: esp-idf                     # always esp-idf, never arduino
+    type: esp-idf                    # always esp-idf, never arduino
 
 external_components:
   - source:
       type: local
-      path: ../components             # relative to tests/
+      path: ../components            # relative to tests/
     components: ["{radar_model}"]
 
 logger:
 api:
+  encryption:
+    key: !secret api_encryption_key
 ota:
   - platform: esphome
+    password: !secret ota_password
 
 wifi:
   ssid: !secret wifi_ssid
@@ -193,10 +206,12 @@ wifi:
   ap:
     ssid: "${friendly_name} Fallback"
 
+captive_portal:
+
 uart:
-  tx_pin: GPIO21
+  tx_pin: GPIO21                     # verify against hardware; add # TODO if uncertain
   rx_pin: GPIO20
-  baud_rate: 115200                   # verify against protocol document
+  baud_rate: 115200                  # must match radar protocol document exactly
 
 {radar_model}:
   radar_x: 0.0
@@ -207,23 +222,76 @@ uart:
   radar_roll: 0.0
 ```
 
-### Rules
-
-- `esphome.project.name` and `esphome.project.version` are **mandatory** — the build action uses them to generate `manifest.json`.
-- `esp32.board` must be an ESP32-C3 variant for the current default target. For ESP32-S3 or others, use the appropriate board identifier.
+**Rules for base config:**
+- `esphome.name` must equal the radar model identifier (e.g. `r60abd1`). The build-action uses this as the firmware name prefix.
+- No `esphome.project` block — that belongs in the factory file only.
 - `esp32.framework.type` must be `esp-idf`.
 - `external_components.source.path` must be `../components`.
 - `uart.baud_rate` must match the radar's protocol document exactly.
-- GPIO pin assignments should reflect the target hardware. Use `GPIO20` (RX) and `GPIO21` (TX) as defaults with a `# TODO` comment if not yet determined.
+- GPIO defaults: `GPIO20` (RX), `GPIO21` (TX). Add `# TODO` if hardware is not yet confirmed.
+
+### Factory config: `tests/{radar_model}-{platform}.factory.yaml`
+
+```yaml
+# Factory firmware — built by publish.yml, distributed via ESP Web Tools.
+
+core: !include {radar_model}-{platform}.yaml   # all hardware config lives here
+
+esphome:
+  project:
+    name: "mmwave-radar.{radar_model}"
+    version: "dev"   # replaced by release tag in publish.yml; do not change manually
+
+# Required by both http_request OTA and the update platform below.
+http_request:
+
+# HTTP-based OTA: allows the device to pull firmware from GitHub Pages
+# autonomously. Works alongside the ESPHome OTA in the base config.
+ota:
+  - platform: http_request
+
+# "Firmware" update entity in Home Assistant.
+# Polls the GitHub Pages manifest; shows an update card when a new release
+# is available. Users can update with one click — no ESPHome dashboard needed.
+# URL pattern: https://{owner}.github.io/{repo}/{esphome.name}-{chipFamily}/manifest.json
+update:
+  - platform: http_request
+    name: Firmware
+    source: "https://{owner}.github.io/{repo}/{radar_model}-{chipFamily}/manifest.json"
+
+# Allows importing the device into the ESPHome/HA dashboard after first flash.
+# Points to the base yaml (without factory extras).
+dashboard_import:
+  package_import_url: "github://{owner}/{repo}/tests/{radar_model}-{platform}.yaml@main"
+  import_full_config: true
+
+# Wi-Fi provisioning over USB serial
+improv_serial:
+
+# Wi-Fi provisioning over Bluetooth LE (ESP32 family only)
+esp32_improv:
+  authorizer: none
+```
+
+**Rules for factory config:**
+- `core: !include {radar_model}-{platform}.yaml` is the only hardware content. Never duplicate hardware config here.
+- `esphome.project.name` follows the pattern `"mmwave-radar.{radar_model}"`.
+- `esphome.project.version` must be the literal string `"dev"` — `publish.yml` replaces it with the release tag at build time.
+- `http_request:` must appear before `ota` and `update` blocks that depend on it.
+- `update.source` URL must match the path where `publish-pages.yml` places the manifest: `https://{owner}.github.io/{repo}/{esphome.name}-{chipFamily}/manifest.json`. Replace `{owner}`, `{repo}`, and use the exact chip-family string produced by `build-action` (e.g. `ESP32-C3`, `ESP32-S3`).
+- `dashboard_import.package_import_url` must point to the base yaml in the repository.
+- `improv_serial` and `esp32_improv` are always included for ESP32-family targets.
 
 ### Firmware artifact naming
 
-`esphome/build-action@v6` names the build output `{esphome.name}-{chipFamily}`, e.g. `r60abd1-ESP32-C3`. This name is used for:
-- The artifact uploaded by `publish.yml`: `firmware-r60abd1-ESP32-C3`
-- The subdirectory in `_site/`: `_site/r60abd1-ESP32-C3/`
-- The `id` field in `models.json`
+`esphome/build-action@v6` names the build output `{esphome.name}-{chipFamily}` where `chipFamily` comes from the compiled board spec (e.g., `ESP32-C3`, `ESP32-S3`). For example:
 
-`publish-pages.yml` derives the radar model name (for looking up `docs/` and wiring images) by stripping the chip-family suffix: `r60abd1-ESP32-C3` → `r60abd1`.
+| Factory YAML | `esphome.name` | Build artifact name |
+|---|---|---|
+| `r60abd1-esp32c3.factory.yaml` | `r60abd1` | `r60abd1-ESP32-C3` |
+| `r60abd1-esp32s3.factory.yaml` | `r60abd1` | `r60abd1-ESP32-S3` |
+
+This name is used for the uploaded artifact (`firmware-r60abd1-ESP32-C3`), the `_site/` subdirectory, and the `id` field in `models.json`. `publish-pages.yml` derives the radar model name for wiring image lookup by stripping the chip-family suffix: `r60abd1-ESP32-C3` → `r60abd1`.
 
 ---
 
@@ -320,5 +388,13 @@ Entity sub-schemas: `sensor.SENSOR_SCHEMA`, `binary_sensor.BINARY_SENSOR_SCHEMA`
 - [ ] Processing order: parse → transform → filter → publish.
 - [ ] Non-blocking state-machine parser.
 - [ ] All values range-checked before `publish_state()`.
-- [ ] `tests/{radar_model}.yaml` with `esphome.project.name/version`, ESP32-C3 board, `esp-idf`.
+- [ ] `tests/{radar_model}-{platform}.yaml` present with `esp-idf` framework, correct `uart.baud_rate`, no `esphome.project`.
+- [ ] `tests/{radar_model}-{platform}.factory.yaml` present with:
+  - [ ] `core: !include` pointing to the base yaml.
+  - [ ] `esphome.project.version: "dev"`.
+  - [ ] `http_request:` declared before `ota` and `update`.
+  - [ ] `ota: platform: http_request`.
+  - [ ] `update: platform: http_request` with correct GitHub Pages `source` URL.
+  - [ ] `dashboard_import`, `improv_serial`, `esp32_improv`.
+- [ ] Both files compile cleanly in CI.
 - [ ] `README.md` status updated to `Developing`.

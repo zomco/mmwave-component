@@ -1,45 +1,37 @@
-# ═══════════════════════════════════════════════════════════════
-# R60ABD1 ESPHome 完整配置示例
-# ═══════════════════════════════════════════════════════════════
-#
-# 文件结构:
-#   /config/esphome/r60abd1.yaml          ← 本文件
-#   /config/esphome/components/r60abd1/   ← 组件目录
-#     __init__.py
-#     r60abd1.h
-#     r60abd1.cpp
-#     r60abd1_transform.h
+substitutions:
+  name: r60abd1
+  friendly_name: "R60ABD1 Radar"
 
 esphome:
-  name: r60abd1-radar
-  friendly_name: "R60ABD1 雷达"
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
 
 esp32:
   board: esp32-c3-devkitm-1
   framework:
-    type: arduino
+    type: esp-idf
 
 # ── 外部组件（本地路径） ──────────────────────────────────────────────────────
 external_components:
   - source:
       type: local
-      path: components   # 相对于本 yaml 文件的路径
+      path: ../components
+    components: [r60abd1]
 
 # ── 基础配置 ──────────────────────────────────────────────────────────────────
 logger:
-  level: DEBUG   # 调试阶段用 DEBUG，生产改为 INFO
 
 api:
-  encryption:
-    key: "your-api-key-here"
 
 ota:
   platform: esphome
-  password: "your-ota-password"
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
+  ap:
+    ssid: "${friendly_name} Fallback"
+
+captive_portal:
 
 # ── UART（R60ABD1 波特率固定 115200，8N1） ────────────────────────────────────
 uart:

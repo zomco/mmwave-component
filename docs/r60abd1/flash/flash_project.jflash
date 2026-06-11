@@ -3,7 +3,7 @@
 [GENERAL]
   aATEModuleSel[24] = 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
   ConnectMode = 0
-  CurrentFile = "D:\Users\zomco\Documents\GitHub\mmwave-esphome-component\docs\r60abd1\G60SM1SYv010204-tongyong-250307.bin"
+  CurrentFile = "D:\Users\zomco\Documents\GitHub\mmwave-component\docs\r60abd1\G60SM1SYv010204-tongyong-250307.bin"
   DataFileSAddr = 0x08000000
   GUIMode = 0
   HostName = ""

@@ -1,0 +1,83 @@
+name: Publish
+
+# Builds factory firmware for every radar model in tests/ and uploads artifacts.
+# Only *.factory.yaml files are built here; base *.yaml files are validated by ci.yml.
+# GitHub Pages deployment is handled separately by publish-pages.yml.
+on:
+  push:
+    branches:
+      - main
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Step 1: discover all factory configs ──────────────────────────────────
+  discover:
+    name: Discover factory configurations
+    runs-on: ubuntu-latest
+    outputs:
+      configs: ${{ steps.list.outputs.configs }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: List factory YAML files
+        id: list
+        run: |
+          configs=$(find tests -name "*.factory.yaml" | sort \
+            | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "configs=$configs" >> "$GITHUB_OUTPUT"
+          echo "Found: $configs"
+
+  # ── Step 2: build each factory firmware in parallel ───────────────────────
+  build:
+    name: Build ${{ matrix.config }}
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJson(needs.discover.outputs.configs) }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # Resolve the version string:
+      #   - On a GitHub release: use the tag name (e.g. "1.2.0")
+      #   - Otherwise:           use "dev"
+      - name: Resolve firmware version
+        id: version
+        run: |
+          version="${{ github.event.release.tag_name }}"
+          version="${version:-dev}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Building version: $version"
+
+      # Stamp the resolved version into every factory yaml before building.
+      # The placeholder string is: version: "dev"
+      - name: Stamp version into factory YAML
+        run: |
+          sed -i 's/version: "dev"/version: "${{ steps.version.outputs.version }}"/' \
+            "${{ matrix.config }}"
+
+      - name: Build ESPHome firmware
+        id: build
+        uses: esphome/build-action@v7
+        with:
+          yaml-file: ${{ matrix.config }}
+          complete-manifest: "true"
+          release-summary: ${{ github.event.release.body }}
+          release-url: ${{ github.event.release.html_url }}
+
+      # Artifact name:     firmware-{name}  e.g. firmware-r60abd1-ESP32-C3
+      # Artifact contents: manifest.json, *.factory.bin, *.ota.bin
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: firmware-${{ steps.build.outputs.name }}
+          path: ${{ steps.build.outputs.name }}/
+          if-no-files-found: error
+          retention-days: 90
