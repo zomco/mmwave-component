@@ -72,97 +72,76 @@ r60abd1:
 
   # ── 存在与运动传感器 ────────────────────────────────────────────────────────
   presence:
-    id: "presence"
-    name: "存在检测"
+    name: "presence"
     device_class: presence
 
   motion_state:
-    id: "motion_state"
-    name: "运动状态"
+    name: "motion_state"
     # 0=无人, 1=静止, 2=活跃
 
   body_movement:
-    id: "body_movement"
-    name: "体动幅度"
+    name: "body_movement"
 
   body_distance:
-    id: "body_distance"
-    name: "目标距离"
+    name: "body_distance"
     unit_of_measurement: cm
 
   # ── 原始坐标（调试用，生产可注释掉） ─────────────────────────────────────
   raw_x:
-    id: "raw_x"
-    name: "原始 X"
+    name: "raw_x"
     internal: true
   raw_y:
-    id: "raw_y"
-    name: "原始 Y"
+    name: "raw_y"
     internal: true
   raw_z:
-    id: "raw_z"
-    name: "原始 Z"
+    name: "raw_z"
     internal: true
 
   # ── 变换后的房间坐标（供校准卡片 & 自动化使用） ──────────────────────────
   room_x:
-    id: "room_x"
-    name: "房间 X"
+    name: "room_x"
   room_y:
-    id: "room_y"
-    name: "房间 Y"
+    name: "room_y"
   room_z:
-    id: "room_z"
-    name: "离地高度"
+    name: "room_z"
 
   in_boundary:
-    id: "in_boundary"
-    name: "在有效区域内"
+    name: "in_boundary"
 
   # ── 呼吸 ────────────────────────────────────────────────────────────────────
   breath_value:
-    id: "breath_value"
-    name: "呼吸幅度"
+    name: "breath_value"
   breath_state:
-    id: "breath_state"
-    name: "呼吸状态"
+    name: "breath_state"
     # normal / high / low / none
 
   # ── 心率 ────────────────────────────────────────────────────────────────────
   heart_rate:
-    id: "heart_rate"
-    name: "心率"
+    name: "heart_rate"
 
   # ── 睡眠 ────────────────────────────────────────────────────────────────────
   in_bed:
-    id: "in_bed"
-    name: "在床状态"
+    name: "in_bed"
   sleep_state:
-    id: "sleep_state"
-    name: "睡眠状态"
+    name: "sleep_state"
     # deep / light / awake / none
   awake_duration:
-    id: "awake_duration"
-    name: "清醒时长"
+    name: "awake_duration"
   light_sleep_duration:
-    id: "light_sleep_duration"
-    name: "浅睡时长"
+    name: "light_sleep_duration"
   deep_sleep_duration:
-    id: "deep_sleep_duration"
-    name: "深睡时长"
+    name: "deep_sleep_duration"
   sleep_score:
-    id: "sleep_score"
-    name: "睡眠评分"
+    name: "sleep_score"
   sleep_quality:
-    id: "sleep_quality"
-    name: "睡眠质量"
+    name: "sleep_quality"
     # good / fair / poor / none
 
 # ── 可选：通过 number 实体在 HA 中实时更新校准参数 ──────────────────────────
 # 校准卡片保存后会调用这些服务
 number:
   - platform: template
-    name: "偏航角"
+    name: "yaw"
     min_value: -180
     max_value:  180
     step: 0.1
@@ -170,7 +149,7 @@ number:
       lambda: "id(radar).set_yaw(x);"
 
   - platform: template
-    name: "俯仰角"
+    name: "pitch"
     min_value: -90
     max_value:  90
     step: 0.5
@@ -178,7 +157,7 @@ number:
       lambda: "id(radar).set_pitch(x);"
 
   - platform: template
-    name: "横滚角"
+    name: "roll"
     min_value: -90
     max_value:  90
     step: 0.5
@@ -186,7 +165,7 @@ number:
       lambda: "id(radar).set_roll(x);"
 
   - platform: template
-    name: "雷达 X 位置"
+    name: "radar_x"
     min_value: -2000
     max_value:  2000
     step: 1
@@ -194,7 +173,7 @@ number:
       lambda: "id(radar).set_radar_x(x);"
 
   - platform: template
-    name: "雷达 Y 位置"
+    name: "radar_y"
     min_value: -2000
     max_value:  2000
     step: 1
@@ -204,5 +183,5 @@ number:
 # ── 可选：WiFi 信号强度 ───────────────────────────────────────────────────────
 sensor:
   - platform: wifi_signal
-    name: "WiFi 信号"
+    name: "WiFi Signal"
     update_interval: 60s

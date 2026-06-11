@@ -15,7 +15,7 @@ from esphome.const import (
 
 # ── HACS / ESPHome 元数据 ─────────────────────────────────────────────────────
 
-CODEOWNERS    = ["@YOUR_GITHUB_USERNAME"]
+CODEOWNERS    = ["@zomco"]
 DEPENDENCIES  = ["uart"]
 AUTO_LOAD     = ["sensor", "binary_sensor", "text_sensor"]
 
@@ -77,7 +77,7 @@ CONFIG_SCHEMA = (
             # ── 校准参数（编译期默认值；运行时可通过 number 实体覆盖）────────
             cv.Optional(CONF_RADAR_X,      default=0.0):   cv.float_,
             cv.Optional(CONF_RADAR_Y,      default=0.0):   cv.float_,
-            cv.Optional(CONF_RADAR_Z, default=220.0): cv.positive_float,
+            cv.Optional(CONF_RADAR_Z,      default=220.0): cv.positive_float,
             cv.Optional(CONF_YAW,          default=0.0):   cv.float_range(-180, 180),
             cv.Optional(CONF_PITCH,        default=0.0):   cv.float_range(-90, 90),
             cv.Optional(CONF_ROLL,         default=0.0):   cv.float_range(-90, 90),
