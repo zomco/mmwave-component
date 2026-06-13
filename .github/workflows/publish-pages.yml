@@ -1,12 +1,5 @@
 name: Publish GitHub Pages
 
-# Deploys the GitHub Pages install site.
-# Triggered automatically when publish.yml completes, or on static/docs changes.
-#
-# Key design: ALL content (firmware, wiring images, models.json) is assembled
-# into a staging directory BEFORE Jekyll runs. Jekyll processes the staging dir
-# into _site/ in one pass. This avoids PermissionError from writing into a
-# _site/ directory that Jekyll created (and owns) in a prior step.
 on:
   workflow_run:
     workflows: ["Publish"]
@@ -59,26 +52,32 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ -n "${{ inputs.publish_run_id }}" ]; then
-            echo "run_id=${{ inputs.publish_run_id }}" >> "$GITHUB_OUTPUT"
-            echo "Source: explicit input run ${{ inputs.publish_run_id }}"
+            run_id="${{ inputs.publish_run_id }}"
+            echo "Source: explicit input run $run_id"
 
           elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "run_id=${{ github.event.workflow_run.id }}" >> "$GITHUB_OUTPUT"
-            echo "Source: upstream workflow_run ${{ github.event.workflow_run.id }}"
+            run_id="${{ github.event.workflow_run.id }}"
+            echo "Source: upstream workflow_run $run_id"
 
           else
             run_id=$(gh api \
               "repos/${{ github.repository }}/actions/workflows/publish.yml/runs?branch=main&status=success&per_page=1" \
               --jq '.workflow_runs[0].id')
-            if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
-              echo "::error::No successful publish.yml run found. Run publish.yml first."
-              exit 1
-            fi
-            echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
             echo "Source: latest successful publish.yml run $run_id"
           fi
 
-      # ── Download all firmware artifacts ───────────────────────────────────
+          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+            echo "::error::Could not resolve a publish.yml run ID. Run publish.yml first."
+            exit 1
+          fi
+
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "Resolved run_id=$run_id"
+
+      # ── Download firmware artifacts ────────────────────────────────────────
+      # if-no-files-found: error makes the step fail loudly if publish.yml
+      # produced no firmware-* artifacts, instead of silently yielding an
+      # empty firmware/ directory and an empty models.json.
       - name: Download firmware artifacts
         uses: actions/download-artifact@v8
         with:
@@ -88,63 +87,110 @@ jobs:
           run-id: ${{ steps.resolve-run.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # ── Diagnose downloaded structure ─────────────────────────────────────
+      # This step always passes; its output in the workflow log tells us the
+      # exact paths that the download step created, so we can verify the glob
+      # pattern used in the assembly script below.
+      - name: List downloaded artifact structure
+        run: |
+          echo "=== firmware/ tree ==="
+          find firmware/ -type f | sort || echo "(firmware/ is empty or does not exist)"
+
       # ── Assemble staging directory ─────────────────────────────────────────
-      # Build order:
-      #   1. Copy static/ (index.html, _config.yml) into staging/
-      #   2. Copy firmware files into staging/{model_id}/
-      #   3. Copy wiring images into staging/images/{radar_model}/
-      #   4. Generate staging/models.json
+      # Assembles staging/ from:
+      #   static/           → base site assets (index.html, _config.yml)
+      #   firmware/         → firmware files and manifest.json per model
+      #   docs/{model}/     → wiring diagram images
+      # Then generates models.json consumed by index.html at runtime.
       #
-      # Jekyll is then pointed at staging/, so it processes everything in one
-      # pass and writes _site/. We never write into _site/ ourselves.
+      # Jekyll is pointed at staging/ so it processes everything in one pass
+      # and owns _site/ entirely. We never write into _site/ ourselves, which
+      # avoids PermissionError from Jekyll's container-owned output directory.
       - name: Assemble staging directory
         run: |
           python3 << 'PYEOF'
-          import os, json, shutil, glob, re
+          import os, json, shutil, glob, re, sys
 
-          # ── 1. Seed staging from static/ ──────────────────────────────────
+          # ── Seed staging from static/ ──────────────────────────────────────
           staging = 'staging'
           shutil.copytree('static', staging)
           print(f"[staging] copied static/ → {staging}/")
 
+          # ── Discover firmware artifacts ────────────────────────────────────
+          # actions/download-artifact@v4 with merge-multiple:false creates:
+          #   firmware/{artifact-name}/           ← outer dir named after artifact
+          #     {artifact-name}/                  ← inner dir (artifact's own path)
+          #       manifest.json
+          #       *.bin
+          # OR (depending on action version / how the artifact was uploaded):
+          #   firmware/{artifact-name}/
+          #     manifest.json
+          #     *.bin
+          #
+          # We handle both layouts by searching for manifest.json anywhere
+          # under firmware/ rather than assuming a fixed depth.
+          manifest_files = glob.glob('firmware/**/manifest.json', recursive=True)
+          print(f"\n[discovery] found {len(manifest_files)} manifest(s): {manifest_files}")
+
+          if not manifest_files:
+              print("::error::No manifest.json files found under firmware/. "
+                    "Check that publish.yml produced firmware-* artifacts "
+                    "and that the run-id is correct.", file=sys.stderr)
+              sys.exit(1)
+
           models = []
 
-          for artifact_dir in sorted(glob.glob('firmware/firmware-*/')):
-              artifact_name = os.path.basename(artifact_dir.rstrip('/'))
-              model_id = artifact_name[len('firmware-'):]       # r60abd1-ESP32-C3
-              manifest_path = os.path.join(artifact_dir, 'manifest.json')
-
-              if not os.path.exists(manifest_path):
-                  print(f"[skip] no manifest.json in {artifact_dir}")
-                  continue
+          for manifest_path in sorted(manifest_files):
+              artifact_dir = os.path.dirname(manifest_path)
 
               with open(manifest_path) as f:
                   manifest = json.load(f)
 
-              # Derive radar_model by stripping chip-family suffix.
-              # build-action names output: "{esphome.name}-{chipFamily}"
+              # build-action names the ESPHome output dir "{esphome.name}-{chipFamily}"
+              # e.g. "r60abd1-ESP32-C3". That directory is the one containing
+              # manifest.json. Walk up from manifest_path to find it.
+              build_dir_name = None
+              for part in reversed(manifest_path.replace('\\', '/').split('/')):
+                  if part and part != 'manifest.json':
+                      # The build dir follows the pattern: contains a hyphen and
+                      # ends with a chip-family string like ESP32-C3, ESP32-S3, ESP32.
+                      if re.search(r'-(ESP32|ESP8266)', part, re.IGNORECASE):
+                          build_dir_name = part
+                          break
+
+              if not build_dir_name:
+                  # Fallback: use manifest name field or the direct parent dir name
+                  build_dir_name = manifest.get('name', os.path.basename(artifact_dir))
+                  build_dir_name = build_dir_name.replace(' ', '-')
+
+              model_id = build_dir_name  # e.g. "r60abd1-ESP32-C3"
+
               chip_family = (manifest.get('builds') or [{}])[0].get('chipFamily', '')
-              chip_suffix = '-' + chip_family.replace(' ', '-')     # "ESP32-C3" → "-ESP32-C3"
+              chip_suffix = '-' + chip_family.replace(' ', '-')
               radar_model = (model_id[:-len(chip_suffix)]
                              if chip_suffix != '-' and model_id.endswith(chip_suffix)
                              else model_id)
 
-              # ── 2. Copy firmware files ─────────────────────────────────────
+              print(f"\n[model] model_id={model_id} radar_model={radar_model} "
+                    f"chip_family={chip_family}")
+
+              # Copy firmware files into staging/{model_id}/
               dest_dir = os.path.join(staging, model_id)
               os.makedirs(dest_dir, exist_ok=True)
               for fname in os.listdir(artifact_dir):
-                  shutil.copy2(os.path.join(artifact_dir, fname),
-                               os.path.join(dest_dir, fname))
-              print(f"[firmware] {model_id} → {staging}/{model_id}/")
+                  src = os.path.join(artifact_dir, fname)
+                  if os.path.isfile(src):
+                      shutil.copy2(src, os.path.join(dest_dir, fname))
+                      print(f"  [firmware] {fname} → {dest_dir}/")
 
-              # ── 3. Copy wiring images ──────────────────────────────────────
+              # Copy wiring images from docs/{radar_model}/
               wiring_images = []
               docs_dir = os.path.join('docs', radar_model)
-              img_dest = os.path.join(staging, 'images', radar_model)
               if os.path.isdir(docs_dir):
                   pattern = re.compile(
                       rf'^{re.escape(radar_model)}-.+\.(png|jpg|jpeg)$',
                       re.IGNORECASE)
+                  img_dest = os.path.join(staging, 'images', radar_model)
                   for fname in sorted(os.listdir(docs_dir)):
                       if pattern.match(fname):
                           os.makedirs(img_dest, exist_ok=True)
@@ -152,7 +198,9 @@ jobs:
                                        os.path.join(img_dest, fname))
                           rel = f'images/{radar_model}/{fname}'
                           wiring_images.append(rel)
-                          print(f"[image]   {fname} → {staging}/{rel}")
+                          print(f"  [image] {fname} → staging/{rel}")
+              else:
+                  print(f"  [image] docs/{radar_model}/ not found, skipping images")
 
               models.append({
                   'id':            model_id,
@@ -164,26 +212,24 @@ jobs:
                   'wiring_images': wiring_images,
               })
 
-          # ── 4. Write models.json ───────────────────────────────────────────
           models.sort(key=lambda m: (m['radar_model'], m['chip_family']))
+
           models_path = os.path.join(staging, 'models.json')
           with open(models_path, 'w') as f:
               json.dump(models, f, indent=2)
-          print(f"\n[models.json] {len(models)} model(s):")
+
+          print(f"\n[models.json] written with {len(models)} model(s):")
           print(json.dumps(models, indent=2))
           PYEOF
 
-      # ── Build Jekyll site from staging/ ───────────────────────────────────
-      # Jekyll reads staging/ (which now contains static assets + firmware +
-      # images + models.json) and writes the final _site/. We never touch
-      # _site/ directly, so there are no permission issues.
+      # ── Build Jekyll site ─────────────────────────────────────────────────
       - name: Build Jekyll site
         uses: actions/jekyll-build-pages@v1
         with:
           source: ./staging
           destination: ./_site
 
-      # ── Upload Pages artifact and deploy ──────────────────────────────────
+      # ── Upload and deploy ─────────────────────────────────────────────────
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
