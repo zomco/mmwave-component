@@ -140,7 +140,7 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   sensor::Sensor               *raw_z_             = nullptr;
   sensor::Sensor               *room_x_            = nullptr;
   sensor::Sensor               *room_y_            = nullptr;
-  sensor::Sensor               *room_z_      = nullptr;
+  sensor::Sensor               *room_z_            = nullptr;
   binary_sensor::BinarySensor  *in_boundary_sensor_= nullptr;
   sensor::Sensor               *breath_value_      = nullptr;
   text_sensor::TextSensor      *breath_state_      = nullptr;
