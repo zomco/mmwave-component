@@ -398,3 +398,45 @@ Entity sub-schemas: `sensor.SENSOR_SCHEMA`, `binary_sensor.BINARY_SENSOR_SCHEMA`
   - [ ] `dashboard_import`, `improv_serial`, `esp32_improv`.
 - [ ] Both files compile cleanly in CI.
 - [ ] `README.md` status updated to `Developing`.
+
+---
+
+## Adding a New Radar Model
+
+1. Add `docs/{radar_model}/` with the product datasheet and communication protocol.
+2. Optionally add wiring diagram images named `{radar_model}-*.png` (or `.jpg`) to the same folder — they will be automatically published to the install page.
+3. Add a `Planned` row to the Radar Model Status table in `README.md`.
+4. Ask the AI to generate the component. It reads the docs, generates `components/{radar_model}/` and `tests/{radar_model}-{platform}.yaml` + `tests/{radar_model}-{platform}.factory.yaml`, and updates the status to `Developing`.
+5. Flash and test on hardware; report errors to the AI.
+6. Once hardware tests pass → `Testing`. Once HA integration passes → `Completed`.
+
+The CI and publish pipelines **auto-discover** `tests/*.yaml` — no workflow edits needed.
+
+---
+
+## CI/CD Summary
+
+| Workflow | Trigger | Responsibility |
+|---|---|---|
+| **CI** (`ci.yml`) | PR / non-main push | Compiles all `tests/*.yaml` — validation only |
+| **Publish** (`publish.yml`) | Push to `main` / release | Builds firmware, uploads `firmware-*` artifacts |
+| **Publish Pages** (`publish-pages.yml`) | After Publish / `static/**` or `docs/**` push | Assembles site, deploys to GitHub Pages |
+
+Firmware build and Pages deployment are **intentionally separate**: a firmware build failure never breaks the live install site, and wiring diagram updates or install page changes deploy instantly without a full firmware rebuild.
+
+### Enabling GitHub Pages
+
+1. Go to **Settings → Pages → Source → GitHub Actions**.
+2. Push to `main` to trigger the first deploy.
+
+---
+
+## Development Notes
+
+- All components target **ESP32-C3** by default (`esp-idf` framework). ESP32-S3 and other MCUs are planned.
+- The reference implementation is `components/r60abd1/`.
+- All entities are declared in `__init__.py`; no separate `sensor.py` files.
+- Coordinate transform uses a pre-computed ZYX rotation matrix (cached in `setup()`).
+- Boundary filtering uses Ray Casting; supports convex and concave polygons.
+- Protocol parsers are state-machine based and non-blocking.
+- Each radar model's user-facing documentation (sensor tables, quick-start guide, calibration) lives in `docs/{radar_model}/README.md`.
