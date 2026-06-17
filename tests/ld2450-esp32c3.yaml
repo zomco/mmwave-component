@@ -1,0 +1,206 @@
+substitutions:
+  name: ld2450
+  friendly_name: "LD2450 Radar"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+# ── 外部组件（本地路径） ──────────────────────────────────────────────────────
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [ld2450]
+
+# ── 基础配置 ──────────────────────────────────────────────────────────────────
+logger:
+
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+  ap:
+    ssid: "${friendly_name} Fallback"
+
+captive_portal:
+
+# ── UART（LD2450 默认波特率 256000，8N1） ─────────────────────────────────────
+uart:
+  id: uart_ld2450
+  tx_pin: GPIO21   # ESP32-C3 → LD2450 RX（交叉接线）
+  rx_pin: GPIO20   # ESP32-C3 ← LD2450 TX
+  baud_rate: 256000
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+
+# ── LD2450 组件 ───────────────────────────────────────────────────────────────
+ld2450:
+  id: radar
+  uart_id: uart_ld2450
+
+  # ── 校准参数 ────────────────────────────────────────────────────────────────
+  # 安装位置：以房间左下角为原点，X 向右，Y 向前（cm）
+  radar_x: 200.0        # 雷达距左墙 200cm
+  radar_y: 0.0           # 雷达在后墙上
+  radar_z: 150.0         # 距地面安装高度（cm），推荐 100~150cm
+
+  # 安装姿态（度）
+  yaw:   0.0    # 水平朝向偏差（雷达正前方相对房间 Y 轴）
+  pitch: 0.0    # 俯仰（向前倾为正）
+  roll:  0.0    # 横滚（向右倾为正）
+
+  # 房间边界多边形（房间坐标系 cm，< 3 点时不过滤）
+  polygon:
+    - { x:   0, y:   0 }
+    - { x: 400, y:   0 }
+    - { x: 400, y: 350 }
+    - { x:   0, y: 350 }
+
+  # ── 全局存在检测 ─────────────────────────────────────────────────────────
+  presence:
+    name: "presence"
+    device_class: presence
+
+  # ── 目标 1 ──────────────────────────────────────────────────────────────
+  target_1_x:
+    name: "target_1_x"
+  target_1_y:
+    name: "target_1_y"
+  target_1_speed:
+    name: "target_1_speed"
+  target_1_resolution:
+    name: "target_1_resolution"
+    internal: true
+  target_1_distance:
+    name: "target_1_distance"
+  target_1_angle:
+    name: "target_1_angle"
+  target_1_room_x:
+    name: "target_1_room_x"
+  target_1_room_y:
+    name: "target_1_room_y"
+  target_1_active:
+    name: "target_1_active"
+  target_1_in_boundary:
+    name: "target_1_in_boundary"
+
+  # ── 目标 2 ──────────────────────────────────────────────────────────────
+  target_2_x:
+    name: "target_2_x"
+  target_2_y:
+    name: "target_2_y"
+  target_2_speed:
+    name: "target_2_speed"
+  target_2_resolution:
+    name: "target_2_resolution"
+    internal: true
+  target_2_distance:
+    name: "target_2_distance"
+  target_2_angle:
+    name: "target_2_angle"
+  target_2_room_x:
+    name: "target_2_room_x"
+  target_2_room_y:
+    name: "target_2_room_y"
+  target_2_active:
+    name: "target_2_active"
+  target_2_in_boundary:
+    name: "target_2_in_boundary"
+
+  # ── 目标 3 ──────────────────────────────────────────────────────────────
+  target_3_x:
+    name: "target_3_x"
+  target_3_y:
+    name: "target_3_y"
+  target_3_speed:
+    name: "target_3_speed"
+  target_3_resolution:
+    name: "target_3_resolution"
+    internal: true
+  target_3_distance:
+    name: "target_3_distance"
+  target_3_angle:
+    name: "target_3_angle"
+  target_3_room_x:
+    name: "target_3_room_x"
+  target_3_room_y:
+    name: "target_3_room_y"
+  target_3_active:
+    name: "target_3_active"
+  target_3_in_boundary:
+    name: "target_3_in_boundary"
+
+# ── 可选：通过 number 实体在 HA 中实时更新校准参数 ──────────────────────────
+number:
+  - platform: template
+    name: "yaw"
+    min_value: -180
+    max_value:  180
+    step: 0.1
+    set_action:
+      lambda: "id(radar).set_yaw(x);"
+
+  - platform: template
+    name: "pitch"
+    min_value: -90
+    max_value:  90
+    step: 0.5
+    set_action:
+      lambda: "id(radar).set_pitch(x);"
+
+  - platform: template
+    name: "roll"
+    min_value: -90
+    max_value:  90
+    step: 0.5
+    set_action:
+      lambda: "id(radar).set_roll(x);"
+
+  - platform: template
+    name: "radar_x"
+    min_value: -2000
+    max_value:  2000
+    step: 1
+    set_action:
+      lambda: "id(radar).set_radar_x(x);"
+
+  - platform: template
+    name: "radar_y"
+    min_value: -2000
+    max_value:  2000
+    step: 1
+    set_action:
+      lambda: "id(radar).set_radar_y(x);"
+
+# ── 可选：WiFi 信号强度 ───────────────────────────────────────────────────────
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+
+# ── 可选：命令按钮 ────────────────────────────────────────────────────────────
+button:
+  - platform: template
+    name: "set_multi_target"
+    on_press:
+      lambda: "id(radar).set_multi_target_mode();"
+
+  - platform: template
+    name: "set_single_target"
+    on_press:
+      lambda: "id(radar).set_single_target_mode();"
+
+  - platform: template
+    name: "restart_radar"
+    on_press:
+      lambda: "id(radar).restart_module();"

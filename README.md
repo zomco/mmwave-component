@@ -178,6 +178,7 @@ flowchart LR
 | Radar Model | Status | Dimension | Application | Docs |
 |---|---|---|---|---|
 | R60ABD1 | ✅ Completed | 3D (X, Y, Z) | Breathing & sleep monitoring, presence detection, heart rate | [Documentation](docs/r60abd1/README.md) |
+| LD2450 | 🔧 Developing | 2D (X, Y) | Multi-target tracking (up to 3), speed measurement, presence detection | [Documentation](docs/ld2450/) |
 
 ### Status Definitions
 
