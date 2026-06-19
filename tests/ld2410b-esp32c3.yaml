@@ -1,0 +1,48 @@
+esphome:
+  name: ld2410b-test
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+
+logger:
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO4
+  rx_pin: GPIO5
+  baud_rate: 256000
+
+ld2410b:
+  id: my_radar
+  uart_id: uart_bus
+  
+  presence:
+    name: "Presence"
+  target_state:
+    name: "Target State"
+  moving_distance:
+    name: "Moving Distance"
+  moving_energy:
+    name: "Moving Energy"
+  stationary_distance:
+    name: "Stationary Distance"
+  stationary_energy:
+    name: "Stationary Energy"
+  detection_distance:
+    name: "Detection Distance"
+  
+  room_x:
+    name: "Room X"
+  room_y:
+    name: "Room Y"
+  room_z:
+    name: "Room Z"
+  in_boundary:
+    name: "In Boundary"

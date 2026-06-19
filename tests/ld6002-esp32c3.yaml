@@ -1,0 +1,52 @@
+substitutions:
+  name: ld6002
+  friendly_name: "LD6002 Radar"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [ld6002]
+
+logger:
+
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+  ap:
+    ssid: "${friendly_name} Fallback"
+
+captive_portal:
+
+uart:
+  id: uart_ld6002
+  tx_pin: GPIO21
+  rx_pin: GPIO20
+  baud_rate: 115200
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+
+ld6002:
+  uart_id: uart_ld6002
+  presence:
+    name: "Presence"
+  distance:
+    name: "Distance"
+  respiration_rate:
+    name: "Respiration Rate"
+  heart_rate:
+    name: "Heart Rate"

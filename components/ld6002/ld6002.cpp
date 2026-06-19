@@ -1,0 +1,234 @@
+#include "ld6002.h"
+#include <cstring>
+
+namespace esphome {
+namespace ld6002 {
+
+static const char *const TAG = "ld6002";
+
+void LD6002Component::setup() {
+  ESP_LOGCONFIG(TAG, "Setting up LD6002 Component...");
+  this->payload_.reserve(128);
+}
+
+void LD6002Component::dump_config() {
+  ESP_LOGCONFIG(TAG, "LD6002:");
+  LOG_BINARY_SENSOR("  ", "Presence", this->presence_sensor_);
+  LOG_SENSOR("  ", "Distance", this->distance_);
+  LOG_SENSOR("  ", "Respiration Rate", this->respiration_rate_);
+  LOG_SENSOR("  ", "Heart Rate", this->heart_rate_);
+  LOG_SENSOR("  ", "Room X", this->room_x_);
+  LOG_SENSOR("  ", "Room Y", this->room_y_);
+  LOG_SENSOR("  ", "Room Z", this->room_z_);
+  LOG_BINARY_SENSOR("  ", "In Boundary", this->in_boundary_sensor_);
+
+  ESP_LOGCONFIG(TAG, "  Calibration:");
+  ESP_LOGCONFIG(TAG, "    Radar X: %.1f cm", cal_.radar_x);
+  ESP_LOGCONFIG(TAG, "    Radar Y: %.1f cm", cal_.radar_y);
+  ESP_LOGCONFIG(TAG, "    Radar Z: %.1f cm", cal_.radar_z);
+  ESP_LOGCONFIG(TAG, "    Yaw: %.1f°", cal_.yaw);
+  ESP_LOGCONFIG(TAG, "    Pitch: %.1f°", cal_.pitch);
+  ESP_LOGCONFIG(TAG, "    Roll: %.1f°", cal_.roll);
+  ESP_LOGCONFIG(TAG, "    Distance Min: %.1f cm", cal_.distance_min);
+  ESP_LOGCONFIG(TAG, "    Distance Max: %.1f cm", cal_.distance_max);
+}
+
+void LD6002Component::loop() {
+  const uint32_t now = millis();
+  if (now - this->last_rx_ms_ > 1000 && this->data_state_ != DataState::IDLE) {
+    ESP_LOGV(TAG, "UART Timeout, resetting state");
+    this->data_state_ = DataState::IDLE;
+  }
+
+  while (this->available()) {
+    this->last_rx_ms_ = now;
+    this->process_byte_(this->read());
+  }
+}
+
+void LD6002Component::process_byte_(uint8_t byte) {
+  switch (this->data_state_) {
+    case DataState::IDLE:
+      if (byte == DATA_SOF) {
+        this->data_state_ = DataState::ID_H;
+      }
+      break;
+
+    case DataState::ID_H:
+      this->frame_id_ = (uint16_t(byte) << 8);
+      this->data_state_ = DataState::ID_L;
+      break;
+
+    case DataState::ID_L:
+      this->frame_id_ |= byte;
+      this->data_state_ = DataState::LEN_H;
+      break;
+
+    case DataState::LEN_H:
+      this->frame_len_ = (uint16_t(byte) << 8);
+      this->data_state_ = DataState::LEN_L;
+      break;
+
+    case DataState::LEN_L:
+      this->frame_len_ |= byte;
+      if (this->frame_len_ > 1024) {
+        ESP_LOGW(TAG, "Invalid Length: %d", this->frame_len_);
+        this->data_state_ = DataState::IDLE;
+      } else {
+        this->data_state_ = DataState::TYPE_H;
+      }
+      break;
+
+    case DataState::TYPE_H:
+      this->frame_type_ = (uint16_t(byte) << 8);
+      this->data_state_ = DataState::TYPE_L;
+      break;
+
+    case DataState::TYPE_L:
+      this->frame_type_ |= byte;
+      this->data_state_ = DataState::HEAD_CKSUM;
+      break;
+
+    case DataState::HEAD_CKSUM: {
+      uint8_t calc_cksum = DATA_SOF ^ (this->frame_id_ >> 8) ^ (this->frame_id_ & 0xFF)
+                           ^ (this->frame_len_ >> 8) ^ (this->frame_len_ & 0xFF)
+                           ^ (this->frame_type_ >> 8) ^ (this->frame_type_ & 0xFF);
+      calc_cksum = ~calc_cksum;
+      if (byte != calc_cksum) {
+        ESP_LOGW(TAG, "Header Checksum error! Expected 0x%02X, got 0x%02X", calc_cksum, byte);
+        this->data_state_ = DataState::IDLE;
+      } else {
+        if (this->frame_len_ == 0) {
+            // no data payload, should immediately check data cksum? The protocol says DATA_CKSUM is over DATA. If LEN=0, maybe no cksum or cksum is 0xFF.
+            // But we can skip it for safety if we see type.
+            this->data_state_ = DataState::IDLE; 
+        } else {
+            this->payload_.clear();
+            this->payload_idx_ = 0;
+            this->data_state_ = DataState::DATA;
+        }
+      }
+      break;
+    }
+
+    case DataState::DATA:
+      this->payload_.push_back(byte);
+      this->payload_idx_++;
+      if (this->payload_idx_ >= this->frame_len_) {
+        this->data_state_ = DataState::DATA_CKSUM;
+      }
+      break;
+
+    case DataState::DATA_CKSUM: {
+      uint8_t calc_cksum = 0;
+      for (uint8_t b : this->payload_) {
+        calc_cksum ^= b;
+      }
+      calc_cksum = ~calc_cksum;
+      if (byte != calc_cksum) {
+        ESP_LOGW(TAG, "Data Checksum error! Expected 0x%02X, got 0x%02X for Type 0x%04X", calc_cksum, byte, this->frame_type_);
+      } else {
+        this->process_packet_();
+      }
+      this->data_state_ = DataState::IDLE;
+      break;
+    }
+  }
+}
+
+void LD6002Component::process_packet_() {
+  switch (this->frame_type_) {
+    case 0x0F09: { // Presence
+      if (this->payload_.size() >= 2) {
+        uint16_t is_human = (uint16_t(this->payload_[1]) << 8) | this->payload_[0];
+        bool present = (is_human != 0);
+        if (this->presence_sensor_ != nullptr) {
+          if (this->presence_sensor_->state != present || !this->presence_sensor_->has_state()) {
+            this->presence_sensor_->publish_state(present);
+          }
+        }
+      }
+      break;
+    }
+
+    case 0x0A16: { // Distance
+      if (this->payload_.size() >= 8) {
+        uint32_t flag = 0;
+        std::memcpy(&flag, &this->payload_[0], 4);
+        if (flag == 1) {
+          float distance_cm = 0;
+          std::memcpy(&distance_cm, &this->payload_[4], 4);
+          this->last_distance_cm_ = distance_cm;
+          if (this->distance_ != nullptr) {
+            this->distance_->publish_state(distance_cm);
+          }
+        }
+      }
+      break;
+    }
+
+    case 0x0A14: { // Respiration Rate
+      if (this->payload_.size() >= 4) {
+        float rate = 0;
+        std::memcpy(&rate, &this->payload_[0], 4);
+        if (this->respiration_rate_ != nullptr) {
+          this->respiration_rate_->publish_state(rate);
+        }
+      }
+      break;
+    }
+
+    case 0x0A15: { // Heart Rate
+      if (this->payload_.size() >= 4) {
+        float rate = 0;
+        std::memcpy(&rate, &this->payload_[0], 4);
+        if (this->heart_rate_ != nullptr) {
+          this->heart_rate_->publish_state(rate);
+        }
+      }
+      break;
+    }
+
+    case 0x0A17: { // Tracked Position
+      if (this->payload_.size() >= 12) {
+        float x_m = 0, y_m = 0, z_m = 0;
+        std::memcpy(&x_m, &this->payload_[0], 4);
+        std::memcpy(&y_m, &this->payload_[4], 4);
+        std::memcpy(&z_m, &this->payload_[8], 4);
+        this->publish_position_(x_m, y_m, z_m);
+      }
+      break;
+    }
+
+    default:
+      // Unknown or unhandled type
+      break;
+  }
+}
+
+void LD6002Component::publish_position_(float x_m, float y_m, float z_m) {
+  // Convert meters to cm for internal transformation
+  float x_cm = x_m * 100.0f;
+  float y_cm = y_m * 100.0f;
+  float z_cm = z_m * 100.0f;
+
+  auto pos = Transform3D::transform(x_cm, y_cm, z_cm, this->last_distance_cm_, this->cal_);
+
+  if (this->room_x_ != nullptr) {
+    this->room_x_->publish_state(pos.room_x);
+  }
+  if (this->room_y_ != nullptr) {
+    this->room_y_->publish_state(pos.room_y);
+  }
+  if (this->room_z_ != nullptr) {
+    this->room_z_->publish_state(pos.room_z);
+  }
+  if (this->in_boundary_sensor_ != nullptr) {
+    if (this->in_boundary_sensor_->state != pos.in_boundary || !this->in_boundary_sensor_->has_state()) {
+      this->in_boundary_sensor_->publish_state(pos.in_boundary);
+    }
+  }
+}
+
+} // namespace ld6002
+} // namespace esphome

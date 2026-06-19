@@ -180,6 +180,12 @@ flowchart LR
 | R60ABD1 | ✅ Completed | 3D (X, Y, Z) | Breathing & sleep monitoring, presence detection, heart rate | [Documentation](docs/r60abd1/README.md) |
 | LD2450 | 🔧 Developing | 2D (X, Y) | Multi-target tracking (up to 3), speed measurement, presence detection | [Documentation](docs/ld2450/) |
 | RD03E | 🔧 Developing | 1D (range) | Precise ranging, presence/motion detection (0.3–6 m) | [Documentation](docs/rd03e/) |
+| LD2411 | 🔧 Developing | 1D (range) | Presence/motion detection | [Documentation](docs/ld2411/) |
+| LD2410B | 🔧 Developing | 1D (range) | Presence/motion detection | [Documentation](docs/ld2410b/) |
+| LD2410C | 🔧 Developing | 1D (range) | Presence/motion detection | [Documentation](docs/ld2410c/) |
+| LD6002 | 🔧 Developing | 3D (X, Y, Z, Bio) | Breathing, sleep, presence, positioning | [Documentation](docs/ld6002/) |
+| LD2453 | 🔧 Developing | 2D (X, Y) | Multi-target tracking, presence detection | [Documentation](docs/ld2453/) |
+| LD2451 | 🔧 Developing | 2D (Polar) | Multi-target tracking, presence detection | [Documentation](docs/ld2451/) |
 
 ### Status Definitions
 

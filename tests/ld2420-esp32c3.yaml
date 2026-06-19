@@ -1,0 +1,32 @@
+esphome:
+  name: ld2420-esp32c3
+  friendly_name: ld2420-esp32c3
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [ld2420]
+
+logger:
+
+uart:
+  id: uart_ld2420
+  tx_pin: GPIO21
+  rx_pin: GPIO20
+  baud_rate: 115200
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+
+ld2420:
+  uart_id: uart_ld2420
+  presence:
+    name: "Presence"
+  distance:
+    name: "Distance"

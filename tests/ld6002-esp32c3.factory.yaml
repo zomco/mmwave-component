@@ -1,0 +1,113 @@
+substitutions:
+  name: ld6002-factory
+  friendly_name: "LD6002 Factory Radar"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [ld6002]
+
+logger:
+
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+  ap:
+    ssid: "${friendly_name} Fallback"
+
+captive_portal:
+
+uart:
+  id: uart_ld6002
+  tx_pin: GPIO21
+  rx_pin: GPIO20
+  baud_rate: 115200
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+
+ld6002:
+  id: radar
+  uart_id: uart_ld6002
+  
+  radar_x: 0.0
+  radar_y: 0.0
+  radar_z: 240.0
+  yaw: 0.0
+  pitch: 0.0
+  roll: 0.0
+  distance_min: 30.0
+  distance_max: 600.0
+
+  presence:
+    name: "Presence"
+  distance:
+    name: "Distance"
+  respiration_rate:
+    name: "Respiration Rate"
+  heart_rate:
+    name: "Heart Rate"
+  
+  room_x:
+    name: "Room X"
+  room_y:
+    name: "Room Y"
+  room_z:
+    name: "Room Z"
+  in_boundary:
+    name: "In Boundary"
+
+number:
+  - platform: template
+    name: "yaw"
+    min_value: -180
+    max_value:  180
+    step: 0.1
+    set_action:
+      lambda: "id(radar).set_yaw(x);"
+
+  - platform: template
+    name: "pitch"
+    min_value: -90
+    max_value:  90
+    step: 0.5
+    set_action:
+      lambda: "id(radar).set_pitch(x);"
+
+  - platform: template
+    name: "roll"
+    min_value: -90
+    max_value:  90
+    step: 0.5
+    set_action:
+      lambda: "id(radar).set_roll(x);"
+
+  - platform: template
+    name: "radar_x"
+    min_value: -2000
+    max_value:  2000
+    step: 1
+    set_action:
+      lambda: "id(radar).set_radar_x(x);"
+
+  - platform: template
+    name: "radar_y"
+    min_value: -2000
+    max_value:  2000
+    step: 1
+    set_action:
+      lambda: "id(radar).set_radar_y(x);"
