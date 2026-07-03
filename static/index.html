@@ -1,485 +1,640 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Millimeter-Wave Radar Firmware Installer</title>
-  <script type="module"
-    src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- ESP Web Tools -->
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: '#10b981', // emerald-500
+            'brand-hover': '#059669',
+            surface: '#1e293b', // slate-800
+            bg: '#0f172a', // slate-900
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
   </script>
+  
   <style>
-    /* ── Variables ───────────────────────────────────────────── */
-    :root {
-      --brand:      #1565c0;
-      --brand-dk:   #0d47a1;
-      --brand-lt:   #e8f0fe;
-      --surface:    #ffffff;
-      --bg:         #f0f4f8;
-      --text:       #1a1a2e;
-      --muted:      #5f6b7a;
-      --border:     #dde3ea;
-      --ok:         #2e7d32;
-      --ok-bg:      #e8f5e9;
-      --radius:     12px;
-      --shadow:     0 2px 12px rgba(0,0,0,.08);
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-                   Helvetica, Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+      background-color: #0f172a; /* slate-900 */
+      color: #f8fafc; /* slate-50 */
+    }
+    
+    .card-modern {
+      background-color: #1e293b; /* slate-800 */
+      border: 1px solid #334155; /* slate-700 */
+      border-radius: 1rem;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      transition: all 0.3s ease;
+    }
+    
+    .card-modern:hover {
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+      border-color: #10b981;
+    }
+    
+    .step-badge-circle {
+      background-color: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.5);
+    }
+    
+    .step-disabled {
+      background-color: transparent;
+      border-color: #475569;
+      color: #64748b;
     }
 
-    /* ── Header ─────────────────────────────────────────────── */
-    header {
-      background: var(--brand);
-      color: #fff;
-      padding: 2rem 1.5rem 1.5rem;
-      text-align: center;
-    }
-    header h1 { font-size: clamp(1.4rem, 4vw, 2rem); font-weight: 700; }
-    header p  { margin-top: .5rem; font-size: .95rem; opacity: .85;
-                max-width: 560px; margin-inline: auto; line-height: 1.5; }
-
-    /* ── Requirements banner ─────────────────────────────────── */
-    .requirements {
-      background: #e3f2fd; border-left: 4px solid var(--brand);
-      padding: .7rem 1.2rem; font-size: .85rem; color: #1a3a5c;
-      text-align: center;
-    }
-    .requirements a { color: var(--brand-dk); }
-
-    /* ── Main ────────────────────────────────────────────────── */
-    main { flex: 1; max-width: 900px; width: 100%;
-           margin: 2rem auto; padding: 0 1.25rem; }
-
-    #status { text-align: center; color: var(--muted); font-size: .95rem; padding: 2rem 0; }
-
-    /* ── Model grid ──────────────────────────────────────────── */
-    #models { display: grid;
-              grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-              gap: 1.25rem; }
-
-    .card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); box-shadow: var(--shadow);
-      overflow: hidden; display: flex; flex-direction: column;
-      transition: box-shadow .15s;
-    }
-    .card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.12); }
-
-    .card-body { padding: 1.4rem; display: flex; flex-direction: column; gap: .75rem; flex: 1; }
-
-    .card-header { display: flex; align-items: center; gap: .75rem; }
-    .card-icon {
-      width: 40px; height: 40px; background: var(--brand-lt);
-      border-radius: 8px; display: flex; align-items: center;
-      justify-content: center; flex-shrink: 0;
-    }
-    .card-icon svg { width: 22px; height: 22px; fill: var(--brand); }
-    .card-title    { font-size: 1rem; font-weight: 600; line-height: 1.2; }
-    .card-version  { font-size: .78rem; color: var(--muted); margin-top: .1rem; }
-
-    .chip-badge {
-      display: inline-flex; align-items: center; gap: .3rem;
-      font-size: .75rem; background: #f1f5f9; border: 1px solid var(--border);
-      border-radius: 99px; padding: .2rem .65rem; color: var(--muted);
-      width: fit-content;
-    }
-    .chip-badge svg { width: 11px; height: 11px; fill: currentColor; }
-
-    /* Install button */
-    esp-web-install-button { margin-top: auto; }
     esp-web-install-button::part(button) {
-      background: var(--brand); color: #fff; border: none;
-      border-radius: 8px; padding: .65rem 1.1rem;
-      font-size: .9rem; font-weight: 600; cursor: pointer; width: 100%;
-      transition: background .15s;
+      background: #10b981; 
+      color: #fff; 
+      border: none;
+      border-radius: 0.5rem; 
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem; 
+      font-weight: 600; 
+      cursor: pointer; 
+      width: 100%;
+      transition: background 0.2s, box-shadow 0.2s;
     }
-    esp-web-install-button::part(button):hover { background: var(--brand-dk); }
-
-    /* Wiring guide toggle */
-    .wiring-toggle {
-      display: flex; align-items: center; gap: .4rem;
-      width: 100%; background: none; border: 1px solid var(--border);
-      border-radius: 8px; padding: .55rem .9rem;
-      font-size: .85rem; color: var(--muted); cursor: pointer;
-      transition: background .12s, color .12s;
+    esp-web-install-button::part(button):hover { 
+      background: #059669; 
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
     }
-    .wiring-toggle:hover { background: var(--bg); color: var(--text); }
-    .wiring-toggle svg { width: 14px; height: 14px; fill: currentColor; transition: transform .2s; }
-    .wiring-toggle.open svg { transform: rotate(180deg); }
-
-    /* ── Wiring guide panel ───────────────────────────────────── */
-    .wiring-panel {
-      display: none; border-top: 1px solid var(--border);
-      background: #fafbfd;
-    }
-    .wiring-panel.open { display: block; }
-    .wiring-inner { padding: 1.25rem; display: flex; flex-direction: column; gap: 1.25rem; }
-
-    .wiring-section-title {
-      font-size: .8rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .06em; color: var(--muted); margin-bottom: .6rem;
-    }
-
-    /* ESP32-C3 pinout diagram */
-    .pinout-diagram {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; overflow-x: auto; padding: .75rem;
-    }
-    .pinout-diagram svg { display: block; max-width: 100%; }
-
-    /* Connection table */
-    .conn-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
-    .conn-table th {
-      background: var(--brand-lt); color: var(--brand-dk);
-      text-align: left; padding: .35rem .6rem; font-weight: 600;
-    }
-    .conn-table td { padding: .35rem .6rem; border-top: 1px solid var(--border); }
-    .conn-table tr:nth-child(even) td { background: #f7f9fc; }
-    .pin-label {
-      font-family: 'SFMono-Regular', Consolas, monospace;
-      font-size: .78rem; background: var(--brand-lt);
-      color: var(--brand-dk); border-radius: 4px; padding: .1rem .35rem;
-    }
-
-    /* Wiring images gallery */
-    .wiring-images {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: .75rem;
-    }
-    .wiring-images figure {
-      margin: 0; border: 1px solid var(--border); border-radius: 8px;
-      overflow: hidden; background: var(--surface);
-    }
-    .wiring-images img { width: 100%; height: 160px; object-fit: contain;
-                         cursor: zoom-in; padding: .5rem; }
-    .wiring-images figcaption {
-      font-size: .73rem; color: var(--muted); text-align: center;
-      padding: .3rem .5rem .5rem;
-    }
-    .no-images { font-size: .83rem; color: var(--muted); font-style: italic; }
-
-    /* Lightbox */
-    #lightbox {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,.82); z-index: 9999;
-      align-items: center; justify-content: center; cursor: zoom-out;
-    }
-    #lightbox.open { display: flex; }
-    #lightbox img { max-width: 92vw; max-height: 92vh;
-                    border-radius: 6px; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
-
-    /* ── Footer ──────────────────────────────────────────────── */
-    footer {
-      text-align: center; padding: 1.5rem;
-      font-size: .8rem; color: var(--muted);
-      border-top: 1px solid var(--border);
-    }
-    footer a { color: var(--brand); text-decoration: none; }
-    footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
+  <div id="root"></div>
 
-<header>
-  <h1>📡 Millimeter-Wave Radar Firmware</h1>
-  <p>
-    Flash your radar sensor directly from the browser using
-    <a href="https://esphome.github.io/esp-web-tools/" style="color:#bbdefb">ESP Web Tools</a>.
-    No software installation required.
-  </p>
-</header>
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
 
-<div class="requirements">
-  ⚠️ Requires a Chromium-based browser (Chrome or Edge) with Web Serial support.
-  Connect your ESP32 device via USB before clicking <em>Install</em>.
-</div>
+    // SVG Icons
+    const ZapIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-zap"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
+    const ChevronDownIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down"><polyline points="6 9 12 15 18 9"/></svg>;
+    const CpuIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-cpu"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>;
+    const RadarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-radar"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>;
+    const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>;
+    const AlertTriangleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-triangle"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>;
 
-<main>
-  <p id="status">Loading available firmware…</p>
-  <div id="models" role="list"></div>
-</main>
+    // Helpers
+    const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    
+    // Components
+    // Radar physical configurations (in mm)
+    const RADAR_CONFIG = {
+      ld2410: {
+        width: 35, height: 7,
+        pins: [
+          { name: 'VCC', x: 33.5, y: 0.98, type: 'vcc' },
+          { name: 'GND', x: 33.5, y: 2.25, type: 'gnd' },
+          { name: 'RX', x: 33.5, y: 3.52, type: 'rx' },
+          { name: 'TX', x: 33.5, y: 4.79, type: 'tx' },
+          { name: 'OUT', x: 33.5, y: 6.06, type: 'out' }
+        ]
+      },
+      ld2450: {
+        width: 44, height: 15,
+        pins: [
+          { name: 'VCC', x: 1.5, y: 5.25, type: 'vcc' },
+          { name: 'RX', x: 1.5, y: 6.75, type: 'rx' },
+          { name: 'TX', x: 1.5, y: 8.25, type: 'tx' },
+          { name: 'GND', x: 1.5, y: 9.75, type: 'gnd' }
+        ]
+      }
+    };
 
-<!-- Lightbox for wiring images -->
-<div id="lightbox" role="dialog" aria-label="Image zoom">
-  <img id="lightbox-img" src="" alt="" />
-</div>
+    const getRadarConfig = (modelName) => {
+      const key = modelName.toLowerCase();
+      if (RADAR_CONFIG[key]) return RADAR_CONFIG[key];
+      // Generic default radar (15x30mm)
+      return {
+        width: 15, height: 30,
+        pins: [
+          { name: 'VCC', x: 7.5, y: 22, type: 'vcc' },
+          { name: 'GND', x: 7.5, y: 24.54, type: 'gnd' },
+          { name: 'TX', x: 7.5, y: 27.08, type: 'tx' },
+          { name: 'RX', x: 7.5, y: 29.62, type: 'rx' }
+        ]
+      };
+    };
 
-<footer>
-  Firmware built with <a href="https://esphome.io">ESPHome</a> ·
-  Source on <a href="https://github.com/">GitHub</a> ·
-  Flashing powered by <a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools</a>
-</footer>
+    const DynamicWiringDiagram = ({ model }) => {
+      const scale = 8; // 1mm = 8px
+      const espWidth = 18 * scale;
+      const espHeight = 22.5 * scale;
+      const espX = 50;
+      const espY = 50;
 
-<script>
-/* ── SVG snippets ──────────────────────────────────────────────────────────── */
-const RADAR_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52
-           2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59
-           8-8 8zm-1-13v6l5 3-1 1.73-6-3.46V7h2z"/>
-</svg>`;
+      const radarConfig = getRadarConfig(model.radar_model);
+      const radarWidth = radarConfig.width * scale;
+      const radarHeight = radarConfig.height * scale;
+      const radarX = 400;
+      const radarY = 50;
 
-const MCU_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-  <path d="M6 2h12v2H6zM4 6h16v2H4zM2 10h20v12H2z"/>
-</svg>`;
+      // ESP32-C3 Supermini Pin mappings (front view: 5V is Top-Right, 21 is Bottom-Left)
+      const espPins = {
+        '5V': { x: espWidth, y: 20, color: '#ef4444', labelX: espWidth - 25 },
+        'GND': { x: espWidth, y: 40, color: '#22c55e', labelX: espWidth - 25 },
+        '3V3': { x: espWidth, y: 60, color: '#b91c1c', labelX: espWidth - 25 },
+        'RX': { x: 0, y: 140, color: '#06b6d4', labelX: 30, label: '20(RX)' },
+        'TX': { x: 0, y: 160, color: '#f59e0b', labelX: 30, label: '21(TX)' }
+      };
 
-const CHEVRON_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-  <path d="M7 10l5 5 5-5z"/>
-</svg>`;
+      // Generate wires
+      const wires = [];
+      const radarPinsRender = radarConfig.pins.map((pin, i) => {
+        const absX = radarX + pin.x * scale;
+        const absY = radarY + pin.y * scale;
+        
+        let targetEspPin = null;
+        if (pin.type === 'vcc') targetEspPin = espPins['5V'];
+        if (pin.type === 'gnd') targetEspPin = espPins['GND'];
+        if (pin.type === 'rx') targetEspPin = espPins['TX']; // Radar RX connects to ESP TX
+        if (pin.type === 'tx') targetEspPin = espPins['RX']; // Radar TX connects to ESP RX
 
-/* ── ESP32-C3 pinout diagram (SVG) ─────────────────────────────────────────
-   Shows a top-down view of the ESP32-C3 DevKitM-1 with the four wiring
-   pins highlighted. The default GPIO mapping mirrors tests/{radar_model}.yaml:
-     RX  = GPIO20  (receives from radar TX)
-     TX  = GPIO21  (sends to radar RX)
-     3V3 = 3.3 V supply  |  GND = Ground
-   ────────────────────────────────────────────────────────────────────────── */
-const ESP32C3_PINOUT_SVG = `
-<svg viewBox="0 0 480 200" xmlns="http://www.w3.org/2000/svg"
-     font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+        if (targetEspPin) {
+          const startX = espX + targetEspPin.x;
+          const startY = espY + targetEspPin.y;
+          
+          const isEspLeft = targetEspPin.x === 0;
+          const isRadarLeft = (pin.x * scale) < (radarWidth / 2);
+          
+          const espDropX = startX + (isEspLeft ? -20 - i*6 : 20 + i*6);
+          const radarDropX = absX + (isRadarLeft ? -20 - i*6 : 20 + i*6);
+          const busY = Math.max(espY + espHeight, radarY + radarHeight) + 20 + (i * 8);
 
-  <!-- Board outline -->
-  <rect x="140" y="20" width="200" height="160" rx="8"
-        fill="#1a237e" stroke="#283593" stroke-width="2"/>
-  <text x="240" y="52" text-anchor="middle" fill="#90caf9"
-        font-size="11" font-weight="700">ESP32-C3</text>
-  <text x="240" y="66" text-anchor="middle" fill="#64b5f6"
-        font-size="9">DevKitM-1</text>
+          const points = [
+            `${startX},${startY}`,
+            `${espDropX},${startY}`,
+            `${espDropX},${busY}`,
+            `${radarDropX},${busY}`,
+            `${radarDropX},${absY}`,
+            `${absX},${absY}`
+          ];
 
-  <!-- USB connector symbol -->
-  <rect x="218" y="165" width="44" height="18" rx="3"
-        fill="#37474f" stroke="#546e7a" stroke-width="1"/>
-  <text x="240" y="178" text-anchor="middle" fill="#90a4ae"
-        font-size="8">USB-C</text>
+          wires.push(
+            <polyline 
+              key={`wire-${i}`} 
+              points={points.join(' ')} 
+              fill="none" 
+              stroke={targetEspPin.color} 
+              strokeWidth="2.5" 
+              strokeLinejoin="round"
+              opacity="0.8" 
+            />
+          );
+        }
 
-  <!-- ── LEFT SIDE PINS (top → bottom) ─────────────── -->
-  <!-- 3V3  ← highlighted -->
-  <line x1="100" y1="85" x2="140" y2="85" stroke="#ef9a9a" stroke-width="2" stroke-dasharray="4,2"/>
-  <rect x="38" y="74" width="58" height="22" rx="4" fill="#ef9a9a"/>
-  <text x="67" y="89" text-anchor="middle" fill="#b71c1c" font-size="11" font-weight="700">3V3</text>
-  <circle cx="140" cy="85" r="4" fill="#ef9a9a"/>
+        const isRadarLeft = (pin.x * scale) < (radarWidth / 2);
+        return (
+          <g key={`rpin-${i}`}>
+            <circle cx={absX} cy={absY} r="4" fill="#fbbf24" />
+            <text 
+              x={absX + (isRadarLeft ? 10 : -8)} 
+              y={absY + 3} 
+              textAnchor={isRadarLeft ? "start" : "end"} 
+              fill="#94a3b8" 
+              fontSize="10" 
+              fontWeight="600"
+            >
+              {pin.name}
+            </text>
+          </g>
+        );
+      });
 
-  <!-- GND  ← highlighted -->
-  <line x1="100" y1="110" x2="140" y2="110" stroke="#a5d6a7" stroke-width="2" stroke-dasharray="4,2"/>
-  <rect x="38" y="99" width="58" height="22" rx="4" fill="#a5d6a7"/>
-  <text x="67" y="114" text-anchor="middle" fill="#1b5e20" font-size="11" font-weight="700">GND</text>
-  <circle cx="140" cy="110" r="4" fill="#a5d6a7"/>
+      // Calculate required height for SVG viewBox
+      const maxBoardY = Math.max(espY + espHeight, radarY + radarHeight);
+      const svgHeight = Math.max(300, maxBoardY + 100); 
 
-  <!-- ── RIGHT SIDE PINS (top → bottom) ─────────────── -->
-  <!-- GPIO20 / RX  ← highlighted -->
-  <line x1="340" y1="85" x2="380" y2="85" stroke="#80deea" stroke-width="2" stroke-dasharray="4,2"/>
-  <rect x="384" y="74" width="84" height="22" rx="4" fill="#80deea"/>
-  <text x="426" y="89" text-anchor="middle" fill="#006064" font-size="11" font-weight="700">GPIO20 RX</text>
-  <circle cx="340" cy="85" r="4" fill="#80deea"/>
+      return (
+        <svg viewBox={`0 0 800 ${svgHeight}`} className="w-full bg-slate-900 rounded-lg border border-slate-700" style={{fontFamily: "system-ui, sans-serif"}}>
+          <defs>
+            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#334155" strokeWidth="0.5" opacity="0.3" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
 
-  <!-- GPIO21 / TX  ← highlighted -->
-  <line x1="340" y1="110" x2="380" y2="110" stroke="#ffe082" stroke-width="2" stroke-dasharray="4,2"/>
-  <rect x="384" y="99" width="84" height="22" rx="4" fill="#ffe082"/>
-  <text x="426" y="114" text-anchor="middle" fill="#e65100" font-size="11" font-weight="700">GPIO21 TX</text>
-  <circle cx="340" cy="110" r="4" fill="#ffe082"/>
+          {/* Wires */}
+          {wires}
 
-  <!-- Other pin dots (decorative, left side) -->
-  <circle cx="140" cy="40"  r="3" fill="#455a64" opacity=".4"/>
-  <circle cx="140" cy="55"  r="3" fill="#455a64" opacity=".4"/>
-  <circle cx="140" cy="70"  r="3" fill="#455a64" opacity=".4"/>
-  <circle cx="140" cy="130" r="3" fill="#455a64" opacity=".4"/>
-  <circle cx="140" cy="145" r="3" fill="#455a64" opacity=".4"/>
-  <circle cx="140" cy="160" r="3" fill="#455a64" opacity=".4"/>
-  <!-- Other pin dots (decorative, right side) -->
-  <circle cx="340" cy="40"  r="3" fill="#455a64" opacity=".4"/>
-  <circle cx="340" cy="55"  r="3" fill="#455a64" opacity=".4"/>
-  <circle cx="340" cy="70"  r="3" fill="#455a64" opacity=".4"/>
-  <circle cx="340" cy="130" r="3" fill="#455a64" opacity=".4"/>
-  <circle cx="340" cy="145" r="3" fill="#455a64" opacity=".4"/>
-  <circle cx="340" cy="160" r="3" fill="#455a64" opacity=".4"/>
+          {/* ESP32-C3 Supermini Board (Front View) */}
+          <g transform={`translate(${espX}, ${espY})`}>
+            {/* Board Base (Black) */}
+            <rect x="0" y="0" width={espWidth} height={espHeight} rx="6" fill="#111827" stroke="#374151" strokeWidth="2" />
+            
+            {/* Ceramic Antenna (Pink/Red at bottom) */}
+            <rect x={espWidth/2 - 20} y={espHeight - 20} width="40" height="15" fill="#fca5a5" stroke="#ef4444" strokeWidth="1" />
+            
+            {/* QFN32 Chip (Rotated 45 degrees) */}
+            <g transform={`translate(${espWidth/2}, ${espHeight/2 + 25}) rotate(45)`}>
+              <rect x="-16" y="-16" width="32" height="32" rx="1" fill="#1f2937" stroke="#4b5563" strokeWidth="1" />
+              {/* Chip Pins (tiny) */}
+              {[...Array(8)].map((_, i) => (
+                <g key={i}>
+                  <line x1="-16" y1={-10 + i*3} x2="-18" y2={-10 + i*3} stroke="#9ca3af" strokeWidth="1" />
+                  <line x1="16" y1={-10 + i*3} x2="18" y2={-10 + i*3} stroke="#9ca3af" strokeWidth="1" />
+                  <line x1={-10 + i*3} y1="-16" x2={-10 + i*3} y2="-18" stroke="#9ca3af" strokeWidth="1" />
+                  <line x1={-10 + i*3} y1="16" x2={-10 + i*3} y2="18" stroke="#9ca3af" strokeWidth="1" />
+                </g>
+              ))}
+            </g>
+            
+            {/* Two White Buttons (BOOT & RST) */}
+            <rect x={espWidth/2 - 25} y="45" width="20" height="20" rx="2" fill="#f3f4f6" />
+            <circle cx={espWidth/2 - 15} cy="55" r="4" fill="#9ca3af" />
+            
+            <rect x={espWidth/2 + 5} y="45" width="20" height="20" rx="2" fill="#f3f4f6" />
+            <circle cx={espWidth/2 + 15} cy="55" r="4" fill="#9ca3af" />
 
-  <!-- Legend -->
-  <text x="240" y="148" text-anchor="middle" fill="#90caf9" font-size="8.5" opacity=".7">
-    Default UART pins — verify against your hardware
-  </text>
-</svg>`;
+            {/* USB-C Port (Top Center) */}
+            <rect x={espWidth/2 - 20} y="-5" width="40" height="25" rx="3" fill="#e5e7eb" stroke="#d1d5db" strokeWidth="1" />
+            <rect x={espWidth/2 - 14} y="-5" width="28" height="6" rx="2" fill="#111827" />
 
-/* ── Helpers ─────────────────────────────────────────────────────────────── */
-function esc(s) {
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+            {/* Pins */}
+            {Object.entries(espPins).map(([name, pos]) => (
+              <g key={name}>
+                {/* Gold Pad */}
+                <rect x={pos.x === 0 ? 0 : espWidth - 12} y={pos.y - 6} width="12" height="12" rx="4" fill="#fbbf24" />
+                <circle cx={pos.x === 0 ? 6 : espWidth - 6} cy={pos.y} r="3.5" fill="#1e293b" />
+                <text x={pos.labelX} y={pos.y + 3} textAnchor="middle" fill={pos.color} fontSize="9" fontWeight="bold">
+                  {pos.label || name}
+                </text>
+              </g>
+            ))}
+            
+            {/* Unused Pins (Left) */}
+            {[20, 40, 60, 80, 100, 120].map(y => (
+              <g key={`l-${y}`}>
+                <rect x="0" y={y - 6} width="12" height="12" rx="4" fill="#fbbf24" />
+                <circle cx="6" cy={y} r="3.5" fill="#111827" />
+              </g>
+            ))}
+            {/* Unused Pins (Right) */}
+            {[80, 100, 120, 140, 160].map(y => (
+              <g key={`r-${y}`}>
+                <rect x={espWidth - 12} y={y - 6} width="12" height="12" rx="4" fill="#fbbf24" />
+                <circle cx={espWidth - 6} cy={y} r="3.5" fill="#111827" />
+              </g>
+            ))}
+          </g>
 
-function buildWiringPanel(model) {
-  const hasImages = model.wiring_images && model.wiring_images.length > 0;
+          {/* Radar Board */}
+          <g transform={`translate(${radarX}, ${radarY})`}>
+            {/* Board Base (Blue PCB) */}
+            <rect x="0" y="0" width={radarWidth} height={radarHeight} rx="4" fill="#1e3a8a" stroke="#1e40af" strokeWidth="2" />
+            {/* Radar Components (LD2410 Front View) */}
+            {model.radar_model.toLowerCase() === 'ld2410' ? (
+              <g>
+                {/* Clearance areas (lighter blue/gold outline effect) */}
+                <path d="M 24 16 L 46 16 L 53 10 L 73 10 L 82 22 L 95 22" fill="none" stroke="#0ea5e9" strokeWidth="8" opacity="0.3" />
+                <path d="M 125 22 L 138 22 L 147 34 L 187 34 L 196 16 L 216 16" fill="none" stroke="#0ea5e9" strokeWidth="8" opacity="0.3" />
+                <rect x="18" y="20" width="34" height="30" rx="4" fill="none" stroke="#0ea5e9" strokeWidth="6" opacity="0.3" />
+                <rect x="208" y="20" width="34" height="30" rx="4" fill="none" stroke="#0ea5e9" strokeWidth="6" opacity="0.3" />
 
-  const imagesHtml = hasImages
-    ? model.wiring_images.map(src => {
-        const name = src.split('/').pop().replace(/\.[^.]+$/, '').replace(/-/g, ' ');
-        return `
-          <figure>
-            <img src="${esc(src)}" alt="${esc(name)}" loading="lazy"
-                 onclick="openLightbox('${esc(src)}','${esc(name)}')" />
-            <figcaption>${esc(name)}</figcaption>
-          </figure>`;
-      }).join('')
-    : `<p class="no-images">No wiring diagram images found for this model.
-         Add <code>${esc(model.radar_model)}-*.png</code> to
-         <code>docs/${esc(model.radar_model)}/</code> in the repository.</p>`;
+                {/* Left Gold Pad */}
+                <rect x="22" y="24" width="26" height="22" rx="1" fill="#eab308" />
+                {/* Left Trace */}
+                <path d="M 40 24 Q 44 16, 50 16 L 70 16 Q 76 16, 79 22 L 85 28 L 92 28" fill="none" stroke="#eab308" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                
+                {/* Right Gold Pad */}
+                <rect x="212" y="24" width="26" height="22" rx="1" fill="#eab308" />
+                {/* Right Trace */}
+                <path d="M 128 28 L 135 28 Q 140 28, 144 32 L 148 36 Q 152 40, 158 40 L 185 40 Q 192 40, 195 34 L 200 24 Q 203 16, 210 16 L 220 16 Q 225 16, 225 24" fill="none" stroke="#eab308" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                
+                {/* Main Chip */}
+                <rect x="92" y="14" width="36" height="36" rx="2" fill="#1e293b" />
+                {/* Chip Pins (Sides only) */}
+                {[...Array(8)].map((_, i) => (
+                  <g key={i}>
+                    <line x1="90" y1={18 + i*3.5} x2="92" y2={18 + i*3.5} stroke="#9ca3af" strokeWidth="1" />
+                    <line x1="128" y1={18 + i*3.5} x2="130" y2={18 + i*3.5} stroke="#9ca3af" strokeWidth="1" />
+                  </g>
+                ))}
+                
+                {/* Chip Silkscreen */}
+                <text x="110" y="26" textAnchor="middle" fill="#64748b" fontSize="5" transform="rotate(-90, 110, 26)">S3KM111L</text>
+                <text x="117" y="32" textAnchor="middle" fill="#64748b" fontSize="4" transform="rotate(-90, 117, 32)">N47K93D1</text>
+                {/* Running person logo mock */}
+                <path d="M 118 40 L 115 42 L 115 45 M 115 42 L 112 40 M 115 39 A 1 1 0 1 1 116 38" fill="none" stroke="#94a3b8" strokeWidth="0.8" transform="rotate(-90, 115, 41)" />
 
-  return `
-    <div class="wiring-panel" id="wiring-${esc(model.id)}">
-      <div class="wiring-inner">
+                {/* WiGig Text */}
+                <text x="35" y="52" fill="#f8fafc" fontSize="8" fontWeight="900" fontFamily="sans-serif">WiGig</text>
+                <circle cx="56" cy="46" r="1.5" fill="#f8fafc" />
+                
+                {/* Small passive components */}
+                {/* Top right caps */}
+                <rect x="150" y="4" width="6" height="8" rx="1" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="0.5" />
+                <rect x="165" y="4" width="6" height="8" rx="1" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="0.5" />
+                {/* Bottom right oscillator/cap */}
+                <rect x="160" y="44" width="10" height="8" rx="1" fill="#fdf6e3" stroke="#d4d4d8" strokeWidth="0.5" />
+                {/* Pin capacitor (near VCC/GND) */}
+                <rect x="256" y="8" width="8" height="12" rx="1" fill="#fef08a" stroke="#d4d4d8" strokeWidth="0.5" />
 
-        <!-- 1. ESP32-C3 pinout -->
-        <div>
-          <div class="wiring-section-title">ESP32-C3 Pin Reference</div>
-          <div class="pinout-diagram">${ESP32C3_PINOUT_SVG}</div>
-        </div>
+              </g>
+            ) : model.radar_model.toLowerCase() === 'ld2450' ? (
+              <g>
+                {/* Board cutouts/notches */}
+                <circle cx="0" cy="120" r="10" fill="#0f172a" />
+                <circle cx="352" cy="0" r="10" fill="#0f172a" />
+                
+                {/* JST Connector (Left) */}
+                <rect x="12" y="24" width="28" height="72" rx="2" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1" />
+                <rect x="10" y="32" width="4" height="56" fill="#f1f5f9" />
+                <rect x="18" y="28" width="18" height="64" fill="#e2e8f0" />
+                
+                {/* Main Chip */}
+                <rect x="100" y="32" width="48" height="48" rx="2" fill="#0f172a" stroke="#334155" strokeWidth="1" />
+                {/* Chip Pins */}
+                {[...Array(10)].map((_, i) => (
+                  <g key={`cpin-${i}`}>
+                    <line x1="96" y1={36 + i*4.5} x2="100" y2={36 + i*4.5} stroke="#9ca3af" strokeWidth="1.5" />
+                    <line x1="148" y1={36 + i*4.5} x2="152" y2={36 + i*4.5} stroke="#9ca3af" strokeWidth="1.5" />
+                    <line x1={104 + i*4.5} y1="28" x2={104 + i*4.5} y2="32" stroke="#9ca3af" strokeWidth="1.5" />
+                    <line x1={104 + i*4.5} y1="80" x2={104 + i*4.5} y2="84" stroke="#9ca3af" strokeWidth="1.5" />
+                  </g>
+                ))}
+                
+                {/* Silkscreen text */}
+                <text x="68" y="22" fill="#e2e8f0" fontSize="12" fontWeight="bold">230329</text>
+                <text x="180" y="105" fill="#e2e8f0" fontSize="10">V1.0</text>
+                
+                {/* 2x4 Header (Right) */}
+                <rect x="290" y="28" width="40" height="64" rx="2" fill="#0f172a" />
+                {[...Array(4)].map((_, i) => (
+                  <g key={`hdr-${i}`}>
+                    <rect x="296" y={34 + i*14} width="8" height="8" fill="#fbbf24" />
+                    <rect x="316" y={34 + i*14} width="8" height="8" fill="#fbbf24" />
+                  </g>
+                ))}
+                
+                {/* Six Bottom-Right Holes */}
+                {[...Array(6)].map((_, i) => (
+                  <circle key={`hole-${i}`} cx={235 + i*18} cy="110" r="4" fill="#fbbf24" />
+                ))}
 
-        <!-- 2. Connection table -->
-        <div>
-          <div class="wiring-section-title">Default Wiring (ESP32-C3 ↔ Radar)</div>
-          <table class="conn-table">
-            <thead>
-              <tr>
-                <th>ESP32-C3 Pin</th>
-                <th>→</th>
-                <th>Radar Pin</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><span class="pin-label">GPIO20 (RX)</span></td>
-                <td>←</td>
-                <td><span class="pin-label">TX</span></td>
-                <td>Data from radar</td>
-              </tr>
-              <tr>
-                <td><span class="pin-label">GPIO21 (TX)</span></td>
-                <td>→</td>
-                <td><span class="pin-label">RX</span></td>
-                <td>Commands to radar</td>
-              </tr>
-              <tr>
-                <td><span class="pin-label">3V3 / 5V</span></td>
-                <td>→</td>
-                <td><span class="pin-label">VCC</span></td>
-                <td>Check radar spec for voltage</td>
-              </tr>
-              <tr>
-                <td><span class="pin-label">GND</span></td>
-                <td>—</td>
-                <td><span class="pin-label">GND</span></td>
-                <td>Common ground</td>
-              </tr>
-            </tbody>
-          </table>
-          <p style="font-size:.75rem;color:var(--muted);margin-top:.4rem">
-            GPIO assignments can be changed in <code>tests/${esc(model.radar_model)}.yaml</code>.
-          </p>
-        </div>
+                {/* Passive components */}
+                <rect x="200" y="30" width="12" height="18" fill="#0f172a" />
+                <rect x="220" y="50" width="16" height="12" fill="#fdf6e3" stroke="#d4d4d8" />
+                <rect x="250" y="70" width="16" height="16" fill="#1e293b" />
+                <rect x="180" y="40" width="12" height="12" fill="#1e293b" />
+                
+                <text x={radarWidth/2} y={18} textAnchor="middle" fill="#93c5fd" fontSize="12" fontWeight="bold">
+                  {model.name}
+                </text>
+              </g>
+            ) : (
+              <g>
+                <rect x="2" y="2" width={radarWidth < radarHeight ? radarWidth - 4 : 20} height={radarWidth < radarHeight ? radarWidth - 4 : radarHeight - 4} rx="2" fill="#022c22" opacity="0.6" />
+                <rect x={radarWidth/2 - 15} y={radarHeight/2 - 15} width="30" height="30" rx="2" fill="#1e293b" />
+                <text x={radarWidth/2} y={radarHeight/2 + 4} textAnchor="middle" fill="#34d399" fontSize="12" fontWeight="bold" transform={radarWidth < radarHeight ? `rotate(-90, ${radarWidth/2}, ${radarHeight/2})` : ''}>
+                  {model.name}
+                </text>
+              </g>
+            )}
+          </g>
+          
+          {/* Radar Pins */}
+          {radarPinsRender}
 
-        <!-- 3. Radar-specific wiring images -->
-        <div>
-          <div class="wiring-section-title">${esc(model.name)} Wiring Diagrams</div>
-          <div class="wiring-images">${imagesHtml}</div>
-        </div>
-
-      </div>
-    </div>`;
-}
-
-function buildCard(model) {
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.setAttribute('role', 'listitem');
-
-  card.innerHTML = `
-    <div class="card-body">
-      <div class="card-header">
-        <div class="card-icon" aria-hidden="true">${RADAR_SVG}</div>
-        <div>
-          <div class="card-title">${esc(model.name)}</div>
-          <div class="card-version">v${esc(model.version)}</div>
-        </div>
-      </div>
-      <div class="chip-badge">
-        ${MCU_SVG}
-        ${esc(model.chip_family)}
-      </div>
-      <esp-web-install-button manifest="${esc(model.manifest)}">
-        <button slot="unsupported" style="
-          width:100%;padding:.65rem;border-radius:8px;border:1px solid var(--border);
-          background:var(--bg);color:var(--muted);font-size:.85rem;cursor:default;">
-          ⚠️ Web Serial not supported — use Chrome or Edge
-        </button>
-      </esp-web-install-button>
-      <button class="wiring-toggle" aria-expanded="false"
-              aria-controls="wiring-${esc(model.id)}"
-              onclick="toggleWiring(this,'${esc(model.id)}')">
-        ${MCU_SVG} Wiring Guide ${CHEVRON_SVG}
-      </button>
-    </div>
-    ${buildWiringPanel(model)}`;
-
-  return card;
-}
-
-/* ── Toggle wiring panel ─────────────────────────────────────────────────── */
-function toggleWiring(btn, modelId) {
-  const panel = document.getElementById('wiring-' + modelId);
-  const open  = panel.classList.toggle('open');
-  btn.classList.toggle('open', open);
-  btn.setAttribute('aria-expanded', String(open));
-}
-
-/* ── Lightbox ────────────────────────────────────────────────────────────── */
-function openLightbox(src, alt) {
-  const lb  = document.getElementById('lightbox');
-  const img = document.getElementById('lightbox-img');
-  img.src = src;
-  img.alt = alt;
-  lb.classList.add('open');
-}
-document.getElementById('lightbox').addEventListener('click', () => {
-  document.getElementById('lightbox').classList.remove('open');
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape')
-    document.getElementById('lightbox').classList.remove('open');
-});
-
-/* ── Boot ────────────────────────────────────────────────────────────────── */
-async function init() {
-  const statusEl = document.getElementById('status');
-  const modelsEl = document.getElementById('models');
-
-  try {
-    const res = await fetch('models.json');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const models = await res.json();
-
-    if (!models.length) {
-      statusEl.textContent = 'No firmware builds available yet.';
-      return;
+        </svg>
+      );
     }
 
-    statusEl.textContent = '';
-    models.forEach(m => modelsEl.appendChild(buildCard(m)));
+    const WiringGuide = ({ model }) => {
+      return (
+        <div className="mt-8 border-t border-slate-700 pt-8 space-y-6">
+          <div>
+            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center justify-center gap-2">
+              <CpuIcon />
+              Wiring Diagram: ESP32-C3 Supermini ↔ {model.name}
+            </h4>
+            <DynamicWiringDiagram model={model} />
+            <p className="text-xs text-slate-500 mt-3 text-center">
+              * Diagram generated dynamically based on physical dimensions. GPIO assignments can be changed in <code className="text-slate-400">tests/{model.radar_model}.yaml</code>.
+            </p>
+          </div>
+        </div>
+      );
+    }
 
-  } catch (err) {
-    console.error(err);
-    statusEl.textContent =
-      'Failed to load firmware list. Please refresh or check the repository.';
-  }
-}
 
-init();
-</script>
+    const App = () => {
+      const [models, setModels] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+      const [isWebSerialSupported, setIsWebSerialSupported] = useState(true);
+
+      const [selectedRadar, setSelectedRadar] = useState("");
+      const [selectedVariantId, setSelectedVariantId] = useState("");
+
+      useEffect(() => {
+        setIsWebSerialSupported('serial' in navigator);
+        
+        fetch('models.json')
+          .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          })
+          .then(data => {
+            setModels(data);
+            setLoading(false);
+          })
+          .catch(err => {
+            console.error(err);
+            setError('Failed to load firmware list. Please refresh or check the repository.');
+            setLoading(false);
+          });
+      }, []);
+
+      // Group models by radar_model
+      const radarModels = useMemo(() => {
+        const unique = [...new Set(models.map(m => m.radar_model))];
+        return unique.sort();
+      }, [models]);
+
+      // Get variants for selected radar
+      const variants = useMemo(() => {
+        if (!selectedRadar) return [];
+        return models.filter(m => m.radar_model === selectedRadar);
+      }, [models, selectedRadar]);
+
+      const selectedModel = useMemo(() => {
+        if (!selectedVariantId) return null;
+        return models.find(m => m.id === selectedVariantId);
+      }, [models, selectedVariantId]);
+
+      // Reset variant when radar changes
+      useEffect(() => {
+        if (variants.length > 0) {
+          setSelectedVariantId(variants[0].id);
+        } else {
+          setSelectedVariantId("");
+        }
+      }, [selectedRadar, variants]);
+
+      const isStep2Enabled = !!selectedRadar;
+      const isStep3Enabled = !!selectedVariantId;
+
+      return (
+        <div className="min-h-screen flex flex-col font-sans">
+          {!isWebSerialSupported && (
+            <div className="bg-amber-500 text-slate-900 text-center p-3 font-medium flex items-center justify-center gap-2">
+              <AlertTriangleIcon />
+              Requires a Chromium-based browser (Chrome or Edge) with Web Serial support.
+            </div>
+          )}
+
+          <header className="py-8 text-center bg-slate-900 border-b border-slate-800">
+            <h1 className="text-3xl md:text-4xl font-bold text-white mb-3 flex items-center justify-center gap-3">
+              <RadarIcon className="text-brand w-8 h-8 md:w-10 md:h-10" />
+              Millimeter-Wave Radar Firmware
+            </h1>
+            <p className="text-slate-400 max-w-2xl mx-auto px-4 text-sm md:text-base">
+              Flash your radar sensor directly from the browser using ESP Web Tools. No software installation required.
+            </p>
+          </header>
+
+          <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8">
+            {loading && <p className="text-center text-slate-400 animate-pulse py-12">Loading available firmware…</p>}
+            {error && <p className="text-center text-red-400 py-12 bg-red-400/10 rounded-lg border border-red-400/20">{error}</p>}
+            
+            {!loading && !error && models.length === 0 && (
+              <p className="text-center text-slate-400 py-12">No firmware builds available yet.</p>
+            )}
+
+            {!loading && !error && models.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* Step 1: Device */}
+                <div className="card-modern p-6 flex flex-col relative">
+                  <div className="absolute top-4 left-4 w-8 h-8 rounded-full step-badge-circle flex items-center justify-center font-bold">1</div>
+                  
+                  <div className="mt-8 text-center flex-1">
+                    <RadarIcon className="w-24 h-24 mx-auto text-slate-600 mb-6 drop-shadow-lg" />
+                    <h2 className="text-xl font-bold text-white mb-2 tracking-wide uppercase">Select Device</h2>
+                    <p className="text-sm text-slate-400 mb-6">Choose your mmWave radar sensor model.</p>
+                    
+                    <div className="relative text-left mt-auto">
+                      <select 
+                        className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg focus:ring-brand focus:border-brand block p-3 appearance-none cursor-pointer hover:border-slate-500 transition-colors"
+                        value={selectedRadar}
+                        onChange={(e) => setSelectedRadar(e.target.value)}
+                      >
+                        <option value="" disabled>Select a radar model...</option>
+                        {radarModels.map(rm => (
+                          <option key={rm} value={rm}>{rm.toUpperCase()}</option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+                        <ChevronDownIcon />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 2: Firmware Variant */}
+                <div className="card-modern p-6 flex flex-col relative z-10">
+                  <div className={`absolute top-4 left-4 w-8 h-8 rounded-full flex items-center justify-center font-bold transition-colors duration-300 ${isStep2Enabled ? 'step-badge-circle' : 'step-disabled'}`}>2</div>
+                  
+                  <div className={`mt-8 text-center flex-1 transition-opacity duration-300 flex flex-col ${isStep2Enabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                    <DownloadIcon className="w-24 h-24 mx-auto text-slate-600 mb-6 drop-shadow-lg" />
+                    <h2 className="text-xl font-bold text-white mb-2 tracking-wide uppercase">Select Variant</h2>
+                    <p className="text-sm text-slate-400 mb-6">Choose the target microcontroller variant.</p>
+                    
+                    <div className="relative text-left mt-auto">
+                      <select 
+                        className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg focus:ring-brand focus:border-brand block p-3 appearance-none cursor-pointer hover:border-slate-500 transition-colors"
+                        value={selectedVariantId}
+                        onChange={(e) => setSelectedVariantId(e.target.value)}
+                        disabled={!isStep2Enabled}
+                      >
+                        {variants.map(v => (
+                          <option key={v.id} value={v.id}>{v.chip_family || v.name}</option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+                        <ChevronDownIcon />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3: Flash */}
+                <div className="card-modern p-6 flex flex-col relative">
+                  <div className={`absolute top-4 left-4 w-8 h-8 rounded-full flex items-center justify-center font-bold transition-colors duration-300 ${isStep3Enabled ? 'step-badge-circle' : 'step-disabled'}`}>3</div>
+                  
+                  <div className={`mt-8 flex flex-col flex-1 transition-opacity duration-300 ${isStep3Enabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                    <div className="text-center flex-1 flex flex-col">
+                      <ZapIcon className="w-24 h-24 mx-auto text-brand mb-6 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]" />
+                      <h2 className="text-xl font-bold text-white mb-2 tracking-wide uppercase">Flash</h2>
+                      <p className="text-sm text-slate-400 mb-6">Connect your device via USB and flash.</p>
+                      
+                      {selectedModel && (
+                        <div className="mt-auto pt-2">
+                          <esp-web-install-button manifest={selectedModel.manifest}>
+                            <button slot="unsupported" disabled className="w-full bg-slate-800 border border-slate-700 text-slate-400 py-3 rounded-lg text-sm cursor-not-allowed">
+                              ⚠️ Web Serial not supported
+                            </button>
+                          </esp-web-install-button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Selected Model Details (Wiring Guide) */}
+            {selectedModel && (
+              <div className="mt-8 max-w-4xl mx-auto">
+                <WiringGuide model={selectedModel} />
+              </div>
+            )}
+            
+          </main>
+
+          <footer className="py-8 text-center text-sm text-slate-500 border-t border-slate-800 bg-slate-900 mt-auto">
+            <p>
+              Firmware built with <a href="https://esphome.io" className="text-brand hover:underline">ESPHome</a> ·
+              Source on <a href="https://github.com/" className="text-brand hover:underline">GitHub</a> ·
+              Flashing powered by <a href="https://esphome.github.io/esp-web-tools/" className="text-brand hover:underline">ESP Web Tools</a>
+            </p>
+          </footer>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>

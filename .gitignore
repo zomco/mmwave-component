@@ -5,3 +5,4 @@
 /secrets.yaml
 .vscode/
 .venv/
+static/models.json
