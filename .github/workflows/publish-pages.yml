@@ -166,13 +166,24 @@ jobs:
               model_id = build_dir_name  # e.g. "r60abd1-ESP32-C3"
 
               chip_family = (manifest.get('builds') or [{}])[0].get('chipFamily', '')
-              chip_suffix = '-' + chip_family.replace(' ', '-')
-              radar_model = (model_id[:-len(chip_suffix)]
-                             if chip_suffix != '-' and model_id.endswith(chip_suffix)
-                             else model_id)
+              
+              # Extract clean radar_model and display_name
+              raw_name = manifest.get('name', model_id)
+              parts = re.split(r'[^a-zA-Z0-9]', raw_name)
+              core_model = model_id
+              for p in parts:
+                  p_lower = p.lower()
+                  if p_lower and p_lower not in ['firmware', 'mmwave', 'radar', 'factory', 'esp32c3', 'esp32s3', 'esp8266', 'esp32', 'c3', 's3']:
+                      core_model = p_lower
+                      break
+              
+              radar_model = core_model
+              display_name = radar_model.upper()
+              if 'factory' in model_id.lower() or 'factory' in raw_name.lower():
+                  display_name += ' Factory'
 
               print(f"\n[model] model_id={model_id} radar_model={radar_model} "
-                    f"chip_family={chip_family}")
+                    f"chip_family={chip_family} display_name='{display_name}'")
 
               # Copy firmware files into staging/{model_id}/
               dest_dir = os.path.join(staging, model_id)
@@ -205,7 +216,7 @@ jobs:
               models.append({
                   'id':            model_id,
                   'radar_model':   radar_model,
-                  'name':          manifest.get('name', radar_model),
+                  'name':          display_name,
                   'version':       manifest.get('version', 'unknown'),
                   'chip_family':   chip_family,
                   'manifest':      f'{model_id}/manifest.json',
