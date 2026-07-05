@@ -26,7 +26,7 @@ void R60ABD1Component::loop() {
 
 void R60ABD1Component::dump_config() {
   ESP_LOGCONFIG(TAG, "R60ABD1:");
-  ESP_LOGCONFIG(TAG, "  Radar pos:   X=%.1f cm  Y=%.1f cm  H=%.1f cm",
+  ESP_LOGCONFIG(TAG, "  Radar pos:   X=%.1f cm  Y=%.1f cm  Z=%.1f cm",
                 cal_.radar_x, cal_.radar_y, cal_.radar_z);
   ESP_LOGCONFIG(TAG, "  Orientation: Yaw=%.1f°  Pitch=%.1f°  Roll=%.1f°",
                 cal_.yaw, cal_.pitch, cal_.roll);
@@ -224,8 +224,11 @@ void R60ABD1Component::handle_work_state_frame_() {
     // 延迟 100ms 确保模组完全就绪
     delay(100);
     enable_presence();
+    delay(50);
     enable_breath();
+    delay(50);
     enable_heart_rate();
+    delay(50);
     enable_sleep();
   }
 }
@@ -495,7 +498,7 @@ void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
   if (room_z_)       room_z_->publish_state(res.room_z);
   if (in_boundary_sensor_) in_boundary_sensor_->publish_state(res.in_boundary);
 
-  ESP_LOGD(TAG, "Room: x=%.1f y=%.1f h=%.1f cm  [%s]",
+  ESP_LOGD(TAG, "Room: x=%.1f y=%.1f z=%.1f cm  [%s]",
            res.room.x, res.room.y, res.room_z,
            res.in_boundary ? "inside" : "OUTSIDE");
 }

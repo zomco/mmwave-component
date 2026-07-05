@@ -15,28 +15,28 @@ MicRadar R60ABD1 60 GHz mmWave breathing & sleep radar — ESPHome component.
 
 ### Entity Types
 
-| ESPHome Type | Home Assistant Type | Description |
-|---|---|---|
-| `binary_sensor` | `binary_sensor` | Boolean state (ON/OFF) |
-| `sensor` | `sensor` | Numeric sensor |
-| `text_sensor` | `sensor` (string) | Enumerated text state |
+| ESPHome Type    | Home Assistant Type | Description            |
+| --------------- | ------------------- | ---------------------- |
+| `binary_sensor` | `binary_sensor`     | Boolean state (ON/OFF) |
+| `sensor`        | `sensor`            | Numeric sensor         |
+| `text_sensor`   | `sensor` (string)   | Enumerated text state  |
 
 ### Presence & Motion
 
-| YAML Key | Entity Type | Data Type | Values / States | Unit | Update Frequency | Description |
-|---|---|---|---|---|---|---|
-| `presence` | `binary_sensor` | `bool` | `true` / `false` | — | On state change; absent→present ≤0.5s, present→absent ~40s | Human presence detection (`device_class: presence`) |
-| `motion_state` | `sensor` | `int` | `0`=absent, `1`=stationary, `2`=active | — | On state change; stationary↔active switch ≤0.5s | Motion state (protocol cmd `0x80/0x02`) |
-| `body_movement` | `sensor` | `int` | `0` ~ `100` | — | Every 1s | Body movement intensity |
-| `body_distance` | `sensor` | `uint16` | `0` ~ `65535` | cm | Every 2s | Line-of-sight distance from radar to target (`device_class: distance`) |
+| YAML Key        | Entity Type     | Data Type | Values / States                        | Unit | Update Frequency                                           | Description                                                            |
+| --------------- | --------------- | --------- | -------------------------------------- | ---- | ---------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `presence`      | `binary_sensor` | `bool`    | `true` / `false`                       | —    | On state change; absent→present ≤0.5s, present→absent ~40s | Human presence detection (`device_class: presence`)                    |
+| `motion_state`  | `sensor`        | `int`     | `0`=absent, `1`=stationary, `2`=active | —    | On state change; stationary↔active switch ≤0.5s            | Motion state (protocol cmd `0x80/0x02`)                                |
+| `body_movement` | `sensor`        | `int`     | `0` ~ `100`                            | —    | Every 1s                                                   | Body movement intensity                                                |
+| `body_distance` | `sensor`        | `uint16`  | `0` ~ `65535`                          | cm   | Every 2s                                                   | Line-of-sight distance from radar to target (`device_class: distance`) |
 
 ### Body Position — Radar Local Coordinates
 
-| YAML Key | Entity Type | Data Type | Value Range | Unit | Update Frequency | Description |
-|---|---|---|---|---|---|---|
-| `raw_x` | `sensor` | `int16` (sign-magnitude) | `-32767` ~ `+32767` | cm | Every 2s | Radar-local X axis (right positive, left negative) |
-| `raw_y` | `sensor` | `int16` (sign-magnitude) | `-32767` ~ `+32767` | cm | Every 2s | Radar-local Y axis (forward positive) |
-| `raw_z` | `sensor` | `int16` (sign-magnitude) | `-32767` ~ `+32767` | cm | Every 2s | Radar-local Z axis (outward from antenna face positive) |
+| YAML Key | Entity Type | Data Type                | Value Range         | Unit | Update Frequency | Description                                             |
+| -------- | ----------- | ------------------------ | ------------------- | ---- | ---------------- | ------------------------------------------------------- |
+| `raw_x`  | `sensor`    | `int16` (sign-magnitude) | `-32767` ~ `+32767` | cm   | Every 2s         | Radar-local X axis (right positive, left negative)      |
+| `raw_y`  | `sensor`    | `int16` (sign-magnitude) | `-32767` ~ `+32767` | cm   | Every 2s         | Radar-local Y axis (forward positive)                   |
+| `raw_z`  | `sensor`    | `int16` (sign-magnitude) | `-32767` ~ `+32767` | cm   | Every 2s         | Radar-local Z axis (outward from antenna face positive) |
 
 > [!TIP]
 > `raw_x/y/z` coordinate encoding: 2 bytes, bit15 = sign (0=positive, 1=negative), bit14–bit0 = 15-bit magnitude.
@@ -44,12 +44,12 @@ MicRadar R60ABD1 60 GHz mmWave breathing & sleep radar — ESPHome component.
 
 ### Body Position — Room Coordinates (Post-Transform)
 
-| YAML Key | Entity Type | Data Type | Value Range | Unit | Update Frequency | Description |
-|---|---|---|---|---|---|---|
-| `room_x` | `sensor` | `float` (1 decimal place) | Depends on calibration and room dimensions | cm | Every 2s (synced with raw coordinates) | Target X coordinate in room frame |
-| `room_y` | `sensor` | `float` (1 decimal place) | Depends on calibration and room dimensions | cm | Every 2s (synced with raw coordinates) | Target Y coordinate in room frame |
-| `room_z` | `sensor` | `float` (1 decimal place) | `0` ~ `radar_z` (typical 0–300) | cm | Every 2s (synced with raw coordinates) | Target height above floor (`radar_z − wz`) |
-| `in_boundary` | `binary_sensor` | `bool` | `true` / `false` | — | Every 2s (synced with raw coordinates) | Whether the target is inside the configured polygon boundary (always `true` when polygon is empty) |
+| YAML Key      | Entity Type     | Data Type                 | Value Range                                | Unit | Update Frequency                       | Description                                                                                        |
+| ------------- | --------------- | ------------------------- | ------------------------------------------ | ---- | -------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `room_x`      | `sensor`        | `float` (1 decimal place) | Depends on calibration and room dimensions | cm   | Every 2s (synced with raw coordinates) | Target X coordinate in room frame                                                                  |
+| `room_y`      | `sensor`        | `float` (1 decimal place) | Depends on calibration and room dimensions | cm   | Every 2s (synced with raw coordinates) | Target Y coordinate in room frame                                                                  |
+| `room_z`      | `sensor`        | `float` (1 decimal place) | `0` ~ `radar_z` (typical 0–300)            | cm   | Every 2s (synced with raw coordinates) | Target height above floor (`radar_z − wz`)                                                         |
+| `in_boundary` | `binary_sensor` | `bool`                    | `true` / `false`                           | —    | Every 2s (synced with raw coordinates) | Whether the target is inside the configured polygon boundary (always `true` when polygon is empty) |
 
 > [!IMPORTANT]
 > `room_x/y/z` and `in_boundary` are derived values computed on the ESP side, not direct radar outputs.
@@ -57,39 +57,39 @@ MicRadar R60ABD1 60 GHz mmWave breathing & sleep radar — ESPHome component.
 
 ### Breathing
 
-| YAML Key | Entity Type | Data Type | Values / States | Unit | Update Frequency | Description |
-|---|---|---|---|---|---|---|
-| `breath_value` | `sensor` | `uint8` | `0` ~ `35` | breaths/min | Every 3s | Real-time breathing rate |
-| `breath_state` | `text_sensor` | `string` | `"normal"` / `"high"` / `"low"` / `"none"` | — | On state change | Breathing status: `normal`=10–25/min, `high`=>25/min, `low`=<10/min, `none`=no one present |
+| YAML Key       | Entity Type   | Data Type | Values / States                            | Unit        | Update Frequency | Description                                                                                |
+| -------------- | ------------- | --------- | ------------------------------------------ | ----------- | ---------------- | ------------------------------------------------------------------------------------------ |
+| `breath_value` | `sensor`      | `uint8`   | `0` ~ `35`                                 | breaths/min | Every 3s         | Real-time breathing rate                                                                   |
+| `breath_state` | `text_sensor` | `string`  | `"normal"` / `"high"` / `"low"` / `"none"` | —           | On state change  | Breathing status: `normal`=10–25/min, `high`=>25/min, `low`=<10/min, `none`=no one present |
 
 ### Heart Rate
 
-| YAML Key | Entity Type | Data Type | Value Range | Unit | Update Frequency | Description |
-|---|---|---|---|---|---|---|
-| `heart_rate` | `sensor` | `uint8` | `60` ~ `120` | bpm | Every 3s | Real-time heart rate |
+| YAML Key     | Entity Type | Data Type | Value Range  | Unit | Update Frequency | Description          |
+| ------------ | ----------- | --------- | ------------ | ---- | ---------------- | -------------------- |
+| `heart_rate` | `sensor`    | `uint8`   | `60` ~ `120` | bpm  | Every 3s         | Real-time heart rate |
 
 ### Sleep Monitoring
 
-| YAML Key | Entity Type | Data Type | Values / States | Unit | Update Frequency | Description |
-|---|---|---|---|---|---|---|
-| `in_bed` | `binary_sensor` | `bool` | `true`=in bed / `false`=out of bed | — | On state change; in→out ~30s delay | Bed presence detection |
-| `sleep_state` | `text_sensor` | `string` | `"deep"` / `"light"` / `"awake"` / `"none"` | — | Every 10min while in bed | Sleep stage |
-| `awake_duration` | `sensor` | `uint16` | `0` ~ `65535` | min | Every 10min (with `sleep_state`) | Cumulative awake duration |
-| `light_sleep_duration` | `sensor` | `uint16` | `0` ~ `65535` | min | Every 10min (with `sleep_state`) | Cumulative light sleep duration |
-| `deep_sleep_duration` | `sensor` | `uint16` | `0` ~ `65535` | min | Every 10min (with `sleep_state`) | Cumulative deep sleep duration |
-| `sleep_score` | `sensor` | `uint8` | `0` ~ `100` | — | Once at end of sleep session | Overall sleep quality score. Requires 4h ≤ sleep duration ≤ 12h; otherwise score is 0 |
-| `sleep_quality` | `text_sensor` | `string` | `"good"` / `"fair"` / `"poor"` / `"none"` | — | Once at end of sleep session | Sleep quality rating: `good`=76–100, `fair`=61–75, `poor`=1–60, `none`=score is 0 |
+| YAML Key               | Entity Type     | Data Type | Values / States                             | Unit | Update Frequency                   | Description                                                                           |
+| ---------------------- | --------------- | --------- | ------------------------------------------- | ---- | ---------------------------------- | ------------------------------------------------------------------------------------- |
+| `in_bed`               | `binary_sensor` | `bool`    | `true`=in bed / `false`=out of bed          | —    | On state change; in→out ~30s delay | Bed presence detection                                                                |
+| `sleep_state`          | `text_sensor`   | `string`  | `"deep"` / `"light"` / `"awake"` / `"none"` | —    | Every 10min while in bed           | Sleep stage                                                                           |
+| `awake_duration`       | `sensor`        | `uint16`  | `0` ~ `65535`                               | min  | Every 10min (with `sleep_state`)   | Cumulative awake duration                                                             |
+| `light_sleep_duration` | `sensor`        | `uint16`  | `0` ~ `65535`                               | min  | Every 10min (with `sleep_state`)   | Cumulative light sleep duration                                                       |
+| `deep_sleep_duration`  | `sensor`        | `uint16`  | `0` ~ `65535`                               | min  | Every 10min (with `sleep_state`)   | Cumulative deep sleep duration                                                        |
+| `sleep_score`          | `sensor`        | `uint8`   | `0` ~ `100`                                 | —    | Once at end of sleep session       | Overall sleep quality score. Requires 4h ≤ sleep duration ≤ 12h; otherwise score is 0 |
+| `sleep_quality`        | `text_sensor`   | `string`  | `"good"` / `"fair"` / `"poor"` / `"none"`   | —    | Once at end of sleep session       | Sleep quality rating: `good`=76–100, `fair`=61–75, `poor`=1–60, `none`=score is 0     |
 
 ### Update Frequency Summary
 
-| Update Mode | Sensors |
-|---|---|
-| **On state change** | `presence`, `motion_state`, `breath_state`, `in_bed`, `sleep_quality` |
-| **Every 1s** | `body_movement` |
-| **Every 2s** | `body_distance`, `raw_x/y/z`, `room_x/y/z`, `in_boundary` |
-| **Every 3s** | `breath_value`, `heart_rate` |
-| **Every 10min** | `sleep_state`, `awake_duration`, `light_sleep_duration`, `deep_sleep_duration` |
-| **End of sleep** | `sleep_score`, `sleep_quality` |
+| Update Mode         | Sensors                                                                        |
+| ------------------- | ------------------------------------------------------------------------------ |
+| **On state change** | `presence`, `motion_state`, `breath_state`, `in_bed`, `sleep_quality`          |
+| **Every 1s**        | `body_movement`                                                                |
+| **Every 2s**        | `body_distance`, `raw_x/y/z`, `room_x/y/z`, `in_boundary`                      |
+| **Every 3s**        | `breath_value`, `heart_rate`                                                   |
+| **Every 10min**     | `sleep_state`, `awake_duration`, `light_sleep_duration`, `deep_sleep_duration` |
+| **End of sleep**    | `sleep_score`, `sleep_quality`                                                 |
 
 > [!WARNING]
 > The `heart_rate` range is a hardware limitation of the radar module (60–120 bpm) and is not suitable for clinical-grade monitoring of patients with abnormal heart rates.
@@ -101,10 +101,10 @@ MicRadar R60ABD1 60 GHz mmWave breathing & sleep radar — ESPHome component.
 
 ### Two Ways to Get Started
 
-| Method | Best For | Description |
-|---|---|---|
-| **Browser flash (factory firmware)** | Quick setup, no customization needed | Visit the [Online Installer](https://zomco.github.io/mmwave-component/), flash via USB using Chrome/Edge — ready to use out of the box |
-| **Custom YAML compilation** | Adjusting calibration, selecting sensors, adding automations | Create a new config in ESPHome Dashboard, write YAML following the guide below, then compile and flash |
+| Method                               | Best For                                                     | Description                                                                                                                            |
+| ------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Browser flash (factory firmware)** | Quick setup, no customization needed                         | Visit the [Online Installer](https://zomco.github.io/mmwave-component/), flash via USB using Chrome/Edge — ready to use out of the box |
+| **Custom YAML compilation**          | Adjusting calibration, selecting sensors, adding automations | Create a new config in ESPHome Dashboard, write YAML following the guide below, then compile and flash                                 |
 
 ### Firmware Config File Structure
 
@@ -137,8 +137,8 @@ The R60ABD1 uses a fixed baud rate of **115200**, 8N1. This cannot be changed.
 ```yaml
 uart:
   id: uart_r60abd1
-  tx_pin: GPIO21   # ESP32-C3 → R60ABD1 RXD (cross-wired)
-  rx_pin: GPIO20   # ESP32-C3 ← R60ABD1 TXD
+  tx_pin: GPIO21 # ESP32-C3 → R60ABD1 RXD (cross-wired)
+  rx_pin: GPIO20 # ESP32-C3 ← R60ABD1 TXD
   baud_rate: 115200
   data_bits: 8
   parity: NONE
@@ -171,21 +171,21 @@ r60abd1:
 
   # ── Calibration Parameters ────────────────────────────────
   # Mounting position: origin at room's bottom-left corner, X right, Y forward (cm)
-  radar_x: 200.0        # 200cm from left wall
-  radar_y: 175.0        # 175cm from back wall
-  radar_z: 220.0        # Mounting height 220cm above floor
+  radar_x: 200.0 # 200cm from left wall
+  radar_y: 175.0 # 175cm from back wall
+  radar_z: 220.0 # Mounting height 220cm above floor
 
   # Mounting orientation (degrees)
-  yaw:   0.0            # Horizontal heading offset, clockwise positive
-  pitch: 0.0            # Pitch angle, forward tilt positive
-  roll:  0.0            # Roll angle, right tilt positive
+  yaw: 0.0 # Horizontal heading offset, clockwise positive
+  pitch: 0.0 # Pitch angle, forward tilt positive
+  roll: 0.0 # Roll angle, right tilt positive
 
   # Room boundary polygon (room-frame cm, < 3 vertices disables filtering)
   polygon:
-    - { x:   0, y:   0 }
-    - { x: 400, y:   0 }
+    - { x: 0, y: 0 }
+    - { x: 400, y: 0 }
     - { x: 400, y: 350 }
-    - { x:   0, y: 350 }
+    - { x: 0, y: 350 }
 
   # ── Presence & Motion ─────────────────────────────────────
   presence:
@@ -254,7 +254,7 @@ number:
   - platform: template
     name: "yaw"
     min_value: -180
-    max_value:  180
+    max_value: 180
     step: 0.1
     set_action:
       lambda: "id(radar).set_yaw(x);"
@@ -262,7 +262,7 @@ number:
   - platform: template
     name: "pitch"
     min_value: -90
-    max_value:  90
+    max_value: 90
     step: 0.5
     set_action:
       lambda: "id(radar).set_pitch(x);"
@@ -270,7 +270,7 @@ number:
   - platform: template
     name: "roll"
     min_value: -90
-    max_value:  90
+    max_value: 90
     step: 0.5
     set_action:
       lambda: "id(radar).set_roll(x);"
@@ -278,7 +278,7 @@ number:
   - platform: template
     name: "radar_x"
     min_value: -2000
-    max_value:  2000
+    max_value: 2000
     step: 1
     set_action:
       lambda: "id(radar).set_radar_x(x);"
@@ -286,10 +286,18 @@ number:
   - platform: template
     name: "radar_y"
     min_value: -2000
-    max_value:  2000
+    max_value: 2000
     step: 1
     set_action:
       lambda: "id(radar).set_radar_y(x);"
+
+  - platform: template
+    name: "radar_z"
+    min_value: 0
+    max_value: 300
+    step: 1
+    set_action:
+      lambda: "id(radar).set_radar_z(x);"
 ```
 
 > [!NOTE]
@@ -308,12 +316,12 @@ esphome upload your-config.yaml
 
 ### Calibration Parameters
 
-| Parameter | Type | Unit | Default | Description |
-|---|---|---|---|---|
-| `radar_x` | `float` | cm | `0.0` | Radar X position in the room (origin at bottom-left corner, rightward positive) |
-| `radar_y` | `float` | cm | `0.0` | Radar Y position in the room (forward positive) |
-| `radar_z` | `float` | cm | `220.0` | Radar mounting height above floor |
-| `yaw` | `float` | degrees | `0.0` | Yaw angle — horizontal offset of radar forward direction relative to room Y axis, clockwise positive (−180 ~ 180) |
-| `pitch` | `float` | degrees | `0.0` | Pitch angle — forward tilt positive (−90 ~ 90) |
-| `roll` | `float` | degrees | `0.0` | Roll angle — right tilt positive (−90 ~ 90) |
-| `polygon` | `list` | cm | `[]` (empty) | Room boundary polygon vertices, each as `{ x, y }`. Boundary filtering is disabled with fewer than 3 vertices |
+| Parameter | Type    | Unit    | Default      | Description                                                                                                       |
+| --------- | ------- | ------- | ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `radar_x` | `float` | cm      | `0.0`        | Radar X position in the room (origin at bottom-left corner, rightward positive)                                   |
+| `radar_y` | `float` | cm      | `0.0`        | Radar Y position in the room (forward positive)                                                                   |
+| `radar_z` | `float` | cm      | `220.0`      | Radar mounting height above floor                                                                                 |
+| `yaw`     | `float` | degrees | `0.0`        | Yaw angle — horizontal offset of radar forward direction relative to room Y axis, clockwise positive (−180 ~ 180) |
+| `pitch`   | `float` | degrees | `0.0`        | Pitch angle — forward tilt positive (−90 ~ 90)                                                                    |
+| `roll`    | `float` | degrees | `0.0`        | Roll angle — right tilt positive (−90 ~ 90)                                                                       |
+| `polygon` | `list`  | cm      | `[]` (empty) | Room boundary polygon vertices, each as `{ x, y }`. Boundary filtering is disabled with fewer than 3 vertices     |

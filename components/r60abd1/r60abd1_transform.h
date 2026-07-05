@@ -58,7 +58,7 @@ struct CalibrationParams {
 
 struct TransformResult {
   Vec2  room;             // 变换后的房间水平坐标（cm）
-  float room_z;        // 目标距地面高度（cm）= radar_z - wz
+  float room_z;          // 目标距地面高度（cm）= radar_z - wz
   bool  in_boundary;     // 是否在多边形内（polygon 为空时始终 true）
 };
 
