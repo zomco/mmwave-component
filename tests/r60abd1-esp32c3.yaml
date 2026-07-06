@@ -181,7 +181,7 @@ number:
       lambda: "id(radar).set_radar_y(x);"
 
   - platform: template
-    name: "radar_y"
+    name: "radar_z"
     min_value: 0
     max_value: 300
     step: 1
