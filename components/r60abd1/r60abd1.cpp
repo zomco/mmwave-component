@@ -221,15 +221,12 @@ void R60ABD1Component::handle_work_state_frame_() {
   if (done && !initialized_) {
     initialized_ = true;
     ESP_LOGI(TAG, "R60ABD1 initialized, enabling all monitoring");
-    // 延迟 100ms 确保模组完全就绪
-    delay(100);
-    enable_presence();
-    delay(50);
-    enable_breath();
-    delay(50);
-    enable_heart_rate();
-    delay(50);
-    enable_sleep();
+    
+    // 使用非阻塞的 set_timeout 代替 delay，避免阻塞串口接收导致丢包
+    this->set_timeout("init_1", 100, [this]() { this->enable_presence(); });
+    this->set_timeout("init_2", 150, [this]() { this->enable_breath(); });
+    this->set_timeout("init_3", 200, [this]() { this->enable_heart_rate(); });
+    this->set_timeout("init_4", 250, [this]() { this->enable_sleep(); });
   }
 }
 
