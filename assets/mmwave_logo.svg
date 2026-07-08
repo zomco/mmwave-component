@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Radar Sweep (0 to 135 degrees) -->
+  <path d="M 256 256 L 256 26 A 230 230 0 0 1 418.6 418.6 Z" fill="#0B825C" opacity="0.2" />
+
+  <!-- Green Rings -->
+  <circle cx="256" cy="256" r="85" fill="none" stroke="#0B825C" stroke-width="24" />
+  <circle cx="256" cy="256" r="145" fill="none" stroke="#0B825C" stroke-width="24" />
+  <circle cx="256" cy="256" r="205" fill="none" stroke="#0B825C" stroke-width="24" />
+
+  <!-- Dark Grey Elements -->
+  <!-- Stem -->
+  <line x1="256" y1="256" x2="358.5" y2="153.5" stroke="#2C3E50" stroke-width="12" stroke-linecap="round" />
+  
+  <!-- Concentric Arcs -->
+  <!-- Inner Arc R=95, 10 to 80 deg -->
+  <path d="M 272.5 162.5 A 95 95 0 0 1 349.5 239.5" fill="none" stroke="#2C3E50" stroke-width="12" stroke-linecap="round" />
+  <!-- Outer Arc R=135, 10 to 80 deg -->
+  <path d="M 279.4 123.1 A 135 135 0 0 1 388.9 232.6" fill="none" stroke="#2C3E50" stroke-width="12" stroke-linecap="round" />
+
+  <!-- Center Circle -->
+  <circle cx="256" cy="256" r="45" fill="#2C3E50" />
+  
+  <!-- Node Circle -->
+  <circle cx="337.3" cy="174.7" r="16" fill="#2C3E50" />
+</svg>
