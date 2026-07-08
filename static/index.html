@@ -32,10 +32,12 @@
       theme: {
         extend: {
           colors: {
-            brand: '#10b981', // emerald-500
-            'brand-hover': '#059669',
-            surface: '#1e293b', // slate-800
-            bg: '#0f172a', // slate-900
+            brand: '#0B825C', // Custom mmwave green
+            'brand-hover': '#086949',
+            surface: '#ffffff', // Light mode surface
+            bg: '#f8fafc', // Light mode bg (slate-50)
+            'surface-dark': '#2C3E50', // Dark mode surface
+            'bg-dark': '#1A252F', // Dark mode bg
           },
           fontFamily: {
             sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -47,37 +49,62 @@
   
   <style>
     body {
-      background-color: #0f172a; /* slate-900 */
+      background-color: #f8fafc; /* slate-50 */
+      color: #0f172a; /* slate-900 */
+      transition: background-color 0.3s, color 0.3s;
+    }
+    
+    html.dark body {
+      background-color: #000000; /* Pure black as requested */
       color: #f8fafc; /* slate-50 */
     }
     
     .card-modern {
-      background-color: #1e293b; /* slate-800 */
-      border: 1px solid #334155; /* slate-700 */
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0; /* slate-200 */
       border-radius: 1rem;
       box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
       transition: all 0.3s ease;
     }
     
+    html.dark .card-modern {
+      background-color: #2C3E50; /* Dark Grey logo color */
+      border: 1px solid #34495e;
+    }
+    
     .card-modern:hover {
-      box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
-      border-color: #10b981;
+      box-shadow: 0 0 15px rgba(11, 130, 92, 0.2);
+      border-color: #0B825C;
+    }
+
+    /* Custom scrollbar hiding */
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
     }
     
     .step-badge-circle {
-      background-color: rgba(16, 185, 129, 0.2);
-      color: #10b981;
-      border: 1px solid rgba(16, 185, 129, 0.5);
+      background-color: rgba(11, 130, 92, 0.2);
+      color: #0B825C;
+      border: 1px solid rgba(11, 130, 92, 0.5);
     }
     
     .step-disabled {
       background-color: transparent;
+      border-color: #cbd5e1;
+      color: #94a3b8;
+    }
+
+    html.dark .step-disabled {
       border-color: #475569;
       color: #64748b;
     }
 
     esp-web-install-button::part(button) {
-      background: #10b981; 
+      background: #0B825C; 
       color: #fff; 
       border: none;
       border-radius: 0.5rem; 
@@ -89,8 +116,8 @@
       transition: background 0.2s, box-shadow 0.2s;
     }
     esp-web-install-button::part(button):hover { 
-      background: #059669; 
-      box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+      background: #086949; 
+      box-shadow: 0 0 10px rgba(11, 130, 92, 0.4);
     }
   </style>
 </head>
@@ -108,6 +135,142 @@
     const RadarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-radar"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>;
     const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>;
     const AlertTriangleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-triangle"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>;
+    const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>;
+    const GlobeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-globe"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
+    const SunIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>;
+    const MoonIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>;
+    
+    // Custom mmwave logo
+    const MmwaveLogoIcon = ({ className }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className={className}>
+        <path d="M 256 256 L 256 26 A 230 230 0 0 1 418.6 418.6 Z" fill="#0B825C" opacity="0.2" />
+        <circle cx="256" cy="256" r="85" fill="none" stroke="#0B825C" strokeWidth="24" />
+        <circle cx="256" cy="256" r="145" fill="none" stroke="#0B825C" strokeWidth="24" />
+        <circle cx="256" cy="256" r="205" fill="none" stroke="#0B825C" strokeWidth="24" />
+        <line x1="256" y1="256" x2="358.5" y2="153.5" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
+        <path d="M 272.5 162.5 A 95 95 0 0 1 349.5 239.5" fill="none" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
+        <path d="M 279.4 123.1 A 135 135 0 0 1 388.9 232.6" fill="none" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
+        <circle cx="256" cy="256" r="45" fill="currentColor" />
+        <circle cx="337.3" cy="174.7" r="16" fill="currentColor" />
+      </svg>
+    );
+
+    // i18n
+    const translations = {
+      zh: {
+        title: "毫米波雷达固件烧录",
+        subtitle: "无需安装任何软件，通过浏览器和 ESP Web Tools 直接烧录您的雷达传感器。",
+        unsupported: "需要支持 Web Serial 的 Chromium 内核浏览器（如 Chrome 或 Edge）。",
+        loading: "正在加载可用固件...",
+        error_load: "固件列表加载失败，请刷新或检查仓库配置。",
+        no_firmware: "暂无可用的固件构建。",
+        step1_title: "选择设备",
+        step1_desc: "选择您的毫米波雷达型号。",
+        step1_placeholder: "请选择雷达型号...",
+        step2_title: "选择变体",
+        step2_desc: "选择目标微控制器型号。",
+        step3_title: "烧录固件",
+        step3_desc: "通过 USB 连接设备并开始烧录。",
+        unsupported_btn: "⚠️ 不支持 Web Serial",
+        tab_wiring: "接线",
+        tab_assembly: "组装",
+        tab_config: "配置",
+        wiring_note: "* 尺寸和比例基于物理参数动态生成。GPIO 分配可在 tests/{radar}.yaml 中修改。",
+        assembly_note: "* 交互式 3D 爆炸图。拖拽可全景旋转，滚轮可无极缩放。",
+        config_title: "设备初始化与接入配置",
+        config_desc: "完成固件烧录后，请按照以下步骤将雷达接入您的智能家居系统。",
+        config_step1_title: "连接设备热点",
+        config_step1_desc: "固件刷入成功并重新拔插电源后，设备会释放一个以 mmwave_ 开头的 Wi-Fi 热点。请使用手机或电脑连接该热点。",
+        config_step2_title: "配置网络",
+        config_step2_desc: "连接热点后，浏览器通常会自动弹出配网页面（若未弹出，请手动在浏览器访问 http://192.168.4.1）。在页面中输入您家中的 2.4G Wi-Fi 账号和密码以完成联网。",
+        config_step3_title: "接入 Home Assistant",
+        config_step3_desc: "设备成功连接 Wi-Fi 后，Home Assistant 的“集成”页面会自动发现该 ESPHome 设备，点击配置即可。为了获得最佳的可视化体验（如实时雷达点位显示、参数可视化调节），强烈推荐安装专属的 HACS 仪表板卡片。",
+        config_card_title: "mmwave-card 插件",
+        config_card_desc: "专为该固件深度定制的 HACS 前端卡片，极大地提升日常使用体验。",
+        config_install_btn: "一键安装至 HACS",
+        config_warning: "注意：由于部分 HACS 版本（如 HACS 2.0）的已知兼容性问题，点击上方按钮后如果弹出了空白的“您确定吗？”对话框，请尝试清除浏览器缓存。如果仍无法解决，请在 HA 的 HACS 页面右上角菜单点击“自定义存储库”，手动添加 https://github.com/zomco/mmwave-card，类别选择 仪表板 / 插件 即可。",
+        footer_built: "固件基于 ESPHome 构建",
+        footer_source: "源码托管于 GitHub",
+        footer_powered: "烧录引擎由 ESP Web Tools 提供"
+      },
+      en: {
+        title: "Millimeter-Wave Radar Firmware",
+        subtitle: "Flash your radar sensor directly from the browser using ESP Web Tools. No software installation required.",
+        unsupported: "Requires a Chromium-based browser (Chrome or Edge) with Web Serial support.",
+        loading: "Loading available firmware...",
+        error_load: "Failed to load firmware list. Please refresh or check the repository.",
+        no_firmware: "No firmware builds available yet.",
+        step1_title: "Select Device",
+        step1_desc: "Choose your mmWave radar sensor model.",
+        step1_placeholder: "Select a radar model...",
+        step2_title: "Select Variant",
+        step2_desc: "Choose the target microcontroller variant.",
+        step3_title: "Flash",
+        step3_desc: "Connect your device via USB and flash.",
+        unsupported_btn: "⚠️ Web Serial not supported",
+        tab_wiring: "Wiring",
+        tab_assembly: "Assembly",
+        tab_config: "Config",
+        wiring_note: "* Diagram generated dynamically based on physical dimensions. GPIO assignments can be changed in tests/{radar}.yaml.",
+        assembly_note: "* Interactive 3D exploded view. Drag to rotate, scroll to zoom.",
+        config_title: "Device Initialization & Configuration",
+        config_desc: "After flashing the firmware, follow these steps to integrate the radar into your smart home system.",
+        config_step1_title: "Connect to Device AP",
+        config_step1_desc: "After successful flashing and power cycling, the device will broadcast a Wi-Fi hotspot starting with mmwave_. Please connect to this hotspot using your phone or PC.",
+        config_step2_title: "Configure Network",
+        config_step2_desc: "After connecting to the hotspot, a captive portal usually pops up automatically (if not, manually visit http://192.168.4.1 in your browser). Enter your home 2.4G Wi-Fi credentials to complete the connection.",
+        config_step3_title: "Add to Home Assistant",
+        config_step3_desc: "Once connected to Wi-Fi, the Home Assistant Integrations page will automatically discover this ESPHome device. Click configure to add it. For the best visualization experience, it is highly recommended to install the exclusive HACS dashboard card.",
+        config_card_title: "mmwave-card Plugin",
+        config_card_desc: "A HACS frontend card deeply customized for this firmware, greatly enhancing the daily user experience.",
+        config_install_btn: "1-Click Install to HACS",
+        config_warning: "Note: Due to known compatibility issues with some HACS versions (e.g. HACS 2.0), if you see a blank 'Are you sure?' dialog after clicking the button above, try clearing your browser cache. If the issue persists, go to the HACS page in HA, click the top right menu, select 'Custom repositories', manually add https://github.com/zomco/mmwave-card, and choose Dashboard / Plugin.",
+        footer_built: "Firmware built with ESPHome",
+        footer_source: "Source on GitHub",
+        footer_powered: "Flashing powered by ESP Web Tools"
+      }
+    };
+
+    const LanguageContext = React.createContext();
+    const LanguageProvider = ({ children }) => {
+      const [lang, setLang] = useState(() => localStorage.getItem('appLang') || 'en');
+      useEffect(() => { localStorage.setItem('appLang', lang); }, [lang]);
+      const t = (key, params = {}) => {
+        let str = translations[lang][key] || key;
+        for (const [k, v] of Object.entries(params)) {
+          str = str.replace(`{${k}}`, v);
+        }
+        return str;
+      };
+      const toggleLang = () => setLang(l => l === 'zh' ? 'en' : 'zh');
+      return (
+        <LanguageContext.Provider value={{ lang, toggleLang, t }}>
+          {children}
+        </LanguageContext.Provider>
+      );
+    };
+    
+    const ThemeContext = React.createContext();
+    const ThemeProvider = ({ children }) => {
+      const [theme, setTheme] = useState(() => localStorage.getItem('appTheme') || 'dark');
+      
+      useEffect(() => {
+        localStorage.setItem('appTheme', theme);
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }, [theme]);
+      
+      const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+      
+      return (
+        <ThemeContext.Provider value={{ theme, toggleTheme }}>
+          {children}
+        </ThemeContext.Provider>
+      );
+    };
 
     // Helpers
     const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1059,12 +1222,12 @@
       }, [model]);
 
       return (
-        <div className="relative w-full h-[400px] bg-slate-900 rounded-xl overflow-hidden border border-slate-700 shadow-inner">
+        <div className="relative w-full h-[400px] bg-slate-100 dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-300 dark:border-slate-700 shadow-inner">
           <div ref={containerRef} className="w-full h-full cursor-move" />
           {error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm z-10 pointer-events-none">
-              <BoxIcon className="w-12 h-12 text-slate-500 mb-4 opacity-50" />
-              <p className="text-slate-400 font-medium text-center px-4">{error}</p>
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-sm z-10 pointer-events-none">
+              <BoxIcon className="w-12 h-12 text-slate-400 dark:text-slate-500 mb-4 opacity-50" />
+              <p className="text-slate-600 dark:text-slate-400 font-medium text-center px-4">{error}</p>
               <p className="text-slate-500 text-sm mt-2 max-w-sm text-center">
                 The 3D enclosure model for <strong>{model.name}</strong> hasn't been uploaded yet. Please check back later.
               </p>
@@ -1074,33 +1237,116 @@
       );
     };
 
+    const ConfigGuide = () => {
+      const { t } = React.useContext(LanguageContext);
+      const hacsUrl = "https://my.home-assistant.io/redirect/hacs_repository/?owner=zomco&repository=mmwave-card&category=plugin";
+      
+      return (
+        <div className="w-full bg-slate-50/50 dark:bg-slate-900/50 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 p-8">
+          <div className="max-w-2xl mx-auto space-y-8">
+            
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{t('config_title')}</h3>
+              <p className="text-slate-600 dark:text-slate-400 text-sm">{t('config_desc')}</p>
+            </div>
+
+            <div className="space-y-8">
+              {/* Step 1 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-brand/10 dark:bg-brand/20 text-brand flex items-center justify-center font-bold border border-brand/30">1</div>
+                <div>
+                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">{t('config_step1_title')}</h4>
+                  <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed" dangerouslySetInnerHTML={{__html: t('config_step1_desc').replace('mmwave_', '<code class="text-brand bg-brand/10 px-1 py-0.5 rounded">mmwave_</code>')}}></p>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-brand/10 dark:bg-brand/20 text-brand flex items-center justify-center font-bold border border-brand/30">2</div>
+                <div>
+                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">{t('config_step2_title')}</h4>
+                  <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed" dangerouslySetInnerHTML={{__html: t('config_step2_desc').replace('http://192.168.4.1', '<code class="text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">http://192.168.4.1</code>')}}></p>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-brand/10 dark:bg-brand/20 text-brand flex items-center justify-center font-bold border border-brand/30">3</div>
+                <div className="w-full">
+                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">{t('config_step3_title')}</h4>
+                  <p className="text-slate-600 dark:text-slate-400 text-sm mb-4 leading-relaxed">{t('config_step3_desc')}</p>
+                  
+                  <div className="bg-slate-100 dark:bg-slate-800 p-5 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <h5 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                        <MmwaveLogoIcon className="w-5 h-5 text-brand" />
+                        {t('config_card_title')}
+                      </h5>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t('config_card_desc')}</p>
+                    </div>
+                    <a 
+                      href={hacsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:shadow-lg hover:shadow-brand/20 flex-shrink-0"
+                    >
+                      <DownloadIcon className="w-4 h-4" />
+                      {t('config_install_btn')}
+                    </a>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-500 mt-3 bg-slate-100/50 dark:bg-slate-800/50 p-3 rounded border border-slate-200/50 dark:border-slate-700/50">
+                    <AlertTriangleIcon className="w-4 h-4 inline-block mr-1 -mt-0.5" />
+                    <span dangerouslySetInnerHTML={{__html: t('config_warning').replace('注意：', '<strong>$&</strong>').replace('空白的“您确定吗？”对话框', '<strong>$&</strong>').replace('\'Are you sure?\'', '<strong>$&</strong>').replace('https://github.com/zomco/mmwave-card', '<code class="text-slate-700 dark:text-slate-300">$&</code>').replace('仪表板 / 插件', '<code class="text-slate-700 dark:text-slate-300">$&</code>').replace('Dashboard / Plugin', '<code class="text-slate-700 dark:text-slate-300">$&</code>')}}></span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      );
+    };
+
     const WiringGuide = ({ model }) => {
+      const { t } = React.useContext(LanguageContext);
       const [activeTab, setActiveTab] = useState('wiring');
 
       return (
-        <div className="mt-8 border-t border-slate-700 pt-8 space-y-6">
-          <div className="flex justify-center border-b border-slate-700 mb-6">
+        <div className="mt-8 border-t border-slate-200 dark:border-slate-700 pt-8 space-y-6">
+          <div className="flex sm:justify-center border-b border-slate-200 dark:border-slate-700 mb-6 flex-nowrap overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setActiveTab('wiring')}
-              className={`flex items-center gap-2 px-6 py-3 font-semibold text-sm transition-colors relative ${
-                activeTab === 'wiring' ? 'text-brand' : 'text-slate-400 hover:text-slate-200'
+              className={`flex items-center gap-2 px-6 py-3 font-semibold text-sm transition-colors relative whitespace-nowrap ${
+                activeTab === 'wiring' ? 'text-brand' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
               <CpuIcon />
-              接线预览
+              {t('tab_wiring')}
               {activeTab === 'wiring' && (
                 <span className="absolute bottom-[-1px] left-0 w-full h-0.5 bg-brand rounded-t-full"></span>
               )}
             </button>
             <button
               onClick={() => setActiveTab('assembly')}
-              className={`flex items-center gap-2 px-6 py-3 font-semibold text-sm transition-colors relative ${
-                activeTab === 'assembly' ? 'text-brand' : 'text-slate-400 hover:text-slate-200'
+              className={`flex items-center gap-2 px-6 py-3 font-semibold text-sm transition-colors relative whitespace-nowrap ${
+                activeTab === 'assembly' ? 'text-brand' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
               <BoxIcon />
-              组装预览
+              {t('tab_assembly')}
               {activeTab === 'assembly' && (
+                <span className="absolute bottom-[-1px] left-0 w-full h-0.5 bg-brand rounded-t-full"></span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('config')}
+              className={`flex items-center gap-2 px-6 py-3 font-semibold text-sm transition-colors relative whitespace-nowrap ${
+                activeTab === 'config' ? 'text-brand' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+            >
+              <SettingsIcon />
+              {t('tab_config')}
+              {activeTab === 'config' && (
                 <span className="absolute bottom-[-1px] left-0 w-full h-0.5 bg-brand rounded-t-full"></span>
               )}
             </button>
@@ -1110,16 +1356,18 @@
             {activeTab === 'wiring' ? (
               <div className="transition-opacity duration-300">
                 <DynamicWiringDiagram model={model} />
+                <p className="text-xs text-slate-500 mt-3 text-center" dangerouslySetInnerHTML={{__html: t('wiring_note', { radar: model.radar_model }).replace('tests/' + model.radar_model + '.yaml', '<code class="text-slate-400">tests/' + model.radar_model + '.yaml</code>')}}></p>
+              </div>
+            ) : activeTab === 'assembly' ? (
+              <div className="transition-opacity duration-300">
+                <AssemblyPreview model={model} />
                 <p className="text-xs text-slate-500 mt-3 text-center">
-                  * Diagram generated dynamically based on physical dimensions. GPIO assignments can be changed in <code className="text-slate-400">tests/{model.radar_model}.yaml</code>.
+                  {t('assembly_note')}
                 </p>
               </div>
             ) : (
               <div className="transition-opacity duration-300">
-                <AssemblyPreview model={model} />
-                <p className="text-xs text-slate-500 mt-3 text-center">
-                  * Interactive 3D exploded view. Drag to rotate, scroll to zoom.
-                </p>
+                <ConfigGuide />
               </div>
             )}
           </div>
@@ -1129,6 +1377,8 @@
 
 
     const App = () => {
+      const { lang, toggleLang, t } = React.useContext(LanguageContext);
+      const { theme, toggleTheme } = React.useContext(ThemeContext);
       const [models, setModels] = useState([]);
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState(null);
@@ -1151,7 +1401,7 @@
           })
           .catch(err => {
             console.error(err);
-            setError('Failed to load firmware list. Please refresh or check the repository.');
+            setError(t('error_load'));
             setLoading(false);
           });
       }, []);
@@ -1186,30 +1436,49 @@
       const isStep3Enabled = !!selectedVariantId;
 
       return (
-        <div className="min-h-screen flex flex-col font-sans">
+        <div className="min-h-screen flex flex-col font-sans relative text-slate-900 dark:text-white transition-colors duration-300">
           {!isWebSerialSupported && (
             <div className="bg-amber-500 text-slate-900 text-center p-3 font-medium flex items-center justify-center gap-2">
               <AlertTriangleIcon />
-              Requires a Chromium-based browser (Chrome or Edge) with Web Serial support.
+              {t('unsupported')}
             </div>
           )}
 
-          <header className="py-8 text-center bg-slate-900 border-b border-slate-800">
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-3 flex items-center justify-center gap-3">
-              <RadarIcon className="text-brand w-8 h-8 md:w-10 md:h-10" />
-              Millimeter-Wave Radar Firmware
+          <header className="relative pt-20 pb-8 md:pt-12 md:pb-8 min-h-[200px] flex flex-col justify-center text-center bg-slate-100 dark:bg-bg-dark border-b border-slate-300 dark:border-slate-800 transition-colors duration-300">
+            {/* Toggles */}
+            <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+              <button 
+                onClick={toggleTheme}
+                className="flex items-center justify-center w-8 h-8 bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full border border-slate-300 dark:border-slate-700 transition-colors shadow-lg backdrop-blur-sm"
+                title="Toggle Theme"
+              >
+                {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+              </button>
+              <button 
+                onClick={toggleLang}
+                className="flex items-center gap-2 px-3 h-8 bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-full border border-slate-300 dark:border-slate-700 transition-colors shadow-lg backdrop-blur-sm"
+                title="Switch Language"
+              >
+                <GlobeIcon />
+                {lang === 'zh' ? 'EN' : '中文'}
+              </button>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-3 flex flex-col sm:flex-row items-center justify-center gap-3 transition-colors duration-300">
+              <MmwaveLogoIcon className="w-10 h-10 md:w-12 md:h-12 text-brand" />
+              {t('title')}
             </h1>
-            <p className="text-slate-400 max-w-2xl mx-auto px-4 text-sm md:text-base">
-              Flash your radar sensor directly from the browser using ESP Web Tools. No software installation required.
+            <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto px-4 text-sm md:text-base transition-colors duration-300">
+              {t('subtitle')}
             </p>
           </header>
 
           <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8">
-            {loading && <p className="text-center text-slate-400 animate-pulse py-12">Loading available firmware…</p>}
+            {loading && <p className="text-center text-slate-500 dark:text-slate-400 animate-pulse py-12">{t('loading')}</p>}
             {error && <p className="text-center text-red-400 py-12 bg-red-400/10 rounded-lg border border-red-400/20">{error}</p>}
             
             {!loading && !error && models.length === 0 && (
-              <p className="text-center text-slate-400 py-12">No firmware builds available yet.</p>
+              <p className="text-center text-slate-400 py-12">{t('no_firmware')}</p>
             )}
 
             {!loading && !error && models.length > 0 && (
@@ -1220,17 +1489,17 @@
                   <div className="absolute top-4 left-4 w-8 h-8 rounded-full step-badge-circle flex items-center justify-center font-bold">1</div>
                   
                   <div className="mt-8 text-center flex-1">
-                    <RadarIcon className="w-24 h-24 mx-auto text-slate-600 mb-6 drop-shadow-lg" />
-                    <h2 className="text-xl font-bold text-white mb-2 tracking-wide uppercase">Select Device</h2>
-                    <p className="text-sm text-slate-400 mb-6">Choose your mmWave radar sensor model.</p>
+                    <RadarIcon className="w-24 h-24 mx-auto text-slate-400 dark:text-slate-600 mb-6 drop-shadow-lg" />
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-wide uppercase">{t('step1_title')}</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">{t('step1_desc')}</p>
                     
                     <div className="relative text-left mt-auto">
                       <select 
-                        className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg focus:ring-brand focus:border-brand block p-3 appearance-none cursor-pointer hover:border-slate-500 transition-colors"
+                        className="w-full bg-white dark:bg-bg-dark border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm rounded-lg focus:ring-brand focus:border-brand block p-3 appearance-none cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 transition-colors"
                         value={selectedRadar}
                         onChange={(e) => setSelectedRadar(e.target.value)}
                       >
-                        <option value="" disabled>Select a radar model...</option>
+                        <option value="" disabled>{t('step1_placeholder')}</option>
                         {radarModels.map(rm => (
                           <option key={rm} value={rm}>{rm.toUpperCase()}</option>
                         ))}
@@ -1247,13 +1516,13 @@
                   <div className={`absolute top-4 left-4 w-8 h-8 rounded-full flex items-center justify-center font-bold transition-colors duration-300 ${isStep2Enabled ? 'step-badge-circle' : 'step-disabled'}`}>2</div>
                   
                   <div className={`mt-8 text-center flex-1 transition-opacity duration-300 flex flex-col ${isStep2Enabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-                    <DownloadIcon className="w-24 h-24 mx-auto text-slate-600 mb-6 drop-shadow-lg" />
-                    <h2 className="text-xl font-bold text-white mb-2 tracking-wide uppercase">Select Variant</h2>
-                    <p className="text-sm text-slate-400 mb-6">Choose the target microcontroller variant.</p>
+                    <DownloadIcon className="w-24 h-24 mx-auto text-slate-400 dark:text-slate-600 mb-6 drop-shadow-lg" />
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-wide uppercase">{t('step2_title')}</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">{t('step2_desc')}</p>
                     
                     <div className="relative text-left mt-auto">
                       <select 
-                        className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg focus:ring-brand focus:border-brand block p-3 appearance-none cursor-pointer hover:border-slate-500 transition-colors"
+                        className="w-full bg-white dark:bg-bg-dark border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm rounded-lg focus:ring-brand focus:border-brand block p-3 appearance-none cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 transition-colors"
                         value={selectedVariantId}
                         onChange={(e) => setSelectedVariantId(e.target.value)}
                         disabled={!isStep2Enabled}
@@ -1275,15 +1544,15 @@
                   
                   <div className={`mt-8 flex flex-col flex-1 transition-opacity duration-300 ${isStep3Enabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
                     <div className="text-center flex-1 flex flex-col">
-                      <ZapIcon className="w-24 h-24 mx-auto text-brand mb-6 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]" />
-                      <h2 className="text-xl font-bold text-white mb-2 tracking-wide uppercase">Flash</h2>
-                      <p className="text-sm text-slate-400 mb-6">Connect your device via USB and flash.</p>
+                      <ZapIcon className="w-24 h-24 mx-auto text-brand mb-6 drop-shadow-[0_0_15px_rgba(11,130,92,0.3)]" />
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-wide uppercase">{t('step3_title')}</h2>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">{t('step3_desc')}</p>
                       
                       {selectedModel && (
                         <div className="mt-auto pt-2">
                           <esp-web-install-button manifest={selectedModel.manifest}>
-                            <button slot="unsupported" disabled className="w-full bg-slate-800 border border-slate-700 text-slate-400 py-3 rounded-lg text-sm cursor-not-allowed">
-                              ⚠️ Web Serial not supported
+                            <button slot="unsupported" disabled className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 py-3 rounded-lg text-sm cursor-not-allowed">
+                              {t('unsupported_btn')}
                             </button>
                           </esp-web-install-button>
                         </div>
@@ -1303,11 +1572,11 @@
             
           </main>
 
-          <footer className="py-8 text-center text-sm text-slate-500 border-t border-slate-800 bg-slate-900 mt-auto">
+          <footer className="py-8 text-center text-sm text-slate-600 dark:text-slate-500 border-t border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-bg-dark mt-auto transition-colors duration-300">
             <p>
-              Firmware built with <a href="https://esphome.io" className="text-brand hover:underline">ESPHome</a> ·
-              Source on <a href="https://github.com/" className="text-brand hover:underline">GitHub</a> ·
-              Flashing powered by <a href="https://esphome.github.io/esp-web-tools/" className="text-brand hover:underline">ESP Web Tools</a>
+              {t('footer_built')} <a href="https://esphome.io" className="text-brand hover:underline">ESPHome</a> ·
+              {t('footer_source')} <a href="https://github.com/" className="text-brand hover:underline">GitHub</a> ·
+              {t('footer_powered')} <a href="https://esphome.github.io/esp-web-tools/" className="text-brand hover:underline">ESP Web Tools</a>
             </p>
           </footer>
         </div>
@@ -1315,7 +1584,13 @@
     };
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    root.render(
+      <ThemeProvider>
+        <LanguageProvider>
+          <App />
+        </LanguageProvider>
+      </ThemeProvider>
+    );
   </script>
 </body>
 </html>
