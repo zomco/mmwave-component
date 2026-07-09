@@ -1,25 +1,48 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- Radar Sweep (0 to 135 degrees) -->
-  <path d="M 256 256 L 256 26 A 230 230 0 0 1 418.6 418.6 Z" fill="#0B825C" opacity="0.2" />
+  <defs>
+    <!-- 手绘炭笔滤镜：在网页上实时渲染出粉笔/炭笔的颗粒感和毛边 -->
+    <filter id="charcoal" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="3" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+      <feGaussianBlur in="displaced" stdDeviation="0.6" result="blurred" />
+      <feMerge>
+        <feMergeNode in="blurred" />
+        <feMergeNode in="SourceGraphic" opacity="0.5" />
+      </feMerge>
+    </filter>
+  </defs>
 
-  <!-- Green Rings -->
-  <circle cx="256" cy="256" r="85" fill="none" stroke="#0B825C" stroke-width="24" />
-  <circle cx="256" cy="256" r="145" fill="none" stroke="#0B825C" stroke-width="24" />
-  <circle cx="256" cy="256" r="205" fill="none" stroke="#0B825C" stroke-width="24" />
+  <!-- 统一应用手绘滤镜。内部全部使用完美的标准几何体，确保与 3D 模型 100% 对齐 -->
+  <g filter="url(#charcoal)" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- 中心雷达盒子 (深灰色实心方块) -->
+    <rect x="206" y="211" width="100" height="90" rx="25" fill="#4B5563" />
+    
+    <!-- 中心雷达眼 (翠绿色圆点) -->
+    <circle cx="256" cy="256" r="20" fill="#0B825C" />
 
-  <!-- Dark Grey Elements -->
-  <!-- Stem -->
-  <line x1="256" y1="256" x2="358.5" y2="153.5" stroke="#2C3E50" stroke-width="12" stroke-linecap="round" />
-  
-  <!-- Concentric Arcs -->
-  <!-- Inner Arc R=95, 10 to 80 deg -->
-  <path d="M 272.5 162.5 A 95 95 0 0 1 349.5 239.5" fill="none" stroke="#2C3E50" stroke-width="12" stroke-linecap="round" />
-  <!-- Outer Arc R=135, 10 to 80 deg -->
-  <path d="M 279.4 123.1 A 135 135 0 0 1 388.9 232.6" fill="none" stroke="#2C3E50" stroke-width="12" stroke-linecap="round" />
+    <!-- 顶部两根天线 -->
+    <g stroke="#4B5563" stroke-width="12" fill="none">
+      <line x1="231" y1="211" x2="176" y2="136" />
+      <line x1="281" y1="211" x2="336" y2="136" />
+    </g>
 
-  <!-- Center Circle -->
-  <circle cx="256" cy="256" r="45" fill="#2C3E50" />
-  
-  <!-- Node Circle -->
-  <circle cx="337.3" cy="174.7" r="16" fill="#2C3E50" />
+    <!-- 同心圆环列阵 -->
+    
+    <!-- Ring 1: 内圈深灰色 -->
+    <circle cx="256" cy="256" r="95" fill="none" stroke="#4B5563" stroke-width="12" />
+
+    <!-- Ring 2: 粗体翠绿色 -->
+    <circle cx="256" cy="256" r="140" fill="none" stroke="#0B825C" stroke-width="16" />
+
+    <!-- Ring 3: 外圈深灰色 -->
+    <circle cx="256" cy="256" r="185" fill="none" stroke="#4B5563" stroke-width="10" />
+
+    <!-- Ring 4: 最外圈翠绿色虚线 
+         圆周长 = 2 * PI * 230 = 1445. 
+         切分为 5 段虚线和 5 段空白 = 1445 / 10 = 144.5 
+         rotate(-90) 让虚线从正上方 (12点钟方向) 开始，与 3D 模型起点对齐 -->
+    <circle cx="256" cy="256" r="230" fill="none" stroke="#0B825C" stroke-width="8" stroke-dasharray="144.5 144.5" transform="rotate(-90 256 256)" />
+    
+  </g>
 </svg>
