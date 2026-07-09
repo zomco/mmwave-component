@@ -3,7 +3,48 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Millimeter-Wave Radar Firmware Installer</title>
+  
+  <!-- Primary Meta Tags -->
+  <title>毫米波雷达固件在线烧录工具 | mmWave Radar Web Flasher</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="title" content="毫米波雷达固件在线烧录工具 | mmWave Radar Web Flasher" />
+  <meta name="description" content="专业的毫米波雷达固件在线烧录工具，无需安装任何软件。基于 ESP Web Tools，支持一键将固件通过浏览器刷入雷达传感器，完美接入 Home Assistant 等智能家居平台。" />
+  <meta name="keywords" content="毫米波雷达, 固件烧录, ESPHome, Home Assistant, Web Flasher, ESP32, mmWave" />
+  <meta name="author" content="Zomco" />
+  <link rel="canonical" href="https://mmwave.owkor.com" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://mmwave.owkor.com/" />
+  <meta property="og:title" content="毫米波雷达固件在线烧录工具 | mmWave Radar Web Flasher" />
+  <meta property="og:description" content="专业的毫米波雷达固件在线烧录工具，无需安装任何软件。基于 ESP Web Tools，支持一键将固件通过浏览器刷入雷达传感器，完美接入 Home Assistant 等智能家居平台。" />
+  <meta property="og:image" content="https://mmwave.owkor.com/assets/mmwave_logo.svg" />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="https://mmwave.owkor.com/" />
+  <meta property="twitter:title" content="毫米波雷达固件在线烧录工具 | mmWave Radar Web Flasher" />
+  <meta property="twitter:description" content="专业的毫米波雷达固件在线烧录工具，无需安装任何软件。基于 ESP Web Tools，支持一键将固件通过浏览器刷入雷达传感器，完美接入 Home Assistant 等智能家居平台。" />
+  <meta property="twitter:image" content="https://mmwave.owkor.com/assets/mmwave_logo.svg" />
+
+  <!-- JSON-LD Structured Data for GEO -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "mmWave Radar Web Flasher",
+    "description": "专业的毫米波雷达固件在线烧录工具，无需安装任何软件。基于 ESP Web Tools，支持一键将固件通过浏览器刷入雷达传感器，完美接入 Home Assistant 等智能家居平台。",
+    "url": "https://mmwave.owkor.com",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "All",
+    "browserRequirements": "Requires a browser with Web Serial API support (e.g., Chrome, Edge)",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -38,6 +79,9 @@
             bg: '#f8fafc', // Light mode bg (slate-50)
             'surface-dark': '#2C3E50', // Dark mode surface
             'bg-dark': '#1A252F', // Dark mode bg
+          },
+          backgroundImage: {
+            'noise': "url('data:image/svg+xml,%3Csvg viewBox=\"0 0 200 200\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cfilter id=\"noiseFilter\"%3E%3CfeTurbulence type=\"fractalNoise\" baseFrequency=\"0.65\" numOctaves=\"3\" stitchTiles=\"stitch\"/%3E%3C/filter%3E%3Crect width=\"100%25\" height=\"100%25\" filter=\"url(%23noiseFilter)\"/%3E%3C/svg%3E')",
           },
           fontFamily: {
             sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -144,15 +188,29 @@
     // Custom mmwave logo
     const MmwaveLogoIcon = ({ className }) => (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className={className}>
-        <path d="M 256 256 L 256 26 A 230 230 0 0 1 418.6 418.6 Z" fill="#0B825C" opacity="0.2" />
-        <circle cx="256" cy="256" r="85" fill="none" stroke="#0B825C" strokeWidth="24" />
-        <circle cx="256" cy="256" r="145" fill="none" stroke="#0B825C" strokeWidth="24" />
-        <circle cx="256" cy="256" r="205" fill="none" stroke="#0B825C" strokeWidth="24" />
-        <line x1="256" y1="256" x2="358.5" y2="153.5" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
-        <path d="M 272.5 162.5 A 95 95 0 0 1 349.5 239.5" fill="none" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
-        <path d="M 279.4 123.1 A 135 135 0 0 1 388.9 232.6" fill="none" stroke="currentColor" strokeWidth="12" strokeLinecap="round" />
-        <circle cx="256" cy="256" r="45" fill="currentColor" />
-        <circle cx="337.3" cy="174.7" r="16" fill="currentColor" />
+        <defs>
+          <filter id="charcoal-logo" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="3" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+            <feGaussianBlur in="displaced" stdDeviation="0.6" result="blurred" />
+            <feMerge>
+              <feMergeNode in="blurred" />
+              <feMergeNode in="SourceGraphic" opacity="0.5" />
+            </feMerge>
+          </filter>
+        </defs>
+        <g filter="url(#charcoal-logo)" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="206" y="211" width="100" height="90" rx="25" fill="#4B5563" className="dark:fill-slate-400" />
+          <circle cx="256" cy="256" r="20" fill="currentColor" className="text-brand" />
+          <g stroke="#4B5563" className="dark:stroke-slate-400" strokeWidth="12" fill="none">
+            <line x1="231" y1="211" x2="176" y2="136" />
+            <line x1="281" y1="211" x2="336" y2="136" />
+          </g>
+          <circle cx="256" cy="256" r="95" fill="none" stroke="#4B5563" className="dark:stroke-slate-400" strokeWidth="12" />
+          <circle cx="256" cy="256" r="140" fill="none" stroke="currentColor" className="text-brand" strokeWidth="16" />
+          <circle cx="256" cy="256" r="185" fill="none" stroke="#4B5563" className="dark:stroke-slate-400" strokeWidth="10" />
+          <circle cx="256" cy="256" r="230" fill="none" stroke="currentColor" className="text-brand" strokeWidth="8" strokeDasharray="144.5 144.5" transform="rotate(-90 256 256)" />
+        </g>
       </svg>
     );
 
@@ -1453,6 +1511,9 @@
 
       return (
         <div className="min-h-screen flex flex-col font-sans relative text-slate-900 dark:text-white transition-colors duration-300">
+          {/* Subtle noise overlay to match charcoal logo texture */}
+          <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.03] dark:opacity-[0.05] mix-blend-overlay bg-noise"></div>
+          
           {/* Modal for Web Serial Warning */}
           {showWebSerialModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -1483,7 +1544,13 @@
             </div>
           )}
 
-          <header className="relative pt-20 pb-8 md:pt-12 md:pb-8 min-h-[200px] flex flex-col justify-center text-center bg-slate-100 dark:bg-bg-dark border-b border-slate-300 dark:border-slate-800 transition-colors duration-300">
+          <header className="relative pt-20 pb-8 md:pt-16 md:pb-12 min-h-[240px] flex flex-col justify-center text-center border-b border-slate-300 dark:border-slate-800 transition-colors duration-300 overflow-hidden">
+            {/* Hero Image Background */}
+            <div className="absolute inset-0 z-0">
+              <img src="hero_rebranded.png" alt="Hero Banner" className="w-full h-full object-cover opacity-40 dark:opacity-30 mix-blend-luminosity" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-100 via-slate-100/80 to-slate-100/40 dark:from-bg-dark dark:via-bg-dark/80 dark:to-bg-dark/40"></div>
+            </div>
+
             {/* Toggles */}
             <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
               <button 
@@ -1512,16 +1579,18 @@
               </a>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-3 flex flex-col sm:flex-row items-center justify-center gap-3 transition-colors duration-300">
-              <MmwaveLogoIcon className="w-10 h-10 md:w-12 md:h-12 text-brand" />
-              {t('title')}
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto px-4 text-sm md:text-base transition-colors duration-300">
-              {t('subtitle')}
-            </p>
+            <div className="relative z-10">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4 flex flex-col sm:flex-row items-center justify-center gap-3 transition-colors duration-300 drop-shadow-sm">
+                <MmwaveLogoIcon className="w-10 h-10 md:w-12 md:h-12 text-brand drop-shadow-md" />
+                {t('title')}
+              </h1>
+              <p className="text-slate-700 dark:text-slate-300 max-w-2xl mx-auto px-4 text-sm md:text-base transition-colors duration-300 font-medium">
+                {t('subtitle')}
+              </p>
+            </div>
           </header>
 
-          <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8">
+          <main className="relative z-10 flex-1 max-w-6xl w-full mx-auto p-4 md:p-8">
             {loading && <p className="text-center text-slate-500 dark:text-slate-400 animate-pulse py-12">{t('loading')}</p>}
             {error && <p className="text-center text-red-400 py-12 bg-red-400/10 rounded-lg border border-red-400/20">{error}</p>}
             
@@ -1623,7 +1692,7 @@
           <footer className="py-8 text-center text-sm text-slate-600 dark:text-slate-500 border-t border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-bg-dark mt-auto transition-colors duration-300">
             <p>
               {t('footer_built')} <a href="https://esphome.io" className="text-brand hover:underline">ESPHome</a> ·
-              {t('footer_source')} <a href="https://github.com/" className="text-brand hover:underline">GitHub</a> ·
+              {t('footer_source')} <a href="https://github.com/zomco/mmwave-component" className="text-brand hover:underline">GitHub</a> ·
               {t('footer_powered')} <a href="https://esphome.github.io/esp-web-tools/" className="text-brand hover:underline">ESP Web Tools</a>
             </p>
           </footer>
