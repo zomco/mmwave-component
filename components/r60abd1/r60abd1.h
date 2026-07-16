@@ -108,6 +108,9 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   void reset_module()      { const uint8_t d = 0x0F; send_cmd(CTRL_HEARTBEAT, 0x02, &d, 1); }
   void query_init_state()  { const uint8_t d = 0x0F; send_cmd(CTRL_WORK_STATE, 0x81, &d, 1); }
 
+  // ── 测试接口（供 HA Service Call 直接注入十六进制数据）─────────────────────
+  void inject_mock_data(const std::string &hex_str);
+
  protected:
   void process_byte_(uint8_t byte);
   void dispatch_frame_();

@@ -500,5 +500,36 @@ void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
            res.in_boundary ? "inside" : "OUTSIDE");
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 测试数据注入
+// ═══════════════════════════════════════════════════════════════════════════
+
+void R60ABD1Component::inject_mock_data(const std::string &hex_str) {
+  ESP_LOGI(TAG, "Injecting mock data: %s", hex_str.c_str());
+  std::string hex_chars;
+  for (char c : hex_str) {
+    if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+      hex_chars += c;
+    }
+  }
+  
+  if (hex_chars.length() % 2 != 0) {
+    ESP_LOGE(TAG, "Mock data length must be even");
+    return;
+  }
+
+  auto char_to_val = [](char c) -> uint8_t {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    return 0;
+  };
+
+  for (size_t i = 0; i < hex_chars.length(); i += 2) {
+    uint8_t byte = (char_to_val(hex_chars[i]) << 4) | char_to_val(hex_chars[i+1]);
+    process_byte_(byte);
+  }
+}
+
 } // namespace r60abd1
 } // namespace esphome
