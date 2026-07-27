@@ -115,24 +115,6 @@ ld2450:
   id: radar
   uart_id: uart_ld2450
 
-  # ── Calibration Parameters ────────────────────────────────
-  # Mounting position: origin at room's bottom-left corner, X right, Y forward (cm)
-  radar_x: 200.0        # 200cm from left wall
-  radar_y: 0.0          # On the back wall
-  radar_z: 150.0        # Mounting height 150cm above floor (recommended: 100-150cm)
-
-  # Mounting orientation (degrees)
-  yaw:   0.0            # Horizontal heading offset, clockwise positive
-  pitch: 0.0            # Pitch angle, forward tilt positive
-  roll:  0.0            # Roll angle, right tilt positive
-
-  # Room boundary polygon (room-frame cm, < 3 vertices disables filtering)
-  polygon:
-    - { x:   0, y:   0 }
-    - { x: 400, y:   0 }
-    - { x: 400, y: 350 }
-    - { x:   0, y: 350 }
-
   # ── Global Presence ───────────────────────────────────────
   presence:
     name: "presence"
@@ -221,11 +203,23 @@ button:
     name: "restart_radar"
     on_press:
       lambda: "id(radar).restart_module();"
+
+text:
+  - platform: template
+    name: "Polygon Config"
+    id: text_polygon
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: text
+    icon: mdi:vector-polygon
+    set_action:
+      - lambda: "id(g_polygon) = x;"
+      - script.execute: apply_polygon
 ```
 
 > [!NOTE]
-> Parameters adjusted via `number` entities only take effect at runtime. They revert to the compile-time defaults in YAML after a device restart.
-> Once you have finalized calibration values, write them back into the YAML config and recompile to persist them.
+> Parameters adjusted via `number` or `text` entities take effect immediately at runtime. They are also saved into the device's flash memory and will be automatically restored across reboots.
 
 ### Calibration Parameters
 

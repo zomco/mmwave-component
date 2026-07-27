@@ -177,6 +177,8 @@ class LD2450Component : public Component, public uart::UARTDevice {
   void factory_reset()           { send_config_cmd(CMD_FACTORY_RESET, nullptr, 0); }
   /// 查询固件版本
   void query_firmware_version()  { send_config_cmd(CMD_FW_VERSION, nullptr, 0); }
+  /// 注入测试数据
+  void inject_mock_data(const std::string &hex_str);
 
  protected:
   void process_byte_(uint8_t byte);
@@ -206,6 +208,9 @@ class LD2450Component : public Component, public uart::UARTDevice {
   // ── 传感器指针 ─────────────────────────────────────────────────────────
   TargetSensors targets_[MAX_TARGETS];
   binary_sensor::BinarySensor *presence_sensor_{nullptr};
+
+  // ── 测试模拟数据状态 ───────────────────────────────────────────────────
+  uint32_t mock_active_until_{0};
 };
 
 } // namespace ld2450

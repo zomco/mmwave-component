@@ -155,6 +155,9 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   sensor::Sensor               *deep_sleep_dur_    = nullptr;
   sensor::Sensor               *sleep_score_       = nullptr;
   text_sensor::TextSensor      *sleep_quality_     = nullptr;
+
+  // ── 测试模拟数据状态 ───────────────────────────────────────────────────
+  uint32_t mock_active_until_{0};
 };
 
 } // namespace r60abd1

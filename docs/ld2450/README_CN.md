@@ -115,24 +115,6 @@ ld2450:
   id: radar
   uart_id: uart_ld2450
 
-  # ── 校准参数 ────────────────────────────────
-  # 安装位置：以房间左下角为原点，X 向右，Y 向前（单位：cm）
-  radar_x: 200.0        # 雷达距左墙 200cm
-  radar_y: 0.0          # 雷达安装在后墙上
-  radar_z: 150.0        # 距地面安装高度 150cm（推荐：100-150cm）
-
-  # 安装姿态（单位：度）
-  yaw:   0.0            # 偏航角：雷达正前方相对房间 Y 轴的水平偏差，顺时针为正
-  pitch: 0.0            # 俯仰角：向前倾斜为正
-  roll:  0.0            # 横滚角：向右倾斜为正
-
-  # 房间边界多边形（房间坐标系 cm，顶点少于 3 个则不过滤）
-  polygon:
-    - { x:   0, y:   0 }
-    - { x: 400, y:   0 }
-    - { x: 400, y: 350 }
-    - { x:   0, y: 350 }
-
   # ── 全局存在检测 ───────────────────────────────────────
   presence:
     name: "presence"
@@ -221,11 +203,23 @@ button:
     name: "restart_radar"
     on_press:
       lambda: "id(radar).restart_module();"
+
+text:
+  - platform: template
+    name: "Polygon Config"
+    id: text_polygon
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: text
+    icon: mdi:vector-polygon
+    set_action:
+      - lambda: "id(g_polygon) = x;"
+      - script.execute: apply_polygon
 ```
 
 > [!NOTE]
-> 通过 `number` 实体调整的参数仅在运行时生效。设备重启后，数值将恢复为 YAML 中配置的编译期默认值。
-> 确定好最终的校准值后，请将其填回 YAML 配置文件并重新编译以永久保存。
+> 通过 `number` 或 `text` 实体调整的参数将在运行时即刻生效。同时，这些参数会自动保存至设备的 Flash 闪存中，设备重启后也会自动恢复。
 
 ### 校准参数说明
 

@@ -6,6 +6,22 @@ esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
   name_add_mac_suffix: true
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          // 开机启动后，将保存在闪存中的 globals 恢复给底层雷达组件
+          id(radar).set_radar_x(id(g_radar_x));
+          id(radar).set_radar_y(id(g_radar_y));
+          id(radar).set_radar_z(id(g_radar_z));
+          id(radar).set_yaw(id(g_yaw));
+          id(radar).set_pitch(id(g_pitch));
+          id(radar).set_roll(id(g_roll));
+
+          if (!id(g_polygon).empty()) {
+            id(text_polygon).publish_state(id(g_polygon));
+          }
+      - script.execute: apply_polygon
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -33,6 +49,38 @@ wifi:
 
 captive_portal:
 
+# =============================================================================
+# 脚本与 UART
+# =============================================================================
+
+script:
+  - id: apply_polygon
+    mode: restart
+    then:
+      - lambda: |-
+          id(radar).clear_polygon();
+          std::string s = id(g_polygon);
+          if (s.empty()) return;
+          size_t pos = 0;
+          while ((pos = s.find(';')) != std::string::npos) {
+            std::string pt = s.substr(0, pos);
+            s.erase(0, pos + 1);
+            size_t comma = pt.find(',');
+            if (comma != std::string::npos) {
+              float px = std::stof(pt.substr(0, comma));
+              float py = std::stof(pt.substr(comma + 1));
+              id(radar).add_polygon_point(px, py);
+            }
+          }
+          if (!s.empty()) {
+            size_t comma = s.find(',');
+            if (comma != std::string::npos) {
+              float px = std::stof(s.substr(0, comma));
+              float py = std::stof(s.substr(comma + 1));
+              id(radar).add_polygon_point(px, py);
+            }
+          }
+
 # ── UART（LD2450 默认波特率 256000，8N1） ─────────────────────────────────────
 uart:
   id: uart_ld2450
@@ -43,28 +91,63 @@ uart:
   parity: NONE
   stop_bits: 1
 
+# =============================================================================
+# 校准参数（globals）
+# =============================================================================
+# globals 在运行时可被 number 实体的 set_action 更新，
+# 用于 component 的 set_*() 调用以实现不重新编译就能校准。
+
+globals:
+  - id: g_radar_x
+    type: float
+    restore_value: true # 掉电恢复，避免每次重启都要重新校准
+    initial_value: "0.0" # 上电默认值，首次烧录后通过 number 实体覆盖
+
+  - id: g_radar_y
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_radar_z
+    type: float
+    restore_value: true
+    initial_value: "150.0" # LD2450 推荐高度
+
+  - id: g_yaw
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 由 Lovelace 卡片两点偏航校准后更新
+
+  - id: g_pitch
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 水平安装为 0；斜装时填实测值或 IMU 读数
+
+  - id: g_roll
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_polygon
+    type: std::string
+    restore_value: true
+    max_restore_data_length: 254
+    initial_value: '""'
+
 # ── LD2450 组件 ───────────────────────────────────────────────────────────────
 ld2450:
   id: radar
   uart_id: uart_ld2450
 
-  # ── 校准参数 ────────────────────────────────────────────────────────────────
-  # 安装位置：以房间左下角为原点，X 向右，Y 向前（cm）
-  radar_x: 200.0        # 雷达距左墙 200cm
-  radar_y: 0.0           # 雷达在后墙上
-  radar_z: 150.0         # 距地面安装高度（cm），推荐 100~150cm
-
-  # 安装姿态（度）
-  yaw:   0.0    # 水平朝向偏差（雷达正前方相对房间 Y 轴）
-  pitch: 0.0    # 俯仰（向前倾为正）
-  roll:  0.0    # 横滚（向右倾为正）
-
-  # 房间边界多边形（房间坐标系 cm，< 3 点时不过滤）
-  polygon:
-    - { x:   0, y:   0 }
-    - { x: 400, y:   0 }
-    - { x: 400, y: 350 }
-    - { x:   0, y: 350 }
+  # ── 编译期校准参数（初始值；运行时可被 number 实体覆盖）─────────────────
+  # 说明：组件 setup() 时用这些值初始化；number 实体 set_action 之后调用
+  # id(radar).set_yaw(x) 实时更新，无需重启。
+  radar_x: 0.0 # 雷达在房间中的 X 位置（cm，房间左下角为原点）
+  radar_y: 0.0 # Y 位置（cm）
+  radar_z: 150.0 # 安装高度（cm）
+  yaw: 0.0 # 偏航角（°，由校准卡片填写）
+  pitch: 0.0 # 俯仰角（°）
+  roll: 0.0 # 横滚角（°）
 
   # ── 全局存在检测 ─────────────────────────────────────────────────────────
   presence:
@@ -140,47 +223,102 @@ ld2450:
   target_3_in_boundary:
     name: "target_3_in_boundary"
 
-# ── 可选：通过 number 实体在 HA 中实时更新校准参数 ──────────────────────────
+# =============================================================================
+# Number 实体（接收 Lovelace 卡片或 HA 自动化写入的校准参数）
+# =============================================================================
+# Lovelace 卡片点击「保存」时，会调用 number.set_value 服务更新这些实体。
+# set_action 将值写入 globals 并立即更新组件，无需重启固件。
+
 number:
   - platform: template
-    name: "yaw"
+    name: "Radar X"
+    id: num_radar_x
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(g_radar_x);"
+    set_action:
+      - lambda: |-
+          id(g_radar_x) = x;
+          id(radar).set_radar_x(x);
+
+  - platform: template
+    name: "Radar Y"
+    id: num_radar_y
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(g_radar_y);"
+    set_action:
+      - lambda: |-
+          id(g_radar_y) = x;
+          id(radar).set_radar_y(x);
+
+  - platform: template
+    name: "Radar Z"
+    id: num_radar_z
+    unit_of_measurement: cm
+    min_value: 50
+    max_value: 400
+    step: 1
+    mode: box
+    icon: mdi:ruler-square
+    lambda: "return id(g_radar_z);"
+    set_action:
+      - lambda: |-
+          id(g_radar_z) = x;
+          id(radar).set_radar_z(x);
+
+  - platform: template
+    name: "Yaw"
+    id: num_yaw
+    unit_of_measurement: "°"
     min_value: -180
-    max_value:  180
+    max_value: 180
     step: 0.1
+    mode: box
+    icon: mdi:rotate-3d-variant
+    lambda: "return id(g_yaw);"
     set_action:
-      lambda: "id(radar).set_yaw(x);"
+      - lambda: |-
+          id(g_yaw) = x;
+          id(radar).set_yaw(x);
 
   - platform: template
-    name: "pitch"
+    name: "Pitch"
+    id: num_pitch
+    unit_of_measurement: "°"
     min_value: -90
-    max_value:  90
+    max_value: 90
     step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(g_pitch);"
     set_action:
-      lambda: "id(radar).set_pitch(x);"
+      - lambda: |-
+          id(g_pitch) = x;
+          id(radar).set_pitch(x);
 
   - platform: template
-    name: "roll"
+    name: "Roll"
+    id: num_roll
+    unit_of_measurement: "°"
     min_value: -90
-    max_value:  90
+    max_value: 90
     step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(g_roll);"
     set_action:
-      lambda: "id(radar).set_roll(x);"
-
-  - platform: template
-    name: "radar_x"
-    min_value: -2000
-    max_value:  2000
-    step: 1
-    set_action:
-      lambda: "id(radar).set_radar_x(x);"
-
-  - platform: template
-    name: "radar_y"
-    min_value: -2000
-    max_value:  2000
-    step: 1
-    set_action:
-      lambda: "id(radar).set_radar_y(x);"
+      - lambda: |-
+          id(g_roll) = x;
+          id(radar).set_roll(x);
 
 # ── 可选：WiFi 信号强度 ───────────────────────────────────────────────────────
 sensor:
@@ -204,3 +342,33 @@ button:
     name: "restart_radar"
     on_press:
       lambda: "id(radar).restart_module();"
+
+# =============================================================================
+# Text 实体（接收 Lovelace 卡片下发的多边形字符串）
+# =============================================================================
+
+text:
+  - platform: template
+    name: "Polygon Config"
+    id: text_polygon
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: text
+    icon: mdi:vector-polygon
+    set_action:
+      - lambda: |-
+          id(g_polygon) = x;
+      - script.execute: apply_polygon
+
+  - platform: template
+    name: "Mock Data"
+    id: text_mock_data
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: text
+    icon: mdi:code-json
+    set_action:
+      - lambda: |-
+          id(radar).inject_mock_data(x);

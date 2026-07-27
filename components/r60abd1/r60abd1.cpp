@@ -20,6 +20,9 @@ void R60ABD1Component::loop() {
   while (available()) {
     const uint8_t byte = read();
     last_rx_ms_ = millis();
+    if (millis() < this->mock_active_until_) {
+      continue;
+    }
     process_byte_(byte);
   }
 }
@@ -505,6 +508,12 @@ void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 void R60ABD1Component::inject_mock_data(const std::string &hex_str) {
+  if (hex_str == "0" || hex_str == "reset" || hex_str == "clear" || hex_str.empty()) {
+    ESP_LOGI(TAG, "Clearing mock mode, resuming live hardware UART input");
+    this->mock_active_until_ = 0;
+    return;
+  }
+  this->mock_active_until_ = millis() + 10000;
   ESP_LOGI(TAG, "Injecting mock data: %s", hex_str.c_str());
   std::string hex_chars;
   for (char c : hex_str) {

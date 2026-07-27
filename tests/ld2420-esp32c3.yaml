@@ -1,6 +1,24 @@
+substitutions:
+  name: ld2420
+  friendly_name: "LD2420 Radar"
+
 esphome:
-  name: ld2420-esp32c3
-  friendly_name: ld2420-esp32c3
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          // 开机启动后，将保存在闪存中的 globals 恢复给底层雷达组件
+          id(radar).set_radar_x(id(g_radar_x));
+          id(radar).set_radar_y(id(g_radar_y));
+          id(radar).set_radar_z(id(g_radar_z));
+          id(radar).set_yaw(id(g_yaw));
+          id(radar).set_pitch(id(g_pitch));
+          id(radar).set_roll(id(g_roll));
+          id(radar).set_distance_min(id(g_distance_min));
+          id(radar).set_distance_max(id(g_distance_max));
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -15,18 +33,215 @@ external_components:
 
 logger:
 
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+  ap:
+    ssid: "${friendly_name} Fallback"
+
+captive_portal:
+
+# =============================================================================
+# UART (LD2420 默认波特率 115200，8N1)
+# =============================================================================
 uart:
   id: uart_ld2420
-  tx_pin: GPIO21
-  rx_pin: GPIO20
+  tx_pin: GPIO21   # ESP32-C3 → LD2420 RX（交叉接线）
+  rx_pin: GPIO20   # ESP32-C3 ← LD2420 TX
   baud_rate: 115200
   data_bits: 8
   parity: NONE
   stop_bits: 1
 
+# =============================================================================
+# 校准参数（globals）持久化
+# =============================================================================
+globals:
+  - id: g_radar_x
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_radar_y
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_radar_z
+    type: float
+    restore_value: true
+    initial_value: "240.0" # LD2420 推荐吸顶高度 2.4m
+
+  - id: g_yaw
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_pitch
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_roll
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_distance_min
+    type: float
+    restore_value: true
+    initial_value: "30.0"
+
+  - id: g_distance_max
+    type: float
+    restore_value: true
+    initial_value: "600.0"
+
+# =============================================================================
+# LD2420 组件定义
+# =============================================================================
 ld2420:
+  id: radar
   uart_id: uart_ld2420
+
+  # ── 编译期校准参数初始默认值 ──────────────────────────────────────────
+  radar_x: 0.0
+  radar_y: 0.0
+  radar_z: 240.0
+  yaw: 0.0
+  pitch: 0.0
+  roll: 0.0
+  distance_min: 30.0
+  distance_max: 600.0
+
+  # ── 存在探测与距离 ────────────────────────────────────────────────────
   presence:
     name: "Presence"
+    device_class: presence
   distance:
     name: "Distance"
+    unit_of_measurement: "cm"
+
+  # ── 坐标转换与区域过滤 ────────────────────────────────────────────────
+  room_x:
+    name: "Room X"
+    unit_of_measurement: "cm"
+  room_y:
+    name: "Room Y"
+    unit_of_measurement: "cm"
+  room_z:
+    name: "Room Z"
+    unit_of_measurement: "cm"
+  in_boundary:
+    name: "In Boundary"
+
+# =============================================================================
+# 运行时校准控制实体 (number)
+# =============================================================================
+number:
+  - platform: template
+    name: "Radar X"
+    entity_category: config
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    unit_of_measurement: "cm"
+    lambda: "return id(g_radar_x);"
+    set_action:
+      - lambda: |-
+          id(g_radar_x) = x;
+          id(radar).set_radar_x(x);
+
+  - platform: template
+    name: "Radar Y"
+    entity_category: config
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    unit_of_measurement: "cm"
+    lambda: "return id(g_radar_y);"
+    set_action:
+      - lambda: |-
+          id(g_radar_y) = x;
+          id(radar).set_radar_y(x);
+
+  - platform: template
+    name: "Radar Z"
+    entity_category: config
+    min_value: 0
+    max_value: 1000
+    step: 1
+    unit_of_measurement: "cm"
+    lambda: "return id(g_radar_z);"
+    set_action:
+      - lambda: |-
+          id(g_radar_z) = x;
+          id(radar).set_radar_z(x);
+
+  - platform: template
+    name: "Yaw Angle"
+    entity_category: config
+    min_value: -180
+    max_value: 180
+    step: 0.5
+    unit_of_measurement: "°"
+    lambda: "return id(g_yaw);"
+    set_action:
+      - lambda: |-
+          id(g_yaw) = x;
+          id(radar).set_yaw(x);
+
+  - platform: template
+    name: "Pitch Angle"
+    entity_category: config
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    unit_of_measurement: "°"
+    lambda: "return id(g_pitch);"
+    set_action:
+      - lambda: |-
+          id(g_pitch) = x;
+          id(radar).set_pitch(x);
+
+  - platform: template
+    name: "Roll Angle"
+    entity_category: config
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    unit_of_measurement: "°"
+    lambda: "return id(g_roll);"
+    set_action:
+      - lambda: |-
+          id(g_roll) = x;
+          id(radar).set_roll(x);
+
+  - platform: template
+    name: "Min Distance"
+    entity_category: config
+    min_value: 0
+    max_value: 1000
+    step: 10
+    unit_of_measurement: "cm"
+    lambda: "return id(g_distance_min);"
+    set_action:
+      - lambda: |-
+          id(g_distance_min) = x;
+          id(radar).set_distance_min(x);
+
+  - platform: template
+    name: "Max Distance"
+    entity_category: config
+    min_value: 0
+    max_value: 1000
+    step: 10
+    unit_of_measurement: "cm"
+    lambda: "return id(g_distance_max);"
+    set_action:
+      - lambda: |-
+          id(g_distance_max) = x;
+          id(radar).set_distance_max(x);
