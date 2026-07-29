@@ -72,7 +72,7 @@ void LD6002Component::process_byte_(uint8_t byte) {
     case DataState::LEN_L:
       this->frame_len_ |= byte;
       if (this->frame_len_ > 1024) {
-        ESP_LOGW(TAG, "Invalid Length: %d", this->frame_len_);
+        ESP_LOGW(TAG, "Invalid Length: %d (0x%04X), ID=0x%04X", this->frame_len_, this->frame_len_, this->frame_id_);
         this->data_state_ = DataState::IDLE;
       } else {
         this->data_state_ = DataState::TYPE_H;
@@ -95,17 +95,16 @@ void LD6002Component::process_byte_(uint8_t byte) {
                            ^ (this->frame_type_ >> 8) ^ (this->frame_type_ & 0xFF);
       calc_cksum = ~calc_cksum;
       if (byte != calc_cksum) {
-        ESP_LOGW(TAG, "Header Checksum error! Expected 0x%02X, got 0x%02X", calc_cksum, byte);
+        ESP_LOGW(TAG, "Header Checksum error! Expected 0x%02X, got 0x%02X (Type 0x%04X, Len %d)", calc_cksum, byte, this->frame_type_, this->frame_len_);
         this->data_state_ = DataState::IDLE;
       } else {
         if (this->frame_len_ == 0) {
-            // no data payload, should immediately check data cksum? The protocol says DATA_CKSUM is over DATA. If LEN=0, maybe no cksum or cksum is 0xFF.
-            // But we can skip it for safety if we see type.
-            this->data_state_ = DataState::IDLE; 
+          this->process_packet_();
+          this->data_state_ = DataState::IDLE; 
         } else {
-            this->payload_.clear();
-            this->payload_idx_ = 0;
-            this->data_state_ = DataState::DATA;
+          this->payload_.clear();
+          this->payload_idx_ = 0;
+          this->data_state_ = DataState::DATA;
         }
       }
       break;
@@ -151,6 +150,23 @@ void LD6002Component::process_packet_() {
       break;
     }
 
+    case 0x0A04: { // Personnel Position / 3D target
+      if (this->payload_.size() >= 16) {
+        int32_t target_num = 0;
+        std::memcpy(&target_num, &this->payload_[0], 4);
+        if (target_num > 0) {
+          float x_m = 0, y_m = 0, z_m = 0;
+          std::memcpy(&x_m, &this->payload_[4], 4);
+          std::memcpy(&y_m, &this->payload_[8], 4);
+          std::memcpy(&z_m, &this->payload_[12], 4);
+          this->publish_position_(x_m, y_m, z_m);
+        } else if (target_num == 0) {
+          this->publish_position_(0, 0, 0);
+        }
+      }
+      break;
+    }
+
     case 0x0A16: { // Distance
       if (this->payload_.size() >= 8) {
         uint32_t flag = 0;
@@ -161,6 +177,17 @@ void LD6002Component::process_packet_() {
           this->last_distance_cm_ = distance_cm;
           if (this->distance_ != nullptr) {
             this->distance_->publish_state(distance_cm);
+          }
+          
+          // LD6002 is a 1D radar. Synthesize target coordinates based on distance.
+          this->publish_position_(0, distance_cm / 100.0f, 0);
+          if (this->presence_sensor_ != nullptr && (!this->presence_sensor_->has_state() || !this->presence_sensor_->state)) {
+            this->presence_sensor_->publish_state(true);
+          }
+        } else {
+          this->publish_position_(0, 0, 0);
+          if (this->presence_sensor_ != nullptr && (!this->presence_sensor_->has_state() || this->presence_sensor_->state)) {
+            this->presence_sensor_->publish_state(false);
           }
         }
       }

@@ -48,14 +48,14 @@ external_components:
 
 ### 第 2 步：配置 UART
 
-LD6002 默认波特率为 **115200**。
+LD6002 实际通信波特率为 **1382400**，8N1（注：官方文档标示为 115200，但实际硬件抓包确认为 1382400）。
 
 ```yaml
 uart:
   id: uart_ld6002
   tx_pin: GPIO21   # ESP32-C3 → LD6002 RX（交叉接线）
   rx_pin: GPIO20   # ESP32-C3 ← LD6002 TX
-  baud_rate: 115200
+  baud_rate: 1382400
   data_bits: 8
   parity: NONE
   stop_bits: 1

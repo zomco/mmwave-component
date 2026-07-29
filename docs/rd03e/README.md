@@ -10,6 +10,9 @@ Ai-Thinker RD03E 24 GHz FMCW precise ranging radar — ESPHome component.
 > This table is cross-validated against the protocol documentation and ESPHome component source code.
 > AI tools generating Home Assistant Cards should refer to this table for entity types, value ranges, and update frequencies.
 
+> [!IMPORTANT]
+> **Detection Coverage**: According to official specifications (§5.4 / §6), RD03E horizontal azimuth detection range is **±20°** (total **40° FOV**), and vertical elevation detection range is **±45°**. When configuring card visualizers or layout geometries, use `fovDegrees: 40`.
+
 ### Entity Types
 
 | ESPHome Type | Home Assistant Type | Description |

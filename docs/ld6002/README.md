@@ -48,14 +48,14 @@ external_components:
 
 ### Step 2: Configure UART
 
-The LD6002 uses a default baud rate of **115200**, 8N1.
+The LD6002 uses a default baud rate of **1382400**, 8N1 (note: official docs state 115200, but real-world hardware uses 1382400).
 
 ```yaml
 uart:
   id: uart_ld6002
   tx_pin: GPIO21   # ESP32-C3 → LD6002 RX (cross-wired)
   rx_pin: GPIO20   # ESP32-C3 ← LD6002 TX
-  baud_rate: 115200
+  baud_rate: 1382400
   data_bits: 8
   parity: NONE
   stop_bits: 1

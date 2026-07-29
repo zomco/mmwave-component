@@ -18,6 +18,9 @@ void RD03EComponent::setup() {
 void RD03EComponent::loop() {
   while (available()) {
     const uint8_t byte = read();
+    if (millis() < this->mock_active_until_) {
+      continue;
+    }
     last_rx_ms_ = millis();
     process_byte_(byte);
   }
@@ -402,6 +405,39 @@ void RD03EComponent::publish_position_(float range_cm) {
   ESP_LOGD(TAG, "Room: x=%.1f y=%.1f h=%.1f cm  [%s]",
            res.room.x, res.room.y, res.room_z,
            res.in_boundary ? "inside" : "OUTSIDE");
+}
+
+void RD03EComponent::inject_mock_data(const std::string &hex_str) {
+  if (hex_str == "0" || hex_str == "reset" || hex_str == "clear" || hex_str.empty()) {
+    ESP_LOGI(TAG, "Clearing mock mode, resuming live hardware UART input");
+    this->mock_active_until_ = 0;
+    return;
+  }
+  this->mock_active_until_ = millis() + 10000;
+  ESP_LOGI(TAG, "Injecting mock data: %s", hex_str.c_str());
+  std::string hex_chars;
+  for (char c : hex_str) {
+    if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+      hex_chars += c;
+    }
+  }
+
+  if (hex_chars.length() % 2 != 0) {
+    ESP_LOGE(TAG, "Mock data length must be even");
+    return;
+  }
+
+  auto char_to_val = [](char c) -> uint8_t {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    return 0;
+  };
+
+  for (size_t i = 0; i < hex_chars.length(); i += 2) {
+    uint8_t byte = (char_to_val(hex_chars[i]) << 4) | char_to_val(hex_chars[i+1]);
+    process_byte_(byte);
+  }
 }
 
 } // namespace rd03e

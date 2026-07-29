@@ -1,0 +1,66 @@
+substitutions:
+  name: ld2450a
+  friendly_name: "LD2450A Radar"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [ld2450a]
+
+logger:
+
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+  ap:
+    ssid: "${friendly_name} Fallback"
+
+captive_portal:
+
+uart:
+  id: uart_ld2450a
+  tx_pin: GPIO21
+  rx_pin: GPIO20
+  baud_rate: 256000
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+
+ld2450a:
+  uart_id: uart_ld2450a
+  presence:
+    name: "Presence"
+  distance:
+    name: "Distance"
+  gesture:
+    name: "Gesture"
+  gesture_type:
+    name: "Gesture Type"
+  gesture_distance:
+    name: "Gesture Distance"
+  gesture_speed:
+    name: "Gesture Speed"
+  gesture_angle:
+    name: "Gesture Angle"
+  room_x:
+    name: "Room X"
+  room_y:
+    name: "Room Y"
+  room_z:
+    name: "Room Z"
+  in_boundary:
+    name: "In Boundary"

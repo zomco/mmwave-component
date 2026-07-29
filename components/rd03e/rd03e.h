@@ -123,6 +123,9 @@ class RD03EComponent : public Component, public uart::UARTDevice {
   /// 读取所有算法参数
   void send_read_params();
 
+  /// 注入测试用仿真 Hex 串口数据
+  void inject_mock_data(const std::string &hex_str);
+
  protected:
   void process_byte_(uint8_t byte);
   void handle_data_frame_();
@@ -142,6 +145,7 @@ class RD03EComponent : public Component, public uart::UARTDevice {
   uint8_t   cmd_buf_[MAX_CMD_DATA_LEN]{};
 
   uint32_t  last_rx_ms_{0};
+  uint32_t  mock_active_until_{0};
 
   CalibrationParams cal_;
 
