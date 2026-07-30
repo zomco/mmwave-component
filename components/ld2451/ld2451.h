@@ -59,12 +59,20 @@ class LD2451Component : public Component, public uart::UARTDevice {
   void set_target_room_z_sensor(uint8_t idx, sensor::Sensor *s)       { if (idx < 3) targets_[idx].room_z = s; }
   void set_target_in_boundary_sensor(uint8_t idx, binary_sensor::BinarySensor *s) { if (idx < 3) targets_[idx].in_boundary = s; }
 
+  // ── Configuration Commands ──
+  void factory_reset();
+  void restart_module();
+
  protected:
   void process_byte_(uint8_t byte);
   void process_packet_();
+  void process_ack_();
+  void send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
+  void handle_ack_data_(uint16_t command, uint16_t status, const uint8_t *data, uint8_t data_len);
 
   std::vector<uint8_t> rx_buffer_;
   uint32_t last_rx_ms_{0};
+  bool config_mode_{false};
 
   CalibrationParams cal_;
   
