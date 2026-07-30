@@ -44,11 +44,13 @@ class LD2410BComponent : public Component, public uart::UARTDevice {
   void set_room_y_sensor(sensor::Sensor *s) { room_y_sensor_ = s; }
   void set_room_z_sensor(sensor::Sensor *s) { room_z_sensor_ = s; }
   void set_in_boundary_sensor(binary_sensor::BinarySensor *s) { in_boundary_sensor_ = s; }
+  void inject_mock_data(const std::string &data);
 
  protected:
   void process_byte_(uint8_t byte);
   void process_packet_();
 
+  uint32_t mock_active_until_{0};
   std::vector<uint8_t> rx_buffer_;
   uint32_t last_rx_ms_{0};
 

@@ -37,6 +37,7 @@ class LD2450AComponent : public Component, public uart::UARTDevice {
   void set_gesture_angle_threshold(uint16_t val_deg);
   void reboot();
   void factory_reset();
+  void inject_mock_data(std::string data);
 
   // ── Sensor setters ──
   void set_presence_sensor(binary_sensor::BinarySensor *s)    { presence_sensor_ = s; }
@@ -59,6 +60,7 @@ class LD2450AComponent : public Component, public uart::UARTDevice {
 
   std::vector<uint8_t> rx_buffer_;
   uint32_t last_rx_ms_{0};
+  uint32_t mock_active_until_{0};
 
   CalibrationParams cal_;
 

@@ -76,6 +76,17 @@ class LD6002Component : public Component, public uart::UARTDevice {
 
   float last_distance_cm_{0};
 
+  // ── Frame type statistics (debug) ──
+  uint32_t frame_count_0F09_{0};   // Presence
+  uint32_t frame_count_0A04_{0};   // Personnel Position (3D)
+  uint32_t frame_count_0A13_{0};   // Phase
+  uint32_t frame_count_0A14_{0};   // Respiration Rate
+  uint32_t frame_count_0A15_{0};   // Heart Rate
+  uint32_t frame_count_0A16_{0};   // Distance
+  uint32_t frame_count_0A17_{0};   // Tracked Position (3D)
+  uint32_t frame_count_other_{0};  // Unknown types
+  uint32_t last_stats_ms_{0};      // Last stats dump time
+
   // Sensors
   binary_sensor::BinarySensor *presence_sensor_    = nullptr;
   sensor::Sensor              *distance_           = nullptr;

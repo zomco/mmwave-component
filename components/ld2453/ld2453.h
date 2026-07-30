@@ -53,11 +53,14 @@ class LD2453Component : public Component, public uart::UARTDevice {
   void set_target_room_z_sensor(uint8_t idx, sensor::Sensor *s)       { if (idx < 3) targets_[idx].room_z = s; }
   void set_target_in_boundary_sensor(uint8_t idx, binary_sensor::BinarySensor *s) { if (idx < 3) targets_[idx].in_boundary = s; }
 
+  void inject_mock_data(const std::string &data);
+
  protected:
   void process_byte_(uint8_t byte);
   void process_packet_();
   int16_t decode_value_(uint8_t low, uint8_t high);
 
+  uint32_t mock_active_until_{0};
   std::vector<uint8_t> rx_buffer_;
   uint32_t last_rx_ms_{0};
 

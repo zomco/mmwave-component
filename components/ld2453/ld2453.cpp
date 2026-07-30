@@ -38,6 +38,12 @@ void LD2453Component::dump_config() {
 
 void LD2453Component::loop() {
   const uint32_t now = millis();
+
+  if (this->mock_active_until_ > 0 && now < this->mock_active_until_) {
+    while (this->available()) this->read();
+    return;
+  }
+
   if (now - this->last_rx_ms_ > 100 && !this->rx_buffer_.empty()) {
     this->rx_buffer_.clear();
   }
@@ -46,6 +52,35 @@ void LD2453Component::loop() {
     this->last_rx_ms_ = now;
     this->process_byte_(this->read());
   }
+}
+
+void LD2453Component::inject_mock_data(const std::string &data) {
+  if (data == "0" || data == "reset") {
+    this->mock_active_until_ = 0;
+    this->rx_buffer_.clear();
+    ESP_LOGD(TAG, "Mock data disabled, resuming normal hardware UART");
+    return;
+  }
+
+  this->mock_active_until_ = millis() + 10000;
+  this->rx_buffer_.clear();
+
+  for (size_t i = 0; i < data.length(); i += 2) {
+    std::string byte_str = data.substr(i, 2);
+    uint8_t byte = (uint8_t) strtol(byte_str.c_str(), nullptr, 16);
+    this->rx_buffer_.push_back(byte);
+  }
+
+  if (this->rx_buffer_.size() >= 30 &&
+      this->rx_buffer_[0] == 0xAA && this->rx_buffer_[1] == 0xFF &&
+      this->rx_buffer_[2] == 0x03 && this->rx_buffer_[3] == 0x00 &&
+      this->rx_buffer_[28] == 0x55 && this->rx_buffer_[29] == 0xCC) {
+    this->process_packet_();
+  } else {
+    ESP_LOGW(TAG, "Injected mock data is not a valid LD2453 frame! length=%d", this->rx_buffer_.size());
+  }
+  
+  this->rx_buffer_.clear();
 }
 
 void LD2453Component::process_byte_(uint8_t byte) {

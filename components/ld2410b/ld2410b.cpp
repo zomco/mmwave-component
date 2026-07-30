@@ -38,6 +38,12 @@ void LD2410BComponent::dump_config() {
 
 void LD2410BComponent::loop() {
   const uint32_t now = millis();
+
+  if (this->mock_active_until_ > 0 && now < this->mock_active_until_) {
+    while (this->available()) this->read();
+    return;
+  }
+
   if (now - this->last_rx_ms_ > 100 && !this->rx_buffer_.empty()) {
     this->rx_buffer_.clear();
   }
@@ -134,6 +140,21 @@ void LD2410BComponent::process_packet_() {
     if (this->in_boundary_sensor_->state != in_boundary || !this->in_boundary_sensor_->has_state()) {
       this->in_boundary_sensor_->publish_state(in_boundary);
     }
+  }
+}
+
+void LD2410BComponent::inject_mock_data(const std::string &data) {
+  if (data == "0" || data == "reset") {
+    this->mock_active_until_ = 0;
+    return;
+  }
+  this->mock_active_until_ = millis() + 10000;
+  for (size_t i = 0; i < data.length(); i += 2) {
+    while (i < data.length() && data[i] == ' ') i++;
+    if (i + 1 >= data.length()) break;
+    std::string byteString = data.substr(i, 2);
+    uint8_t byte = (uint8_t) strtol(byteString.c_str(), nullptr, 16);
+    this->process_byte_(byte);
   }
 }
 
