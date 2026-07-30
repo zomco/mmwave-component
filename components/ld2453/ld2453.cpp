@@ -83,6 +83,87 @@ void LD2453Component::inject_mock_data(const std::string &data) {
   this->rx_buffer_.clear();
 }
 
+void LD2453Component::send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len) {
+  // Enable config
+  uint8_t enable_cmd[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x04, 0x00, 0xFF, 0x00, 0x01, 0x00, 0x04, 0x03, 0x02, 0x01};
+  this->write_array(enable_cmd, sizeof(enable_cmd));
+  delay(50);
+
+  // Send command
+  uint16_t len = 2 + command_value_len;
+  std::vector<uint8_t> cmd;
+  cmd.push_back(0xFD);
+  cmd.push_back(0xFC);
+  cmd.push_back(0xFB);
+  cmd.push_back(0xFA);
+  cmd.push_back(len & 0xFF);
+  cmd.push_back((len >> 8) & 0xFF);
+  cmd.push_back(command & 0xFF);
+  cmd.push_back((command >> 8) & 0xFF);
+  for (uint8_t i = 0; i < command_value_len; i++) {
+    cmd.push_back(command_value[i]);
+  }
+  cmd.push_back(0x04);
+  cmd.push_back(0x03);
+  cmd.push_back(0x02);
+  cmd.push_back(0x01);
+  this->write_array(cmd.data(), cmd.size());
+  delay(50);
+
+  // Disable config
+  uint8_t disable_cmd[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x02, 0x00, 0xFE, 0x00, 0x04, 0x03, 0x02, 0x01};
+  this->write_array(disable_cmd, sizeof(disable_cmd));
+  delay(50);
+}
+
+void LD2453Component::set_tracking_mode(uint8_t mode) {
+  uint16_t cmd = (mode == 1) ? 0x0080 : 0x0090;
+  this->send_command_(cmd, nullptr, 0);
+  ESP_LOGI(TAG, "Set tracking mode: %d", mode);
+}
+
+void LD2453Component::query_parameters() {
+  this->send_command_(0x0091, nullptr, 0);
+}
+
+void LD2453Component::factory_reset() {
+  this->send_command_(0x00A2, nullptr, 0);
+  ESP_LOGI(TAG, "Factory reset sent");
+}
+
+void LD2453Component::restart_module() {
+  this->send_command_(0x00A3, nullptr, 0);
+  ESP_LOGI(TAG, "Restart sent");
+}
+
+void LD2453Component::process_ack_() {
+  if (this->rx_buffer_.size() < 10) return;
+  uint16_t command = (uint16_t(this->rx_buffer_[7]) << 8) | this->rx_buffer_[6];
+  uint16_t status = (uint16_t(this->rx_buffer_[9]) << 8) | this->rx_buffer_[8];
+  
+  uint8_t data_len = 0;
+  const uint8_t *data = nullptr;
+  uint16_t total_len = (uint16_t(this->rx_buffer_[5]) << 8) | this->rx_buffer_[4];
+  if (total_len > 4) {
+    data_len = total_len - 4;
+    data = &this->rx_buffer_[10];
+  }
+  
+  this->handle_ack_data_(command, status, data, data_len);
+}
+
+void LD2453Component::handle_ack_data_(uint16_t command, uint16_t status, const uint8_t *data, uint8_t data_len) {
+  ESP_LOGD(TAG, "Received ACK for command 0x%04X, status: 0x%04X", command, status);
+  if (status != 0) {
+    ESP_LOGW(TAG, "Command 0x%04X failed!", command);
+    return;
+  }
+  if (command == 0x0091 && data_len >= 2) {
+    uint16_t mode = (uint16_t(data[1]) << 8) | data[0];
+    ESP_LOGI(TAG, "Current Tracking Mode: %s", mode == 1 ? "Single Target" : "Multi Target");
+  }
+}
+
 void LD2453Component::process_byte_(uint8_t byte) {
   this->rx_buffer_.push_back(byte);
 
@@ -93,10 +174,40 @@ void LD2453Component::process_byte_(uint8_t byte) {
       
       this->process_packet_();
       this->rx_buffer_.clear();
+    } else if (this->rx_buffer_[0] == 0xFD && this->rx_buffer_[1] == 0xFC &&
+               this->rx_buffer_[2] == 0xFB && this->rx_buffer_[3] == 0xFA) {
+      size_t tail_idx = 0;
+      for (size_t i = 4; i < this->rx_buffer_.size() - 3; i++) {
+        if (this->rx_buffer_[i] == 0x04 && this->rx_buffer_[i+1] == 0x03 &&
+            this->rx_buffer_[i+2] == 0x02 && this->rx_buffer_[i+3] == 0x01) {
+          tail_idx = i;
+          break;
+        }
+      }
+      if (tail_idx > 0) {
+        this->process_ack_();
+        this->rx_buffer_.erase(this->rx_buffer_.begin(), this->rx_buffer_.begin() + tail_idx + 4);
+      } else if (this->rx_buffer_.size() > 64) {
+        this->rx_buffer_.erase(this->rx_buffer_.begin());
+      }
     } else {
       // Invalid frame, pop first byte and continue
       this->rx_buffer_.erase(this->rx_buffer_.begin());
     }
+  } else if (this->rx_buffer_.size() >= 10 && this->rx_buffer_[0] == 0xFD && this->rx_buffer_[1] == 0xFC &&
+             this->rx_buffer_[2] == 0xFB && this->rx_buffer_[3] == 0xFA) {
+      size_t tail_idx = 0;
+      for (size_t i = 4; i < this->rx_buffer_.size() - 3; i++) {
+        if (this->rx_buffer_[i] == 0x04 && this->rx_buffer_[i+1] == 0x03 &&
+            this->rx_buffer_[i+2] == 0x02 && this->rx_buffer_[i+3] == 0x01) {
+          tail_idx = i;
+          break;
+        }
+      }
+      if (tail_idx > 0) {
+        this->process_ack_();
+        this->rx_buffer_.erase(this->rx_buffer_.begin(), this->rx_buffer_.begin() + tail_idx + 4);
+      }
   }
 }
 

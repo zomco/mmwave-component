@@ -21,6 +21,7 @@ CONF_MOVING_ENERGY = "moving_energy"
 CONF_STATIONARY_DISTANCE = "stationary_distance"
 CONF_STATIONARY_ENERGY = "stationary_energy"
 CONF_DETECTION_DISTANCE = "detection_distance"
+CONF_MAX_DISTANCE = "max_distance"
 
 # Spatial projection entities
 CONF_ROOM_X = "room_x"
@@ -76,6 +77,11 @@ CONFIG_SCHEMA = cv.All(
                 accuracy_decimals=0,
             ),
             cv.Optional(CONF_DETECTION_DISTANCE): sensor.sensor_schema(
+                unit_of_measurement=UNIT_CENTIMETER,
+                device_class=DEVICE_CLASS_DISTANCE,
+                accuracy_decimals=0,
+            ),
+            cv.Optional(CONF_MAX_DISTANCE): sensor.sensor_schema(
                 unit_of_measurement=UNIT_CENTIMETER,
                 device_class=DEVICE_CLASS_DISTANCE,
                 accuracy_decimals=0,
@@ -140,6 +146,9 @@ async def to_code(config):
     if CONF_DETECTION_DISTANCE in config:
         sens = await sensor.new_sensor(config[CONF_DETECTION_DISTANCE])
         cg.add(var.set_detection_distance_sensor(sens))
+    if CONF_MAX_DISTANCE in config:
+        sens = await sensor.new_sensor(config[CONF_MAX_DISTANCE])
+        cg.add(var.set_max_distance_sensor(sens))
         
     if CONF_ROOM_X in config:
         sens = await sensor.new_sensor(config[CONF_ROOM_X])

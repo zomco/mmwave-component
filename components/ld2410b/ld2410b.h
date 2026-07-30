@@ -29,6 +29,7 @@ class LD2410BComponent : public Component, public uart::UARTDevice {
   void set_roll(float v)         { cal_.roll         = v; }
   void set_distance_min(float v) { cal_.distance_min = v; }
   void set_distance_max(float v) { cal_.distance_max = v; }
+  void set_distance_resolution(float v) { distance_resolution_ = v; }
 
   // ── Sensor setters ──
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
@@ -39,6 +40,7 @@ class LD2410BComponent : public Component, public uart::UARTDevice {
   void set_stationary_distance_sensor(sensor::Sensor *s) { stationary_distance_sensor_ = s; }
   void set_stationary_energy_sensor(sensor::Sensor *s) { stationary_energy_sensor_ = s; }
   void set_detection_distance_sensor(sensor::Sensor *s) { detection_distance_sensor_ = s; }
+  void set_max_distance_sensor(sensor::Sensor *s) { max_distance_sensor_ = s; }
   
   void set_room_x_sensor(sensor::Sensor *s) { room_x_sensor_ = s; }
   void set_room_y_sensor(sensor::Sensor *s) { room_y_sensor_ = s; }
@@ -64,6 +66,9 @@ class LD2410BComponent : public Component, public uart::UARTDevice {
   sensor::Sensor *stationary_distance_sensor_ = nullptr;
   sensor::Sensor *stationary_energy_sensor_ = nullptr;
   sensor::Sensor *detection_distance_sensor_ = nullptr;
+  sensor::Sensor *max_distance_sensor_ = nullptr;
+  
+  float distance_resolution_{0.75f};
   
   sensor::Sensor *room_x_sensor_ = nullptr;
   sensor::Sensor *room_y_sensor_ = nullptr;

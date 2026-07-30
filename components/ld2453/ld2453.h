@@ -55,14 +55,24 @@ class LD2453Component : public Component, public uart::UARTDevice {
 
   void inject_mock_data(const std::string &data);
 
+  // ── Configuration Commands ──
+  void set_tracking_mode(uint8_t mode); // 1 = Single, 2 = Multi
+  void query_parameters();
+  void factory_reset();
+  void restart_module();
+
  protected:
   void process_byte_(uint8_t byte);
   void process_packet_();
+  void process_ack_();
+  void send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
+  void handle_ack_data_(uint16_t command, uint16_t status, const uint8_t *data, uint8_t data_len);
   int16_t decode_value_(uint8_t low, uint8_t high);
 
   uint32_t mock_active_until_{0};
   std::vector<uint8_t> rx_buffer_;
   uint32_t last_rx_ms_{0};
+  bool config_mode_{false};
 
   CalibrationParams cal_;
   
