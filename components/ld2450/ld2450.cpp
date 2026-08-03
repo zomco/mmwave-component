@@ -6,6 +6,16 @@ namespace ld2450 {
 
 static const char *const TAG = "ld2450";
 
+void LD2450Button::press_action() {
+  if (type_ == RESTART) parent_->restart_module();
+  else if (type_ == FACTORY_RESET) parent_->factory_reset();
+}
+
+void LD2450Switch::write_state(bool state) {
+  if (type_ == MULTI_TARGET) parent_->set_multi_target_mode(state);
+  else if (type_ == BLUETOOTH) parent_->set_bluetooth(state);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 生命周期
 // ═══════════════════════════════════════════════════════════════════════════
@@ -13,7 +23,10 @@ static const char *const TAG = "ld2450";
 void LD2450Component::setup() {
   ESP_LOGCONFIG(TAG, "LD2450 setup...");
   recompute_rotation_();
-  // LD2450 默认为多目标追踪模式，上电后立即输出数据帧，无需初始化命令
+  // 延迟 1 秒后查询设备状态，确保雷达启动完毕
+  this->set_timeout(1000, [this]() {
+    this->query_state();
+  });
 }
 
 void LD2450Component::loop() {
@@ -100,9 +113,11 @@ void LD2450Component::send_config_cmd(uint16_t cmd_word,
   // 1. 使能配置
   const uint8_t enable_val[] = {0x01, 0x00};
   send_raw_cmd_(CMD_ENABLE_CONFIG, enable_val, 2);
+  delay(50);  // NOLINT
 
   // 2. 发送目标命令
   send_raw_cmd_(cmd_word, data, len);
+  delay(50);  // NOLINT
 
   // 3. 结束配置
   send_raw_cmd_(CMD_END_CONFIG, nullptr, 0);
@@ -248,15 +263,27 @@ void LD2450Component::dispatch_data_frame_() {
     const int16_t  speed     = decode_speed(p[4], p[5]);
     const uint16_t res       = decode_resolution(p[6], p[7]);
 
-    // 目标存在判定：X 和 Y 同时为 0 视为无目标
+  // 目标存在判定：X 和 Y 同时为 0 视为无目标
     const bool active = (x_mm != 0 || y_mm != 0);
     if (active) any_active = true;
 
     publish_target_(i, x_mm, y_mm, speed, res, active);
   }
 
-  if (presence_sensor_)
-    presence_sensor_->publish_state(any_active);
+  if (presence_sensor_) {
+    if (any_active) {
+      last_presence_ms_ = millis();
+      if (!presence_sensor_->state || !presence_sensor_->has_state()) {
+        presence_sensor_->publish_state(true);
+      }
+    } else {
+      if (millis() - last_presence_ms_ > presence_timeout_) {
+        if (presence_sensor_->state || !presence_sensor_->has_state()) {
+          presence_sensor_->publish_state(false);
+        }
+      }
+    }
+  }
 
   ESP_LOGV(TAG, "Data frame: %s", any_active ? "targets detected" : "no targets");
 }
@@ -290,11 +317,29 @@ void LD2450Component::dispatch_cmd_frame_() {
              cmd_buf_[11], cmd_buf_[10], cmd_buf_[9], cmd_buf_[8]);
   }
 
-  // 特殊处理: 追踪模式查询 (0x9101)
+  // 特殊处理: 追踪模式查询或设置确认 (0x9101, 0x8001, 0x9001)
   if (ack_cmd == (CMD_QUERY_MODE | 0x0100) && cmd_len_ >= 6 && status == 0) {
     const uint16_t mode = (static_cast<uint16_t>(cmd_buf_[5]) << 8) | cmd_buf_[4];
     ESP_LOGI(TAG, "Tracking mode: %s",
              mode == 0x0001 ? "single" : (mode == 0x0002 ? "multi" : "unknown"));
+    if (this->multi_target_switch_ != nullptr) {
+      this->multi_target_switch_->publish_state(mode == 0x0002);
+    }
+  } else if (ack_cmd == (CMD_MULTI_TARGET | 0x0100) && status == 0) {
+    if (this->multi_target_switch_ != nullptr) this->multi_target_switch_->publish_state(true);
+  } else if (ack_cmd == (CMD_SINGLE_TARGET | 0x0100) && status == 0) {
+    if (this->multi_target_switch_ != nullptr) this->multi_target_switch_->publish_state(false);
+  }
+
+  // 特殊处理: 蓝牙查询或设置确认 (0xA501, 0xA401)
+  if (ack_cmd == (CMD_GET_MAC | 0x0100) && cmd_len_ >= 8 && status == 0) {
+    // MAC 全为 [0x08, 0x05, 0x04, 0x03, 0x02, 0x01] 时表示蓝牙已关闭
+    const uint8_t NO_MAC[] = {0x08, 0x05, 0x04, 0x03, 0x02, 0x01};
+    bool bt_on = std::memcmp(&cmd_buf_[4], NO_MAC, 6) != 0;
+    ESP_LOGI(TAG, "Bluetooth: %s", bt_on ? "ON" : "OFF");
+    if (this->bluetooth_switch_ != nullptr) {
+      this->bluetooth_switch_->publish_state(bt_on);
+    }
   }
 }
 
@@ -324,20 +369,19 @@ void LD2450Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
     return;
   }
 
-  // ── 发布原始值 ─────────────────────────────────────────────────────────
-  if (t.x)          t.x->publish_state(static_cast<float>(x_mm));
-  if (t.y)          t.y->publish_state(static_cast<float>(y_mm));
-  if (t.speed)      t.speed->publish_state(static_cast<float>(speed_cm_s));
-  if (t.resolution) t.resolution->publish_state(static_cast<float>(resolution_mm));
-
   // ── 计算距离和角度 ─────────────────────────────────────────────────────
   const float x_cm = static_cast<float>(x_mm) / 10.0f;
   const float y_cm = static_cast<float>(y_mm) / 10.0f;
   const float dist_cm = sqrtf(x_cm * x_cm + y_cm * y_cm);
   const float angle_deg = atan2f(x_cm, y_cm) * 180.0f / static_cast<float>(M_PI);
 
-  if (t.distance) t.distance->publish_state(dist_cm);
-  if (t.angle)    t.angle->publish_state(angle_deg);
+  // ── 发布计算后的值 (转换为 cm 以统一单位) ──────────────────────────────
+  if (t.x)          t.x->publish_state(x_cm);
+  if (t.y)          t.y->publish_state(y_cm);
+  if (t.speed)      t.speed->publish_state(static_cast<float>(speed_cm_s));
+  if (t.resolution) t.resolution->publish_state(static_cast<float>(resolution_mm) / 10.0f);
+  if (t.distance)   t.distance->publish_state(dist_cm);
+  if (t.angle)      t.angle->publish_state(angle_deg);
 
   // ── 坐标变换（雷达局部 → 房间坐标系） ──────────────────────────────────
   const auto res = apply(x_cm, y_cm, rotation_, cal_);

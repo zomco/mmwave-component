@@ -2,7 +2,7 @@
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart, sensor, binary_sensor
+from esphome.components import uart, sensor, binary_sensor, button, switch
 from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
@@ -11,13 +11,14 @@ from esphome.const import (
     STATE_CLASS_MEASUREMENT,
     UNIT_CENTIMETER,
     ICON_EMPTY,
+    CONF_FACTORY_RESET,
 )
 
 # ── HACS / ESPHome 元数据 ─────────────────────────────────────────────────────
 
 CODEOWNERS    = ["@zomco"]
 DEPENDENCIES  = ["uart"]
-AUTO_LOAD     = ["sensor", "binary_sensor"]
+AUTO_LOAD     = ["sensor", "binary_sensor", "button", "switch"]
 
 # ── C++ 命名空间 ──────────────────────────────────────────────────────────────
 
@@ -39,9 +40,14 @@ CONF_POLYGON        = "polygon"
 
 # 全局传感器
 CONF_PRESENCE       = "presence"
+CONF_PRESENCE_TIMEOUT = "presence_timeout"
+
+# 控制实体
+CONF_MULTI_TARGET   = "multi_target"
+CONF_BLUETOOTH      = "bluetooth"
+CONF_RESTART        = "restart"
 
 # 自定义单位
-UNIT_MILLIMETER     = "mm"
 UNIT_CM_PER_S       = "cm/s"
 UNIT_DEGREES        = "°"
 
@@ -56,10 +62,10 @@ POLYGON_POINT_SCHEMA = cv.Schema({
 # (配置后缀, C++ setter 后缀, icon, unit, accuracy, device_class)
 
 _TARGET_SENSOR_DEFS = [
-    ("x",          "x",          "mdi:axis-x-arrow",         UNIT_MILLIMETER, 0, None),
-    ("y",          "y",          "mdi:axis-y-arrow",         UNIT_MILLIMETER, 0, None),
+    ("x",          "x",          "mdi:axis-x-arrow",         UNIT_CENTIMETER, 1, None),
+    ("y",          "y",          "mdi:axis-y-arrow",         UNIT_CENTIMETER, 1, None),
     ("speed",      "speed",      "mdi:speedometer",          UNIT_CM_PER_S,   0, DEVICE_CLASS_SPEED),
-    ("resolution", "resolution", "mdi:ruler",                UNIT_MILLIMETER, 0, None),
+    ("resolution", "resolution", "mdi:ruler",                UNIT_CENTIMETER, 1, None),
     ("distance",   "distance",   "mdi:map-marker-distance",  UNIT_CENTIMETER, 1, DEVICE_CLASS_DISTANCE),
     ("angle",      "angle",      "mdi:angle-acute",          UNIT_DEGREES,    1, None),
     ("room_x",     "room_x",     "mdi:map-marker-radius",    UNIT_CENTIMETER, 1, None),
@@ -126,6 +132,25 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_PRESENCE,
             ),
+            cv.Optional(CONF_PRESENCE_TIMEOUT, default="5s"): cv.positive_time_period_milliseconds,
+
+            # ── 控制实体 ──────────────────────────────────────────────────
+            cv.Optional(CONF_MULTI_TARGET): switch.switch_schema(
+                ld2450_ns.class_("LD2450Switch", switch.Switch),
+                icon="mdi:target-account",
+            ),
+            cv.Optional(CONF_BLUETOOTH): switch.switch_schema(
+                ld2450_ns.class_("LD2450Switch", switch.Switch),
+                icon="mdi:bluetooth",
+            ),
+            cv.Optional(CONF_FACTORY_RESET): button.button_schema(
+                ld2450_ns.class_("LD2450Button", button.Button),
+                icon="mdi:restart-alert",
+            ),
+            cv.Optional(CONF_RESTART): button.button_schema(
+                ld2450_ns.class_("LD2450Button", button.Button),
+                icon="mdi:restart",
+            ),
 
             # ── 每目标传感器（动态生成） ──────────────────────────────────
             **_target_entries,
@@ -174,3 +199,33 @@ async def to_code(config):
                 sens = await binary_sensor.new_binary_sensor(config[key])
                 setter = f"set_target_{n}_{setter_suffix}_sensor"
                 cg.add(getattr(var, setter)(sens))
+
+    # 全局超时设置
+    cg.add(var.set_presence_timeout(config[CONF_PRESENCE_TIMEOUT]))
+
+    # 控制实体
+    if CONF_MULTI_TARGET in config:
+        sw = cg.new_Pvariable(config[CONF_MULTI_TARGET][CONF_ID])
+        await switch.register_switch(sw, config[CONF_MULTI_TARGET])
+        cg.add(sw.set_parent(var))
+        cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2450::LD2450Switch::MULTI_TARGET")))
+        cg.add(var.multi_target_switch_, sw)
+
+    if CONF_BLUETOOTH in config:
+        sw = cg.new_Pvariable(config[CONF_BLUETOOTH][CONF_ID])
+        await switch.register_switch(sw, config[CONF_BLUETOOTH])
+        cg.add(sw.set_parent(var))
+        cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2450::LD2450Switch::BLUETOOTH")))
+        cg.add(var.bluetooth_switch_, sw)
+
+    if CONF_FACTORY_RESET in config:
+        btn = cg.new_Pvariable(config[CONF_FACTORY_RESET][CONF_ID])
+        await button.register_button(btn, config[CONF_FACTORY_RESET])
+        cg.add(btn.set_parent(var))
+        cg.add(btn.set_button_type(cg.RawExpression("esphome::ld2450::LD2450Button::FACTORY_RESET")))
+
+    if CONF_RESTART in config:
+        btn = cg.new_Pvariable(config[CONF_RESTART][CONF_ID])
+        await button.register_button(btn, config[CONF_RESTART])
+        cg.add(btn.set_parent(var))
+        cg.add(btn.set_button_type(cg.RawExpression("esphome::ld2450::LD2450Button::RESTART")))

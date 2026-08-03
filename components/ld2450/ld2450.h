@@ -5,6 +5,8 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/button/button.h"
+#include "esphome/components/switch/switch.h"
 #include "ld2450_transform.h"
 
 #include <vector>
@@ -93,6 +95,30 @@ struct TargetSensors {
   binary_sensor::BinarySensor *in_boundary{nullptr};
 };
 
+class LD2450Component;
+
+class LD2450Button : public button::Button {
+ public:
+  enum ButtonType { RESTART, FACTORY_RESET };
+  void set_parent(LD2450Component *parent) { parent_ = parent; }
+  void set_button_type(ButtonType type) { type_ = type; }
+  void press_action() override;
+ protected:
+  LD2450Component *parent_;
+  ButtonType type_;
+};
+
+class LD2450Switch : public switch_::Switch {
+ public:
+  enum SwitchType { MULTI_TARGET, BLUETOOTH };
+  void set_parent(LD2450Component *parent) { parent_ = parent; }
+  void set_switch_type(SwitchType type) { type_ = type; }
+  void write_state(bool state) override;
+ protected:
+  LD2450Component *parent_;
+  SwitchType type_;
+};
+
 // ─── 组件类 ───────────────────────────────────────────────────────────────────
 
 class LD2450Component : public Component, public uart::UARTDevice {
@@ -127,6 +153,7 @@ class LD2450Component : public Component, public uart::UARTDevice {
   // ── 全局传感器 setters ─────────────────────────────────────────────────
   /// 设置存在检测传感器（任一目标存在即为 true）
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
+  void set_presence_timeout(uint32_t t) { presence_timeout_ = t * 1000; }
 
   // ── 目标 1 传感器 setters ──────────────────────────────────────────────
   void set_target_1_x_sensor(sensor::Sensor *s)                    { targets_[0].x = s; }
@@ -168,17 +195,31 @@ class LD2450Component : public Component, public uart::UARTDevice {
   /// 发送命令帧（自动包裹 enable/end config）
   void send_config_cmd(uint16_t cmd_word, const uint8_t *data, uint16_t len);
   /// 设置多目标追踪模式
-  void set_multi_target_mode()   { send_config_cmd(CMD_MULTI_TARGET, nullptr, 0); }
-  /// 设置单目标追踪模式
-  void set_single_target_mode()  { send_config_cmd(CMD_SINGLE_TARGET, nullptr, 0); }
+  void set_multi_target_mode(bool enable) {
+    if (enable) send_config_cmd(CMD_MULTI_TARGET, nullptr, 0);
+    else send_config_cmd(CMD_SINGLE_TARGET, nullptr, 0);
+  }
+  /// 设置蓝牙广播
+  void set_bluetooth(bool enable) {
+    uint8_t data[] = { 0x01, static_cast<uint8_t>(enable ? 0x01 : 0x00) };
+    send_config_cmd(CMD_BT_SETTING, data, 2);
+  }
   /// 重启模块
   void restart_module()          { send_config_cmd(CMD_RESTART, nullptr, 0); }
   /// 恢复出厂设置
   void factory_reset()           { send_config_cmd(CMD_FACTORY_RESET, nullptr, 0); }
-  /// 查询固件版本
-  void query_firmware_version()  { send_config_cmd(CMD_FW_VERSION, nullptr, 0); }
+  /// 查询雷达状态
+  void query_state() {
+    send_config_cmd(CMD_FW_VERSION, nullptr, 0);
+    send_config_cmd(CMD_GET_MAC, nullptr, 0);
+    send_config_cmd(CMD_QUERY_MODE, nullptr, 0);
+  }
   /// 注入测试数据
   void inject_mock_data(const std::string &hex_str);
+
+  // 控制实体指针
+  switch_::Switch *multi_target_switch_{nullptr};
+  switch_::Switch *bluetooth_switch_{nullptr};
 
  protected:
   void process_byte_(uint8_t byte);
@@ -208,6 +249,8 @@ class LD2450Component : public Component, public uart::UARTDevice {
   // ── 传感器指针 ─────────────────────────────────────────────────────────
   TargetSensors targets_[MAX_TARGETS];
   binary_sensor::BinarySensor *presence_sensor_{nullptr};
+  uint32_t presence_timeout_{5000};
+  uint32_t last_presence_ms_{0};
 
   // ── 测试模拟数据状态 ───────────────────────────────────────────────────
   uint32_t mock_active_until_{0};

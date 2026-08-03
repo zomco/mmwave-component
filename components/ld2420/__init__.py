@@ -1,22 +1,30 @@
 import esphome.codegen as cg
-import esphome.config_validation as cv
 from esphome.components import uart, binary_sensor, sensor
+import esphome.config_validation as cv
 from esphome.const import (
     CONF_ID,
-    CONF_UART_ID,
-    CONF_DISTANCE,
     DEVICE_CLASS_DISTANCE,
     DEVICE_CLASS_PRESENCE,
     UNIT_CENTIMETER,
 )
 
+CODEOWNERS = ["@descipher", "@zomco"]
+
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["binary_sensor", "sensor"]
+
+# Ensure we autoload the official sub-components so compilation doesn't fail
+AUTO_LOAD = ["binary_sensor", "sensor", "button", "number", "select", "text_sensor"]
+
+MULTI_CONF = True
 
 ld2420_ns = cg.esphome_ns.namespace("ld2420")
 LD2420Component = ld2420_ns.class_("LD2420Component", cg.Component, uart.UARTDevice)
 
+CONF_LD2420_ID = "ld2420_id"
+
+# Our custom schema keys
 CONF_PRESENCE = "presence"
+CONF_DISTANCE = "distance"
 CONF_ROOM_X = "room_x"
 CONF_ROOM_Y = "room_y"
 CONF_ROOM_Z = "room_z"
@@ -46,7 +54,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_DISTANCE_MIN, default=0.0): cv.float_,
             cv.Optional(CONF_DISTANCE_MAX, default=0.0): cv.float_,
             
-            # Entities
+            # Inline Entities
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_PRESENCE,
             ),
@@ -73,9 +81,18 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_IN_BOUNDARY): binary_sensor.binary_sensor_schema(),
         }
     )
-    .extend(cv.COMPONENT_SCHEMA)
     .extend(uart.UART_DEVICE_SCHEMA)
+    .extend(cv.COMPONENT_SCHEMA)
 )
+
+FINAL_VALIDATE_SCHEMA = uart.final_validate_device_schema(
+    "ld2420_uart",
+    require_tx=True,
+    require_rx=True,
+    parity="NONE",
+    stop_bits=1,
+)
+
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])

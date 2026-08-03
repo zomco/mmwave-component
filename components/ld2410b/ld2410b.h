@@ -8,10 +8,14 @@
 #include "ld2410b_transform.h"
 
 #include <vector>
+#include <array>
 #include <cstdint>
 
 namespace esphome {
 namespace ld2410b {
+
+static constexpr uint8_t MAX_LINE_LENGTH = 50;
+static constexpr uint8_t TOTAL_GATES = 9;
 
 class LD2410BComponent : public Component, public uart::UARTDevice {
  public:
@@ -46,15 +50,21 @@ class LD2410BComponent : public Component, public uart::UARTDevice {
   void set_room_y_sensor(sensor::Sensor *s) { room_y_sensor_ = s; }
   void set_room_z_sensor(sensor::Sensor *s) { room_z_sensor_ = s; }
   void set_in_boundary_sensor(binary_sensor::BinarySensor *s) { in_boundary_sensor_ = s; }
+  
+  void set_gate_move_sensor(uint8_t gate, sensor::Sensor *s) { gate_move_sensors_[gate] = s; }
+  void set_gate_still_sensor(uint8_t gate, sensor::Sensor *s) { gate_still_sensors_[gate] = s; }
+
   void inject_mock_data(const std::string &data);
 
  protected:
-  void process_byte_(uint8_t byte);
-  void process_packet_();
+  void readline_(int readch);
+  void handle_periodic_data_();
+  bool handle_ack_data_();
+  void send_command_(uint8_t command_str, const uint8_t *command_value, uint8_t command_value_len);
 
   uint32_t mock_active_until_{0};
-  std::vector<uint8_t> rx_buffer_;
-  uint32_t last_rx_ms_{0};
+  uint8_t buffer_pos_{0};
+  uint8_t buffer_data_[MAX_LINE_LENGTH];
 
   CalibrationParams cal_;
   
@@ -74,6 +84,9 @@ class LD2410BComponent : public Component, public uart::UARTDevice {
   sensor::Sensor *room_y_sensor_ = nullptr;
   sensor::Sensor *room_z_sensor_ = nullptr;
   binary_sensor::BinarySensor *in_boundary_sensor_ = nullptr;
+
+  std::array<sensor::Sensor *, TOTAL_GATES> gate_move_sensors_{};
+  std::array<sensor::Sensor *, TOTAL_GATES> gate_still_sensors_{};
 };
 
 } // namespace ld2410b

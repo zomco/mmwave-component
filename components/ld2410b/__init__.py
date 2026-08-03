@@ -29,6 +29,10 @@ CONF_ROOM_Y = "room_y"
 CONF_ROOM_Z = "room_z"
 CONF_IN_BOUNDARY = "in_boundary"
 
+# Gate Energy Sensors
+CONF_GATE_MOVE_ENERGY = "gate_move_energy"
+CONF_GATE_STILL_ENERGY = "gate_still_energy"
+
 # Calibration parameters
 CONF_RADAR_X = "radar_x"
 CONF_RADAR_Y = "radar_y"
@@ -106,6 +110,21 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_IN_BOUNDARY): binary_sensor.binary_sensor_schema(),
         }
     )
+    .extend(
+        {
+            cv.Optional(f"g{x}"): cv.Schema(
+                {
+                    cv.Optional(CONF_GATE_MOVE_ENERGY): sensor.sensor_schema(
+                        accuracy_decimals=0,
+                    ),
+                    cv.Optional(CONF_GATE_STILL_ENERGY): sensor.sensor_schema(
+                        accuracy_decimals=0,
+                    ),
+                }
+            )
+            for x in range(9)
+        }
+    )
     .extend(cv.COMPONENT_SCHEMA)
     .extend(uart.UART_DEVICE_SCHEMA)
 )
@@ -162,3 +181,12 @@ async def to_code(config):
     if CONF_IN_BOUNDARY in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_IN_BOUNDARY])
         cg.add(var.set_in_boundary_sensor(sens))
+        
+    for x in range(9):
+        if gate_conf := config.get(f"g{x}"):
+            if move_config := gate_conf.get(CONF_GATE_MOVE_ENERGY):
+                sens = await sensor.new_sensor(move_config)
+                cg.add(var.set_gate_move_sensor(x, sens))
+            if still_config := gate_conf.get(CONF_GATE_STILL_ENERGY):
+                sens = await sensor.new_sensor(still_config)
+                cg.add(var.set_gate_still_sensor(x, sens))

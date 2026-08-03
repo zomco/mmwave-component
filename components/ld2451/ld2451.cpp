@@ -48,7 +48,10 @@ void LD2451Component::loop() {
 
   while (this->available()) {
     this->last_rx_ms_ = now;
-    this->process_byte_(this->read());
+    uint8_t b = this->read();
+    if (now >= this->mock_active_until_) {
+      this->process_byte_(b);
+    }
   }
 }
 
@@ -253,6 +256,28 @@ void LD2451Component::process_packet_() {
         }
       }
     }
+  }
+}
+
+void LD2451Component::inject_mock_data(std::string data) {
+  if (data == "0" || data == "reset") {
+    this->mock_active_until_ = 0;
+    this->rx_buffer_.clear();
+    ESP_LOGI(TAG, "Mock data mode disabled");
+    return;
+  }
+  
+  this->mock_active_until_ = millis() + 10000;
+  
+  std::vector<uint8_t> mock_bytes;
+  for (size_t i = 0; i < data.length(); i += 2) {
+    std::string byteString = data.substr(i, 2);
+    uint8_t byte = (uint8_t) strtol(byteString.c_str(), NULL, 16);
+    mock_bytes.push_back(byte);
+  }
+  
+  for (uint8_t b : mock_bytes) {
+    this->process_byte_(b);
   }
 }
 
