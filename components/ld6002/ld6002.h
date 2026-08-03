@@ -71,6 +71,7 @@ class LD6002Component : public Component, public uart::UARTDevice {
   uint16_t payload_idx_{0};
 
   uint32_t last_rx_ms_{0};
+  uint32_t last_publish_ms_{0};
 
   CalibrationParams cal_;
 

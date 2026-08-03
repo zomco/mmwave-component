@@ -25,6 +25,14 @@ void R60ABD1Component::loop() {
     }
     process_byte_(byte);
   }
+
+  // Presence watchdog - clear presence if no data for 1000ms
+  uint32_t now = millis();
+  if (now - this->last_rx_ms_ > 1000) {
+    if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
+      this->presence_sensor_->publish_state(false);
+    }
+  }
 }
 
 void R60ABD1Component::dump_config() {
@@ -487,6 +495,10 @@ void R60ABD1Component::handle_sleep_frame_() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
+  uint32_t now_ms = millis();
+  if (now_ms - this->last_publish_ms_ < 1000) return;
+  this->last_publish_ms_ = now_ms;
+
   const auto res = apply(
       static_cast<float>(rx),
       static_cast<float>(ry),

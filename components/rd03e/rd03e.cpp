@@ -16,13 +16,21 @@ void RD03EComponent::setup() {
 }
 
 void RD03EComponent::loop() {
+  const uint32_t now = millis();
   while (available()) {
     const uint8_t byte = read();
-    if (millis() < this->mock_active_until_) {
+    if (now < this->mock_active_until_) {
       continue;
     }
-    last_rx_ms_ = millis();
+    last_rx_ms_ = now;
     process_byte_(byte);
+  }
+
+  // Presence watchdog
+  if (now - this->last_rx_ms_ > 1000) {
+    if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
+      this->presence_sensor_->publish_state(false);
+    }
   }
 }
 
@@ -281,10 +289,14 @@ void RD03EComponent::handle_data_frame_() {
     ESP_LOGW(TAG, "Unknown target status: 0x%02X", status);
     return;
   }
-  if (status != 0x00 && distance_cm > 700) {
+  if (status != 0x00 && distance_cm > 800) {
     ESP_LOGW(TAG, "Distance out of range: %u cm", distance_cm);
     return;
   }
+
+  uint32_t now_ms = millis();
+  if (now_ms - this->last_publish_ms_ < 1000) return;
+  this->last_publish_ms_ = now_ms;
 
   // 发布存在状态
   if (presence_sensor_) {

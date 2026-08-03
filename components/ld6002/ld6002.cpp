@@ -1,4 +1,5 @@
 #include "ld6002.h"
+#include <cmath>
 #include <cstring>
 
 namespace esphome {
@@ -38,6 +39,12 @@ void LD6002Component::loop() {
   if (now - this->last_rx_ms_ > 1000 && this->data_state_ != DataState::IDLE) {
     ESP_LOGV(TAG, "UART Timeout, resetting state");
     this->data_state_ = DataState::IDLE;
+  }
+  // Add presence watchdog
+  if (now - this->last_rx_ms_ > 1000) {
+    if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
+      this->presence_sensor_->publish_state(false);
+    }
   }
 
   while (this->available()) {
@@ -209,14 +216,8 @@ void LD6002Component::process_packet_() {
           
           // LD6002 is a 1D radar. Synthesize target coordinates based on distance.
           this->publish_position_(0, distance_cm / 100.0f, 0);
-          if (this->presence_sensor_ != nullptr && (!this->presence_sensor_->has_state() || !this->presence_sensor_->state)) {
-            this->presence_sensor_->publish_state(true);
-          }
         } else {
           this->publish_position_(0, 0, 0);
-          if (this->presence_sensor_ != nullptr && (!this->presence_sensor_->has_state() || this->presence_sensor_->state)) {
-            this->presence_sensor_->publish_state(false);
-          }
         }
       }
       break;
@@ -273,12 +274,17 @@ void LD6002Component::process_packet_() {
 }
 
 void LD6002Component::publish_position_(float x_m, float y_m, float z_m) {
+  uint32_t now_ms = millis();
+  if (now_ms - this->last_publish_ms_ < 1000) return;
+  this->last_publish_ms_ = now_ms;
+
   // Convert meters to cm for internal transformation
   float x_cm = x_m * 100.0f;
   float y_cm = y_m * 100.0f;
   float z_cm = z_m * 100.0f;
 
-  auto pos = Transform3D::transform(x_cm, y_cm, z_cm, this->last_distance_cm_, this->cal_);
+  float radial_dist = sqrtf(x_cm * x_cm + y_cm * y_cm + z_cm * z_cm);
+  auto pos = Transform3D::transform(x_cm, y_cm, z_cm, radial_dist, this->cal_);
 
   if (this->room_x_ != nullptr) {
     this->room_x_->publish_state(pos.room_x);

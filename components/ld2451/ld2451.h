@@ -73,6 +73,7 @@ class LD2451Component : public Component, public uart::UARTDevice {
 
   std::vector<uint8_t> rx_buffer_;
   uint32_t last_rx_ms_{0};
+  uint32_t last_publish_ms_{0};
   uint32_t mock_active_until_{0};
   bool config_mode_{false};
 

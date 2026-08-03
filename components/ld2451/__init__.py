@@ -35,7 +35,7 @@ UNIT_KM_PER_H = "km/h"
 def target_schema(target_id):
     return cv.Schema({
         cv.Optional("distance"): sensor.sensor_schema(
-            unit_of_measurement=UNIT_METER,
+            unit_of_measurement=UNIT_CENTIMETER,
             device_class=DEVICE_CLASS_DISTANCE,
             accuracy_decimals=2,
         ),

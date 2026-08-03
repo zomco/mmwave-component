@@ -53,6 +53,19 @@ void LD2451Component::loop() {
       this->process_byte_(b);
     }
   }
+
+  // Presence watchdog
+  if (now - this->last_rx_ms_ > 1000) {
+    if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
+      this->presence_sensor_->publish_state(false);
+    }
+    if (this->alarm_sensor_ != nullptr && this->alarm_sensor_->state) {
+      this->alarm_sensor_->publish_state(false);
+    }
+    if (this->target_count_sensor_ != nullptr) {
+      this->target_count_sensor_->publish_state(0);
+    }
+  }
 }
 
 void LD2451Component::send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len) {
@@ -179,6 +192,10 @@ void LD2451Component::process_packet_() {
   
   if (data_len < 2) return; // Need at least target_count and alarm_info
 
+  uint32_t now_ms = millis();
+  if (now_ms - this->last_publish_ms_ < 1000) return;
+  this->last_publish_ms_ = now_ms;
+
   uint8_t target_count = this->rx_buffer_[6];
   uint8_t alarm_info = this->rx_buffer_[7]; // 01: approaching, 00: no approaching
 
@@ -229,7 +246,7 @@ void LD2451Component::process_packet_() {
       float x_cm = distance_m * 100.0f * std::sin(angle_rad);
       float y_cm = distance_m * 100.0f * std::cos(angle_rad);
 
-      if (this->targets_[i].distance != nullptr) this->targets_[i].distance->publish_state(distance_m);
+      if (this->targets_[i].distance != nullptr) this->targets_[i].distance->publish_state(distance_m * 100.0f);
       if (this->targets_[i].angle != nullptr) this->targets_[i].angle->publish_state(angle_deg);
       if (this->targets_[i].speed != nullptr) this->targets_[i].speed->publish_state(speed_kmh);
       if (this->targets_[i].snr != nullptr) this->targets_[i].snr->publish_state(snr);

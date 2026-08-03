@@ -105,7 +105,7 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   void enable_breath()     { const uint8_t d = 0x01; send_cmd(CTRL_BREATH,   0x00, &d, 1); }
   void enable_heart_rate() { const uint8_t d = 0x01; send_cmd(CTRL_HEART,    0x00, &d, 1); }
   void enable_sleep()      { const uint8_t d = 0x01; send_cmd(CTRL_SLEEP,    0x00, &d, 1); }
-  void reset_module()      { const uint8_t d = 0x0F; send_cmd(CTRL_HEARTBEAT, 0x02, &d, 1); }
+  void reset_module()      { this->initialized_ = false; const uint8_t d = 0x0F; send_cmd(CTRL_HEARTBEAT, 0x02, &d, 1); }
   void query_init_state()  { const uint8_t d = 0x0F; send_cmd(CTRL_WORK_STATE, 0x81, &d, 1); }
 
   // ── 测试接口（供 HA Service Call 直接注入十六进制数据）─────────────────────
@@ -130,6 +130,7 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
 
   bool       initialized_{false};
   uint32_t   last_rx_ms_{0};
+  uint32_t   last_publish_ms_{0};
 
   CalibrationParams cal_;
 

@@ -52,6 +52,13 @@ void LD2453Component::loop() {
     this->last_rx_ms_ = now;
     this->process_byte_(this->read());
   }
+
+  // Presence watchdog
+  if (now - this->last_rx_ms_ > 1000) {
+    if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
+      this->presence_sensor_->publish_state(false);
+    }
+  }
 }
 
 void LD2453Component::inject_mock_data(const std::string &data) {
@@ -213,14 +220,18 @@ void LD2453Component::process_byte_(uint8_t byte) {
 
 int16_t LD2453Component::decode_value_(uint8_t low, uint8_t high) {
   // LD2453 sign-magnitude format: MSB (bit 15) indicates sign
-  // 1 = positive, 0 = negative
+  // 1 = negative, 0 = positive
   uint16_t val = (uint16_t(high) << 8) | low;
-  bool is_positive = (val & 0x8000) != 0;
+  bool is_negative = (val & 0x8000) != 0;
   int16_t magnitude = val & 0x7FFF;
-  return is_positive ? magnitude : -magnitude;
+  return is_negative ? -magnitude : magnitude;
 }
 
 void LD2453Component::process_packet_() {
+  uint32_t now_ms = millis();
+  if (now_ms - this->last_publish_ms_ < 1000) return;
+  this->last_publish_ms_ = now_ms;
+
   bool any_present = false;
 
   for (uint8_t i = 0; i < 3; i++) {
@@ -234,31 +245,41 @@ void LD2453Component::process_packet_() {
     // If resolution is 0 and x/y are 0, this target slot is empty
     bool target_valid = (res_mm > 0 || x_mm != 0 || y_mm != 0);
     
-    if (target_valid) {
-      any_present = true;
-    }
-
-    float x_cm = x_mm / 10.0f;
-    float y_cm = y_mm / 10.0f;
-    
-    if (this->targets_[i].x != nullptr) this->targets_[i].x->publish_state(x_cm);
-    if (this->targets_[i].y != nullptr) this->targets_[i].y->publish_state(y_cm);
     if (this->targets_[i].speed != nullptr) this->targets_[i].speed->publish_state(speed_cm_s);
     if (this->targets_[i].resolution != nullptr) this->targets_[i].resolution->publish_state(res_mm);
 
-    // Coordinate Transformation (2D radar so local_z is 0)
-    auto pos = Transform3D::transform(x_cm, y_cm, 0.0f, this->cal_);
+    if (target_valid) {
+      any_present = true;
 
-    // Only set boundary if target is valid, otherwise it's technically not in boundary
-    bool in_boundary = target_valid ? pos.in_boundary : false;
+      float x_cm = x_mm / 10.0f;
+      float y_cm = y_mm / 10.0f;
+      
+      if (this->targets_[i].x != nullptr) this->targets_[i].x->publish_state(x_cm);
+      if (this->targets_[i].y != nullptr) this->targets_[i].y->publish_state(y_cm);
 
-    if (this->targets_[i].room_x != nullptr) this->targets_[i].room_x->publish_state(pos.room_x);
-    if (this->targets_[i].room_y != nullptr) this->targets_[i].room_y->publish_state(pos.room_y);
-    if (this->targets_[i].room_z != nullptr) this->targets_[i].room_z->publish_state(pos.room_z);
-    
-    if (this->targets_[i].in_boundary != nullptr) {
-      if (this->targets_[i].in_boundary->state != in_boundary || !this->targets_[i].in_boundary->has_state()) {
-        this->targets_[i].in_boundary->publish_state(in_boundary);
+      // Coordinate Transformation (2D radar so local_z is 0)
+      auto pos = Transform3D::transform(x_cm, y_cm, 0.0f, this->cal_);
+
+      if (this->targets_[i].room_x != nullptr) this->targets_[i].room_x->publish_state(pos.room_x);
+      if (this->targets_[i].room_y != nullptr) this->targets_[i].room_y->publish_state(pos.room_y);
+      if (this->targets_[i].room_z != nullptr) this->targets_[i].room_z->publish_state(pos.room_z);
+      
+      if (this->targets_[i].in_boundary != nullptr) {
+        if (this->targets_[i].in_boundary->state != pos.in_boundary || !this->targets_[i].in_boundary->has_state()) {
+          this->targets_[i].in_boundary->publish_state(pos.in_boundary);
+        }
+      }
+    } else {
+      if (this->targets_[i].x != nullptr) this->targets_[i].x->publish_state(NAN);
+      if (this->targets_[i].y != nullptr) this->targets_[i].y->publish_state(NAN);
+      if (this->targets_[i].room_x != nullptr) this->targets_[i].room_x->publish_state(NAN);
+      if (this->targets_[i].room_y != nullptr) this->targets_[i].room_y->publish_state(NAN);
+      if (this->targets_[i].room_z != nullptr) this->targets_[i].room_z->publish_state(NAN);
+
+      if (this->targets_[i].in_boundary != nullptr) {
+        if (this->targets_[i].in_boundary->state != false || !this->targets_[i].in_boundary->has_state()) {
+          this->targets_[i].in_boundary->publish_state(false);
+        }
       }
     }
   }

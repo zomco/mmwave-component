@@ -36,9 +36,11 @@ void LD2450AComponent::dump_config() {
 
 void LD2450AComponent::loop() {
   const uint32_t now = millis();
-  if (now - this->last_rx_ms_ > 1000 && !this->rx_buffer_.empty()) {
-    ESP_LOGV(TAG, "UART Timeout, clearing rx buffer");
+  if (now - this->last_rx_ms_ > 1000) {
     this->rx_buffer_.clear();
+    if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
+      this->presence_sensor_->publish_state(false);
+    }
   }
 
   while (this->available()) {
@@ -94,6 +96,10 @@ void LD2450AComponent::process_packet_() {
   uint8_t frame_type = this->rx_buffer_[2];
 
   if (frame_type == 0xB0 && this->rx_buffer_.size() >= 16) {
+    uint32_t now_ms = millis();
+    if (now_ms - this->last_publish_ms_ < 1000) return;
+    this->last_publish_ms_ = now_ms;
+
     uint8_t presence_val       = this->rx_buffer_[3];
     uint8_t dist_val           = this->rx_buffer_[4];
     uint8_t gesture_val        = this->rx_buffer_[5];
