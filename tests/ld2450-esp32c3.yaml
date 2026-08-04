@@ -331,12 +331,12 @@ button:
   - platform: template
     name: "set_multi_target"
     on_press:
-      lambda: "id(radar).set_multi_target_mode();"
+      lambda: "id(radar).set_multi_target_mode(true);"
 
   - platform: template
     name: "set_single_target"
     on_press:
-      lambda: "id(radar).set_single_target_mode();"
+      lambda: "id(radar).set_multi_target_mode(false);"
 
   - platform: template
     name: "restart_radar"

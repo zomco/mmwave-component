@@ -1,0 +1,52 @@
+substitutions:
+  name: "ld2411s-test"
+  friendly_name: "LD2411S Test"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  name_add_mac_suffix: true
+  project:
+    name: esphome.web
+    version: '1.0'
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+
+wifi:
+  ssid: "YourSSID"
+  password: "YourPassword"
+
+api:
+ota:
+  - platform: esphome
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO4
+  rx_pin: GPIO5
+  baud_rate: 256000
+  parity: NONE
+  stop_bits: 1
+
+ld2411s:
+  id: radar
+  uart_id: uart_bus
+  distance:
+    name: "Distance"
+  presence:
+    name: "Presence"
+  moving_target:
+    name: "Moving Target"
+  micro_target:
+    name: "Micro Target"
