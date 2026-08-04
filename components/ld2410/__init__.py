@@ -11,8 +11,8 @@ from esphome.const import (
 DEPENDENCIES = ["uart"]
 AUTO_LOAD = ["binary_sensor", "sensor"]
 
-ld2410c_ns = cg.esphome_ns.namespace("ld2410c")
-LD2410CComponent = ld2410c_ns.class_("LD2410CComponent", cg.Component, uart.UARTDevice)
+ld2410_ns = cg.esphome_ns.namespace("ld2410")
+LD2410Component = ld2410_ns.class_("LD2410Component", cg.Component, uart.UARTDevice)
 
 CONF_PRESENCE = "presence"
 CONF_TARGET_STATE = "target_state"
@@ -46,7 +46,7 @@ CONF_DISTANCE_MAX = "distance_max"
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
-            cv.GenerateID(): cv.declare_id(LD2410CComponent),
+            cv.GenerateID(): cv.declare_id(LD2410Component),
             # Calibration parameters
             cv.Optional(CONF_RADAR_X, default=0.0): cv.float_,
             cv.Optional(CONF_RADAR_Y, default=0.0): cv.float_,

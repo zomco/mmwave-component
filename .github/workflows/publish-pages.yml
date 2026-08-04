@@ -96,9 +96,23 @@ jobs:
           echo "=== firmware/ tree ==="
           find firmware/ -type f | sort || echo "(firmware/ is empty or does not exist)"
 
+      # ── Build React installer ──────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: static/package-lock.json
+
+      - name: Build web installer
+        working-directory: static
+        run: |
+          npm ci
+          npm run build
+
       # ── Assemble staging directory ─────────────────────────────────────────
       # Assembles staging/ from:
-      #   static/           → base site assets (index.html, _config.yml)
+      #   static/dist/      → compiled React site and static assets
       #   firmware/         → firmware files and manifest.json per model
       #   docs/{model}/     → wiring diagram images
       # Then generates models.json consumed by index.html at runtime.
@@ -111,10 +125,10 @@ jobs:
           python3 << 'PYEOF'
           import os, json, shutil, glob, re, sys
 
-          # ── Seed staging from static/ ──────────────────────────────────────
+          # ── Seed staging from the compiled web app ─────────────────────────
           staging = 'staging'
-          shutil.copytree('static', staging)
-          print(f"[staging] copied static/ → {staging}/")
+          shutil.copytree('static/dist', staging)
+          print(f"[staging] copied static/dist/ → {staging}/")
 
           # ── Discover firmware artifacts ────────────────────────────────────
           # actions/download-artifact@v4 with merge-multiple:false creates:

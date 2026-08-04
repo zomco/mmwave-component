@@ -1,0 +1,5 @@
+[
+  {"id":"ld2410b-ESP32-C3","radar_model":"ld2410b","name":"LD2410B","version":"local preview","chip_family":"ESP32-C3","manifest":"ld2410b-ESP32-C3/manifest.json","wiring_images":[]},
+  {"id":"ld2450-ESP32-C3","radar_model":"ld2450","name":"LD2450","version":"local preview","chip_family":"ESP32-C3","manifest":"ld2450-ESP32-C3/manifest.json","wiring_images":[]},
+  {"id":"r60abd1-ESP32-C3","radar_model":"r60abd1","name":"R60ABD1","version":"local preview","chip_family":"ESP32-C3","manifest":"r60abd1-ESP32-C3/manifest.json","wiring_images":[]}
+]

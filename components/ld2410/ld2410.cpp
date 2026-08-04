@@ -1,9 +1,9 @@
-#include "ld2410c.h"
+#include "ld2410.h"
 
 namespace esphome {
-namespace ld2410c {
+namespace ld2410 {
 
-static const char *const TAG = "ld2410c";
+static const char *const TAG = "ld2410";
 
 // Commands
 static constexpr uint8_t CMD_ENABLE_CONF = 0xFF;
@@ -21,8 +21,8 @@ static inline bool validate_header_footer(const uint8_t *header_footer, const ui
   return std::memcmp(header_footer, buffer, HEADER_FOOTER_SIZE) == 0;
 }
 
-void LD2410CComponent::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up LD2410C Component...");
+void LD2410Component::setup() {
+  ESP_LOGCONFIG(TAG, "Setting up LD2410 Component...");
   
   const uint8_t enable_cmd_value[2] = {0x01, 0x00};
   this->send_command_(CMD_ENABLE_CONF, enable_cmd_value, sizeof(enable_cmd_value));
@@ -31,8 +31,8 @@ void LD2410CComponent::setup() {
   this->send_command_(CMD_DISABLE_CONF, disable_cmd_value, sizeof(disable_cmd_value));
 }
 
-void LD2410CComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "LD2410C:");
+void LD2410Component::dump_config() {
+  ESP_LOGCONFIG(TAG, "LD2410:");
   LOG_BINARY_SENSOR("  ", "Presence", this->presence_sensor_);
   LOG_SENSOR("  ", "Target State", this->target_state_sensor_);
   LOG_SENSOR("  ", "Moving Distance", this->moving_distance_sensor_);
@@ -67,7 +67,7 @@ void LD2410CComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "    Distance Max: %.1f cm", cal_.distance_max);
 }
 
-void LD2410CComponent::loop() {
+void LD2410Component::loop() {
   const uint32_t now = millis();
 
   if (this->mock_active_until_ > 0 && now < this->mock_active_until_) {
@@ -89,7 +89,7 @@ void LD2410CComponent::loop() {
   }
 }
 
-void LD2410CComponent::readline_(int readch) {
+void LD2410Component::readline_(int readch) {
   if (readch < 0) return;
   if (this->buffer_pos_ < MAX_LINE_LENGTH - 1) {
     this->buffer_data_[this->buffer_pos_++] = readch;
@@ -110,7 +110,7 @@ void LD2410CComponent::readline_(int readch) {
   }
 }
 
-void LD2410CComponent::send_command_(uint8_t command_str, const uint8_t *command_value, uint8_t command_value_len) {
+void LD2410Component::send_command_(uint8_t command_str, const uint8_t *command_value, uint8_t command_value_len) {
   this->write_array(CMD_FRAME_HEADER, sizeof(CMD_FRAME_HEADER));
   uint8_t len = 2;
   if (command_value != nullptr) {
@@ -128,7 +128,7 @@ void LD2410CComponent::send_command_(uint8_t command_str, const uint8_t *command
   }
 }
 
-bool LD2410CComponent::handle_ack_data_() {
+bool LD2410Component::handle_ack_data_() {
   if (this->buffer_pos_ < 10) return false;
   if (!validate_header_footer(CMD_FRAME_HEADER, this->buffer_data_)) return false;
   if (this->buffer_data_[7] != 0x01) return false;
@@ -136,7 +136,7 @@ bool LD2410CComponent::handle_ack_data_() {
   return true;
 }
 
-void LD2410CComponent::handle_periodic_data_() {
+void LD2410Component::handle_periodic_data_() {
   if (this->buffer_pos_ < 12 || !validate_header_footer(DATA_FRAME_HEADER, this->buffer_data_) ||
       this->buffer_data_[7] != 0xAA || this->buffer_data_[this->buffer_pos_ - 6] != 0x55 ||
       this->buffer_data_[this->buffer_pos_ - 5] != 0x00) {
@@ -208,7 +208,7 @@ void LD2410CComponent::handle_periodic_data_() {
   }
 }
 
-void LD2410CComponent::inject_mock_data(const std::string &data) {
+void LD2410Component::inject_mock_data(const std::string &data) {
   if (data == "0" || data == "reset") {
     this->mock_active_until_ = 0;
     return;
@@ -223,5 +223,5 @@ void LD2410CComponent::inject_mock_data(const std::string &data) {
   }
 }
 
-} // namespace ld2410c
+} // namespace ld2410
 } // namespace esphome

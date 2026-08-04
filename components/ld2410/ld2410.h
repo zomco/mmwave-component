@@ -5,19 +5,19 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
-#include "ld2410c_transform.h"
+#include "ld2410_transform.h"
 
 #include <vector>
 #include <array>
 #include <cstdint>
 
 namespace esphome {
-namespace ld2410c {
+namespace ld2410 {
 
 static constexpr uint8_t MAX_LINE_LENGTH = 50;
 static constexpr uint8_t TOTAL_GATES = 9;
 
-class LD2410CComponent : public Component, public uart::UARTDevice {
+class LD2410Component : public Component, public uart::UARTDevice {
  public:
   void setup() override;
   void loop() override;
@@ -89,5 +89,5 @@ class LD2410CComponent : public Component, public uart::UARTDevice {
   std::array<sensor::Sensor *, TOTAL_GATES> gate_still_sensors_{};
 };
 
-} // namespace ld2410c
+} // namespace ld2410
 } // namespace esphome
