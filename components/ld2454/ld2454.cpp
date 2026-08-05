@@ -13,7 +13,6 @@ void LD2454Button::press_action() {
 
 void LD2454Switch::write_state(bool state) {
   if (type_ == MULTI_TARGET) parent_->set_multi_target_mode(state);
-  else if (type_ == BLUETOOTH) parent_->set_bluetooth(state);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -353,29 +352,11 @@ void LD2454Component::dispatch_cmd_frame_() {
              cmd_buf_[11], cmd_buf_[10], cmd_buf_[9], cmd_buf_[8]);
   }
 
-  // 特殊处理: 追踪模式查询或设置确认 (0x9101, 0x8001, 0x9001)
-  if (ack_cmd == (CMD_QUERY_MODE | 0x0100) && cmd_len_ >= 6 && status == 0) {
-    const uint16_t mode = (static_cast<uint16_t>(cmd_buf_[5]) << 8) | cmd_buf_[4];
-    ESP_LOGI(TAG, "Tracking mode: %s",
-             mode == 0x0001 ? "single" : (mode == 0x0002 ? "multi" : "unknown"));
-    if (this->multi_target_switch_ != nullptr) {
-      this->multi_target_switch_->publish_state(mode == 0x0002);
-    }
-  } else if (ack_cmd == (CMD_MULTI_TARGET | 0x0100) && status == 0) {
+  // 特殊处理: 追踪模式设置确认 (0x8001, 0x9001)
+  if (ack_cmd == (CMD_MULTI_TARGET | 0x0100) && status == 0) {
     if (this->multi_target_switch_ != nullptr) this->multi_target_switch_->publish_state(true);
   } else if (ack_cmd == (CMD_SINGLE_TARGET | 0x0100) && status == 0) {
     if (this->multi_target_switch_ != nullptr) this->multi_target_switch_->publish_state(false);
-  }
-
-  // 特殊处理: 蓝牙查询或设置确认 (0xA501, 0xA401)
-  if (ack_cmd == (CMD_GET_MAC | 0x0100) && cmd_len_ >= 8 && status == 0) {
-    // MAC 全为 [0x08, 0x05, 0x04, 0x03, 0x02, 0x01] 时表示蓝牙已关闭
-    const uint8_t NO_MAC[] = {0x08, 0x05, 0x04, 0x03, 0x02, 0x01};
-    bool bt_on = std::memcmp(&cmd_buf_[4], NO_MAC, 6) != 0;
-    ESP_LOGI(TAG, "Bluetooth: %s", bt_on ? "ON" : "OFF");
-    if (this->bluetooth_switch_ != nullptr) {
-      this->bluetooth_switch_->publish_state(bt_on);
-    }
   }
 }
 

@@ -45,7 +45,6 @@ CONF_TARGET_FRAME    = "target_frame"
 
 # 控制实体
 CONF_MULTI_TARGET   = "multi_target"
-CONF_BLUETOOTH      = "bluetooth"
 CONF_RESTART        = "restart"
 
 # 自定义单位
@@ -143,10 +142,6 @@ CONFIG_SCHEMA = (
                 ld2454_ns.class_("LD2454Switch", switch.Switch),
                 icon="mdi:target-account",
             ),
-            cv.Optional(CONF_BLUETOOTH): switch.switch_schema(
-                ld2454_ns.class_("LD2454Switch", switch.Switch),
-                icon="mdi:bluetooth",
-            ),
             cv.Optional(CONF_FACTORY_RESET): button.button_schema(
                 ld2454_ns.class_("LD2454Button", button.Button),
                 icon="mdi:restart-alert",
@@ -219,12 +214,6 @@ async def to_code(config):
         cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2454::LD2454Switch::MULTI_TARGET")))
         cg.add(var.multi_target_switch_, sw)
 
-    if CONF_BLUETOOTH in config:
-        sw = cg.new_Pvariable(config[CONF_BLUETOOTH][CONF_ID])
-        await switch.register_switch(sw, config[CONF_BLUETOOTH])
-        cg.add(sw.set_parent(var))
-        cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2454::LD2454Switch::BLUETOOTH")))
-        cg.add(var.bluetooth_switch_, sw)
 
     if CONF_FACTORY_RESET in config:
         btn = cg.new_Pvariable(config[CONF_FACTORY_RESET][CONF_ID])

@@ -47,15 +47,10 @@ static constexpr uint16_t CMD_ENABLE_CONFIG   = 0x00FF;
 static constexpr uint16_t CMD_END_CONFIG      = 0x00FE;
 static constexpr uint16_t CMD_SINGLE_TARGET   = 0x0080;
 static constexpr uint16_t CMD_MULTI_TARGET    = 0x0090;
-static constexpr uint16_t CMD_QUERY_MODE      = 0x0091;
 static constexpr uint16_t CMD_FW_VERSION      = 0x00A0;
 static constexpr uint16_t CMD_SET_BAUD_RATE   = 0x00A1;
 static constexpr uint16_t CMD_FACTORY_RESET   = 0x00A2;
 static constexpr uint16_t CMD_RESTART         = 0x00A3;
-static constexpr uint16_t CMD_BT_SETTING      = 0x00A4;
-static constexpr uint16_t CMD_GET_MAC         = 0x00A5;
-static constexpr uint16_t CMD_QUERY_ZONE      = 0x00C1;
-static constexpr uint16_t CMD_SET_ZONE        = 0x00C2;
 
 // ─── 帧解析状态机 ─────────────────────────────────────────────────────────────
 
@@ -111,7 +106,7 @@ class LD2454Button : public button::Button {
 
 class LD2454Switch : public switch_::Switch {
  public:
-  enum SwitchType { MULTI_TARGET, BLUETOOTH };
+  enum SwitchType { MULTI_TARGET };
   void set_parent(LD2454Component *parent) { parent_ = parent; }
   void set_switch_type(SwitchType type) { type_ = type; }
   void write_state(bool state) override;
@@ -202,27 +197,19 @@ class LD2454Component : public Component, public uart::UARTDevice {
     if (enable) send_config_cmd(CMD_MULTI_TARGET, nullptr, 0);
     else send_config_cmd(CMD_SINGLE_TARGET, nullptr, 0);
   }
-  /// 设置蓝牙广播
-  void set_bluetooth(bool enable) {
-    uint8_t data[] = { 0x01, static_cast<uint8_t>(enable ? 0x01 : 0x00) };
-    send_config_cmd(CMD_BT_SETTING, data, 2);
-  }
   /// 重启模块
   void restart_module()          { send_config_cmd(CMD_RESTART, nullptr, 0); }
   /// 恢复出厂设置
   void factory_reset()           { send_config_cmd(CMD_FACTORY_RESET, nullptr, 0); }
-  /// 查询雷达状态
+  /// 查询雷达状态（LD2454 仅支持固件版本查询）
   void query_state() {
     send_config_cmd(CMD_FW_VERSION, nullptr, 0);
-    send_config_cmd(CMD_GET_MAC, nullptr, 0);
-    send_config_cmd(CMD_QUERY_MODE, nullptr, 0);
   }
   /// 注入测试数据
   void inject_mock_data(const std::string &hex_str);
 
   // 控制实体指针
   switch_::Switch *multi_target_switch_{nullptr};
-  switch_::Switch *bluetooth_switch_{nullptr};
 
  protected:
   void process_byte_(uint8_t byte);
