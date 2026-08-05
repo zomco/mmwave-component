@@ -1,4 +1,4 @@
-"""ESPHome component for HLK-LD2450 24 GHz multi-target tracking radar."""
+"""ESPHome component for HLK-LD2454 24 GHz multi-target tracking radar."""
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
@@ -22,9 +22,9 @@ AUTO_LOAD     = ["sensor", "binary_sensor", "button", "switch", "text_sensor"]
 
 # ── C++ 命名空间 ──────────────────────────────────────────────────────────────
 
-ld2450_ns          = cg.esphome_ns.namespace("ld2450")
-LD2450Component    = ld2450_ns.class_(
-    "LD2450Component", cg.Component, uart.UARTDevice
+ld2454_ns          = cg.esphome_ns.namespace("ld2454")
+LD2454Component    = ld2454_ns.class_(
+    "LD2454Component", cg.Component, uart.UARTDevice
 )
 
 # ── 配置键常量 ────────────────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ for _n in range(1, 4):
 CONFIG_SCHEMA = (
     cv.Schema(
         {
-            cv.GenerateID(): cv.declare_id(LD2450Component),
+            cv.GenerateID(): cv.declare_id(LD2454Component),
 
             # ── 校准参数 ──────────────────────────────────────────────────
             cv.Optional(CONF_RADAR_X,  default=0.0):   cv.float_,
@@ -140,19 +140,19 @@ CONFIG_SCHEMA = (
 
             # ── 控制实体 ──────────────────────────────────────────────────
             cv.Optional(CONF_MULTI_TARGET): switch.switch_schema(
-                ld2450_ns.class_("LD2450Switch", switch.Switch),
+                ld2454_ns.class_("LD2454Switch", switch.Switch),
                 icon="mdi:target-account",
             ),
             cv.Optional(CONF_BLUETOOTH): switch.switch_schema(
-                ld2450_ns.class_("LD2450Switch", switch.Switch),
+                ld2454_ns.class_("LD2454Switch", switch.Switch),
                 icon="mdi:bluetooth",
             ),
             cv.Optional(CONF_FACTORY_RESET): button.button_schema(
-                ld2450_ns.class_("LD2450Button", button.Button),
+                ld2454_ns.class_("LD2454Button", button.Button),
                 icon="mdi:restart-alert",
             ),
             cv.Optional(CONF_RESTART): button.button_schema(
-                ld2450_ns.class_("LD2450Button", button.Button),
+                ld2454_ns.class_("LD2454Button", button.Button),
                 icon="mdi:restart",
             ),
 
@@ -216,24 +216,24 @@ async def to_code(config):
         sw = cg.new_Pvariable(config[CONF_MULTI_TARGET][CONF_ID])
         await switch.register_switch(sw, config[CONF_MULTI_TARGET])
         cg.add(sw.set_parent(var))
-        cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2450::LD2450Switch::MULTI_TARGET")))
+        cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2454::LD2454Switch::MULTI_TARGET")))
         cg.add(var.multi_target_switch_, sw)
 
     if CONF_BLUETOOTH in config:
         sw = cg.new_Pvariable(config[CONF_BLUETOOTH][CONF_ID])
         await switch.register_switch(sw, config[CONF_BLUETOOTH])
         cg.add(sw.set_parent(var))
-        cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2450::LD2450Switch::BLUETOOTH")))
+        cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2454::LD2454Switch::BLUETOOTH")))
         cg.add(var.bluetooth_switch_, sw)
 
     if CONF_FACTORY_RESET in config:
         btn = cg.new_Pvariable(config[CONF_FACTORY_RESET][CONF_ID])
         await button.register_button(btn, config[CONF_FACTORY_RESET])
         cg.add(btn.set_parent(var))
-        cg.add(btn.set_button_type(cg.RawExpression("esphome::ld2450::LD2450Button::FACTORY_RESET")))
+        cg.add(btn.set_button_type(cg.RawExpression("esphome::ld2454::LD2454Button::FACTORY_RESET")))
 
     if CONF_RESTART in config:
         btn = cg.new_Pvariable(config[CONF_RESTART][CONF_ID])
         await button.register_button(btn, config[CONF_RESTART])
         cg.add(btn.set_parent(var))
-        cg.add(btn.set_button_type(cg.RawExpression("esphome::ld2450::LD2450Button::RESTART")))
+        cg.add(btn.set_button_type(cg.RawExpression("esphome::ld2454::LD2454Button::RESTART")))

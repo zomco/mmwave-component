@@ -1,17 +1,17 @@
-#include "ld2450.h"
+#include "ld2454.h"
 #include "esphome/core/log.h"
 
 namespace esphome {
-namespace ld2450 {
+namespace ld2454 {
 
-static const char *const TAG = "ld2450";
+static const char *const TAG = "ld2454";
 
-void LD2450Button::press_action() {
+void LD2454Button::press_action() {
   if (type_ == RESTART) parent_->restart_module();
   else if (type_ == FACTORY_RESET) parent_->factory_reset();
 }
 
-void LD2450Switch::write_state(bool state) {
+void LD2454Switch::write_state(bool state) {
   if (type_ == MULTI_TARGET) parent_->set_multi_target_mode(state);
   else if (type_ == BLUETOOTH) parent_->set_bluetooth(state);
 }
@@ -20,8 +20,8 @@ void LD2450Switch::write_state(bool state) {
 // 生命周期
 // ═══════════════════════════════════════════════════════════════════════════
 
-void LD2450Component::setup() {
-  ESP_LOGCONFIG(TAG, "LD2450 setup...");
+void LD2454Component::setup() {
+  ESP_LOGCONFIG(TAG, "LD2454 setup...");
   recompute_rotation_();
   // 延迟 1 秒后查询设备状态，确保雷达启动完毕
   this->set_timeout(1000, [this]() {
@@ -29,7 +29,7 @@ void LD2450Component::setup() {
   });
 }
 
-void LD2450Component::loop() {
+void LD2454Component::loop() {
   while (available()) {
     const uint8_t byte = read();
     if (millis() < this->mock_active_until_) {
@@ -39,8 +39,8 @@ void LD2450Component::loop() {
   }
 }
 
-void LD2450Component::dump_config() {
-  ESP_LOGCONFIG(TAG, "LD2450:");
+void LD2454Component::dump_config() {
+  ESP_LOGCONFIG(TAG, "LD2454:");
   ESP_LOGCONFIG(TAG, "  Radar pos:   X=%.1f cm  Y=%.1f cm  H=%.1f cm",
                 cal_.radar_x, cal_.radar_y, cal_.radar_z);
   ESP_LOGCONFIG(TAG, "  Orientation: Yaw=%.1f°  Pitch=%.1f°  Roll=%.1f°",
@@ -66,7 +66,7 @@ void LD2450Component::dump_config() {
 // 旋转矩阵预计算
 // ═══════════════════════════════════════════════════════════════════════════
 
-void LD2450Component::recompute_rotation_() {
+void LD2454Component::recompute_rotation_() {
   rotation_ = build_rotation(cal_.yaw, cal_.pitch, cal_.roll);
   ESP_LOGD(TAG, "Rotation matrix recomputed (yaw=%.1f° pitch=%.1f° roll=%.1f°)",
            cal_.yaw, cal_.pitch, cal_.roll);
@@ -80,7 +80,7 @@ void LD2450Component::recompute_rotation_() {
  * 发送裸命令帧: [FD FC FB FA][len_L][len_H][cmd_L][cmd_H][data...][04 03 02 01]
  * len = 2（命令字）+ data_len
  */
-void LD2450Component::send_raw_cmd_(uint16_t cmd_word,
+void LD2454Component::send_raw_cmd_(uint16_t cmd_word,
                                      const uint8_t *data, uint16_t len) {
   const uint16_t frame_data_len = 2 + len;  // 命令字 2B + 数据 N B
 
@@ -106,9 +106,9 @@ void LD2450Component::send_raw_cmd_(uint16_t cmd_word,
  * 发送配置命令（自动包裹 enable_config / end_config）
  *
  * 流程:  enable_config → 目标命令 → end_config
- * LD2450 要求在发送任何配置命令前先发送 enable_config
+ * LD2454 要求在发送任何配置命令前先发送 enable_config
  */
-void LD2450Component::send_config_cmd(uint16_t cmd_word,
+void LD2454Component::send_config_cmd(uint16_t cmd_word,
                                        const uint8_t *data, uint16_t len) {
   // 1. 使能配置
   const uint8_t enable_val[] = {0x01, 0x00};
@@ -129,7 +129,7 @@ void LD2450Component::send_config_cmd(uint16_t cmd_word,
 // 帧解析状态机
 // ═══════════════════════════════════════════════════════════════════════════
 
-void LD2450Component::process_byte_(uint8_t byte) {
+void LD2454Component::process_byte_(uint8_t byte) {
   switch (parse_state_) {
 
     // ── IDLE: 区分数据帧 (0xAA) 和命令帧 (0xFD) ──────────────────────────
@@ -252,7 +252,7 @@ void LD2450Component::process_byte_(uint8_t byte) {
  *
  * 全为 0 表示无目标
  */
-void LD2450Component::dispatch_data_frame_() {
+void LD2454Component::dispatch_data_frame_() {
   bool any_active = false;
 
   for (uint8_t i = 0; i < MAX_TARGETS; i++) {
@@ -290,7 +290,7 @@ void LD2450Component::dispatch_data_frame_() {
   ESP_LOGV(TAG, "Data frame: %s", any_active ? "targets detected" : "no targets");
 }
 
-void LD2450Component::publish_target_frame_() {
+void LD2454Component::publish_target_frame_() {
   if (target_frame_sensor_ == nullptr) return;
 
   char payload[176];
@@ -328,7 +328,7 @@ void LD2450Component::publish_target_frame_() {
 // 命令 ACK 分发
 // ═══════════════════════════════════════════════════════════════════════════
 
-void LD2450Component::dispatch_cmd_frame_() {
+void LD2454Component::dispatch_cmd_frame_() {
   if (cmd_len_ < 2) {
     ESP_LOGV(TAG, "CMD ACK: len=%u (too short)", cmd_len_);
     return;
@@ -383,7 +383,7 @@ void LD2450Component::dispatch_cmd_frame_() {
 // 目标处理: 变换 → 过滤 → 发布
 // ═══════════════════════════════════════════════════════════════════════════
 
-void LD2450Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
+void LD2454Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
                                        int16_t speed_cm_s, uint16_t resolution_mm,
                                        bool active) {
   const auto &t = targets_[idx];
@@ -435,7 +435,7 @@ void LD2450Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
            res.in_boundary ? "inside" : "OUTSIDE");
 }
 
-void LD2450Component::inject_mock_data(const std::string &hex_str) {
+void LD2454Component::inject_mock_data(const std::string &hex_str) {
   if (hex_str == "0" || hex_str == "reset" || hex_str == "clear" || hex_str.empty()) {
     ESP_LOGI(TAG, "Clearing mock mode, resuming live hardware UART input");
     this->mock_active_until_ = 0;
@@ -468,5 +468,5 @@ void LD2450Component::inject_mock_data(const std::string &hex_str) {
   }
 }
 
-} // namespace ld2450
+} // namespace ld2454
 } // namespace esphome

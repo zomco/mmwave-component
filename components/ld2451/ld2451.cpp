@@ -192,12 +192,22 @@ void LD2451Component::process_packet_() {
   
   if (data_len < 2) return; // Need at least target_count and alarm_info
 
-  uint32_t now_ms = millis();
-  if (now_ms - this->last_publish_ms_ < 1000) return;
-  this->last_publish_ms_ = now_ms;
-
   uint8_t target_count = this->rx_buffer_[6];
   uint8_t alarm_info = this->rx_buffer_[7]; // 01: approaching, 00: no approaching
+
+  // Calculate maximum targets we can parse from payload.
+  uint8_t parseable_targets = (data_len - 2) / 5;
+  uint8_t targets_to_process = std::min({target_count, parseable_targets, (uint8_t) 3});
+
+  uint32_t now_ms = millis();
+  if (now_ms - this->last_frame_publish_ms_ >= 100) {
+    this->last_frame_publish_ms_ = now_ms;
+    this->publish_target_frame_(targets_to_process);
+  }
+
+  // Retain the legacy entity rate while the atomic frame supplies fusion at 10 Hz.
+  if (now_ms - this->last_publish_ms_ < 1000) return;
+  this->last_publish_ms_ = now_ms;
 
   bool presence = (target_count > 0);
   bool alarm = (alarm_info == 0x01);
@@ -217,10 +227,6 @@ void LD2451Component::process_packet_() {
       this->target_count_sensor_->publish_state(target_count);
     }
   }
-
-  // Calculate maximum targets we can parse from payload
-  uint8_t parseable_targets = (data_len - 2) / 5;
-  uint8_t targets_to_process = std::min({target_count, parseable_targets, (uint8_t)3});
 
   for (uint8_t i = 0; i < 3; i++) {
     bool target_valid = (i < targets_to_process);
@@ -274,6 +280,39 @@ void LD2451Component::process_packet_() {
       }
     }
   }
+}
+
+void LD2451Component::publish_target_frame_(uint8_t target_count) {
+  if (this->target_frame_sensor_ == nullptr) return;
+
+  char payload[176];
+  size_t offset = snprintf(payload, sizeof(payload),
+                           "{\"v\":1,\"f\":%lu,\"ts\":%lu,\"t\":[",
+                           static_cast<unsigned long>(++this->frame_id_),
+                           static_cast<unsigned long>(millis()));
+  for (uint8_t i = 0; i < target_count && offset < sizeof(payload); i++) {
+    const uint16_t target_offset = 8 + (i * 5);
+    const int16_t angle_deg = static_cast<int16_t>(this->rx_buffer_[target_offset]) - 0x80;
+    const float distance_cm = static_cast<float>(this->rx_buffer_[target_offset + 1]) * 100.0f;
+    const float angle_rad = angle_deg * (M_PI / 180.0f);
+    const float x_cm = distance_cm * std::sin(angle_rad);
+    const float y_cm = distance_cm * std::cos(angle_rad);
+    const float direction = this->rx_buffer_[target_offset + 2] == 0x01 ? 1.0f : -1.0f;
+    const float speed_cm_s = direction * this->rx_buffer_[target_offset + 3] * (100000.0f / 3600.0f);
+    const int written = snprintf(payload + offset, sizeof(payload) - offset,
+                                 "%s[%.1f,%.1f,%.1f]", i == 0 ? "" : ",",
+                                 x_cm, y_cm, speed_cm_s);
+    if (written < 0 || static_cast<size_t>(written) >= sizeof(payload) - offset) {
+      ESP_LOGW(TAG, "Atomic target frame exceeded payload buffer");
+      return;
+    }
+    offset += static_cast<size_t>(written);
+  }
+  if (offset + 3 >= sizeof(payload)) return;
+  payload[offset++] = ']';
+  payload[offset++] = '}';
+  payload[offset] = '\0';
+  this->target_frame_sensor_->publish_state(payload);
 }
 
 void LD2451Component::inject_mock_data(std::string data) {

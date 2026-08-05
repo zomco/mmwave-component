@@ -5,6 +5,7 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 #include "ld2453_transform.h"
 
 #include <vector>
@@ -43,6 +44,8 @@ class LD2453Component : public Component, public uart::UARTDevice {
 
   // ── Sensor setters ──
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
+  /// Set the optional 10 Hz atomic target-frame text sensor.
+  void set_target_frame_sensor(text_sensor::TextSensor *s) { target_frame_sensor_ = s; }
 
   void set_target_x_sensor(uint8_t idx, sensor::Sensor *s)            { if (idx < 3) targets_[idx].x = s; }
   void set_target_y_sensor(uint8_t idx, sensor::Sensor *s)            { if (idx < 3) targets_[idx].y = s; }
@@ -64,6 +67,7 @@ class LD2453Component : public Component, public uart::UARTDevice {
  protected:
   void process_byte_(uint8_t byte);
   void process_packet_();
+  void publish_target_frame_();
   void process_ack_();
   void send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
   void handle_ack_data_(uint16_t command, uint16_t status, const uint8_t *data, uint8_t data_len);
@@ -73,11 +77,14 @@ class LD2453Component : public Component, public uart::UARTDevice {
   std::vector<uint8_t> rx_buffer_;
   uint32_t last_rx_ms_{0};
   uint32_t last_publish_ms_{0};
+  uint32_t last_frame_publish_ms_{0};
+  uint32_t frame_id_{0};
   bool config_mode_{false};
 
   CalibrationParams cal_;
   
   binary_sensor::BinarySensor *presence_sensor_ = nullptr;
+  text_sensor::TextSensor *target_frame_sensor_ = nullptr;
   TargetSensors targets_[3];
 };
 

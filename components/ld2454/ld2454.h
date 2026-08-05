@@ -8,14 +8,14 @@
 #include "esphome/components/button/button.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/components/text_sensor/text_sensor.h"
-#include "ld2450_transform.h"
+#include "ld2454_transform.h"
 
 #include <vector>
 #include <cstdint>
 #include <cmath>
 
 namespace esphome {
-namespace ld2450 {
+namespace ld2454 {
 
 // ─── 常量 ─────────────────────────────────────────────────────────────────────
 
@@ -96,33 +96,33 @@ struct TargetSensors {
   binary_sensor::BinarySensor *in_boundary{nullptr};
 };
 
-class LD2450Component;
+class LD2454Component;
 
-class LD2450Button : public button::Button {
+class LD2454Button : public button::Button {
  public:
   enum ButtonType { RESTART, FACTORY_RESET };
-  void set_parent(LD2450Component *parent) { parent_ = parent; }
+  void set_parent(LD2454Component *parent) { parent_ = parent; }
   void set_button_type(ButtonType type) { type_ = type; }
   void press_action() override;
  protected:
-  LD2450Component *parent_;
+  LD2454Component *parent_;
   ButtonType type_;
 };
 
-class LD2450Switch : public switch_::Switch {
+class LD2454Switch : public switch_::Switch {
  public:
   enum SwitchType { MULTI_TARGET, BLUETOOTH };
-  void set_parent(LD2450Component *parent) { parent_ = parent; }
+  void set_parent(LD2454Component *parent) { parent_ = parent; }
   void set_switch_type(SwitchType type) { type_ = type; }
   void write_state(bool state) override;
  protected:
-  LD2450Component *parent_;
+  LD2454Component *parent_;
   SwitchType type_;
 };
 
 // ─── 组件类 ───────────────────────────────────────────────────────────────────
 
-class LD2450Component : public Component, public uart::UARTDevice {
+class LD2454Component : public Component, public uart::UARTDevice {
  public:
   // ── 生命周期 ────────────────────────────────────────────────────────────
   void setup()       override;
@@ -262,5 +262,5 @@ class LD2450Component : public Component, public uart::UARTDevice {
   uint32_t mock_active_until_{0};
 };
 
-} // namespace ld2450
+} // namespace ld2454
 } // namespace esphome

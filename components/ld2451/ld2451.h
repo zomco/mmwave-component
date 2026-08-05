@@ -5,6 +5,7 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 #include "ld2451_transform.h"
 
 #include <vector>
@@ -47,6 +48,8 @@ class LD2451Component : public Component, public uart::UARTDevice {
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
   void set_alarm_sensor(binary_sensor::BinarySensor *s) { alarm_sensor_ = s; }
   void set_target_count_sensor(sensor::Sensor *s) { target_count_sensor_ = s; }
+  /// Set the optional 10 Hz atomic target-frame text sensor.
+  void set_target_frame_sensor(text_sensor::TextSensor *s) { target_frame_sensor_ = s; }
 
   void set_target_distance_sensor(uint8_t idx, sensor::Sensor *s)     { if (idx < 3) targets_[idx].distance = s; }
   void set_target_angle_sensor(uint8_t idx, sensor::Sensor *s)        { if (idx < 3) targets_[idx].angle = s; }
@@ -67,6 +70,7 @@ class LD2451Component : public Component, public uart::UARTDevice {
  protected:
   void process_byte_(uint8_t byte);
   void process_packet_();
+  void publish_target_frame_(uint8_t target_count);
   void process_ack_();
   void send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
   void handle_ack_data_(uint16_t command, uint16_t status, const uint8_t *data, uint8_t data_len);
@@ -74,6 +78,8 @@ class LD2451Component : public Component, public uart::UARTDevice {
   std::vector<uint8_t> rx_buffer_;
   uint32_t last_rx_ms_{0};
   uint32_t last_publish_ms_{0};
+  uint32_t last_frame_publish_ms_{0};
+  uint32_t frame_id_{0};
   uint32_t mock_active_until_{0};
   bool config_mode_{false};
 
@@ -82,6 +88,7 @@ class LD2451Component : public Component, public uart::UARTDevice {
   binary_sensor::BinarySensor *presence_sensor_ = nullptr;
   binary_sensor::BinarySensor *alarm_sensor_ = nullptr;
   sensor::Sensor *target_count_sensor_ = nullptr;
+  text_sensor::TextSensor *target_frame_sensor_ = nullptr;
   
   TargetSensors targets_[3];
 };

@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart, binary_sensor, sensor
+from esphome.components import uart, binary_sensor, sensor, text_sensor
 from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
@@ -11,7 +11,7 @@ from esphome.const import (
 )
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["binary_sensor", "sensor"]
+AUTO_LOAD = ["binary_sensor", "sensor", "text_sensor"]
 
 ld2451_ns = cg.esphome_ns.namespace("ld2451")
 LD2451Component = ld2451_ns.class_("LD2451Component", cg.Component, uart.UARTDevice)
@@ -19,6 +19,7 @@ LD2451Component = ld2451_ns.class_("LD2451Component", cg.Component, uart.UARTDev
 CONF_PRESENCE = "presence"
 CONF_ALARM = "alarm"
 CONF_TARGET_COUNT = "target_count"
+CONF_TARGET_FRAME = "target_frame"
 
 # Calibration parameters
 CONF_RADAR_X = "radar_x"
@@ -100,6 +101,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_TARGET_COUNT): sensor.sensor_schema(
                 accuracy_decimals=0,
             ),
+            cv.Optional(CONF_TARGET_FRAME): text_sensor.text_sensor_schema(
+                icon="mdi:radar",
+            ),
             
             # Targets
             cv.Optional("target_1"): target_schema("target_1"),
@@ -171,6 +175,9 @@ async def to_code(config):
     if CONF_TARGET_COUNT in config:
         sens = await sensor.new_sensor(config[CONF_TARGET_COUNT])
         cg.add(var.set_target_count_sensor(sens))
+    if CONF_TARGET_FRAME in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_TARGET_FRAME])
+        cg.add(var.set_target_frame_sensor(sens))
 
     await setup_target(var, config, 0, "target_1")
     await setup_target(var, config, 1, "target_2")

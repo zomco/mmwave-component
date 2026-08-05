@@ -1,6 +1,6 @@
 substitutions:
-  name: ld2450
-  friendly_name: "LD2450 Radar"
+  name: ld2454
+  friendly_name: "LD2454 Radar"
 
 esphome:
   name: "${name}"
@@ -33,7 +33,7 @@ external_components:
   - source:
       type: local
       path: ../components
-    components: [ld2450]
+    components: [ld2454]
 
 # ── 基础配置 ──────────────────────────────────────────────────────────────────
 logger:
@@ -81,11 +81,11 @@ script:
             }
           }
 
-# ── UART（LD2450 默认波特率 256000，8N1） ─────────────────────────────────────
+# ── UART（LD2454 默认波特率 256000，8N1） ─────────────────────────────────────
 uart:
-  id: uart_ld2450
-  tx_pin: GPIO21   # ESP32-C3 → LD2450 RX（交叉接线）
-  rx_pin: GPIO20   # ESP32-C3 ← LD2450 TX
+  id: uart_ld2454
+  tx_pin: GPIO21   # ESP32-C3 → LD2454 RX（交叉接线）
+  rx_pin: GPIO20   # ESP32-C3 ← LD2454 TX
   baud_rate: 256000
   data_bits: 8
   parity: NONE
@@ -111,7 +111,7 @@ globals:
   - id: g_radar_z
     type: float
     restore_value: true
-    initial_value: "150.0" # LD2450 推荐高度
+    initial_value: "150.0" # LD2454 推荐高度
 
   - id: g_yaw
     type: float
@@ -134,10 +134,10 @@ globals:
     max_restore_data_length: 254
     initial_value: '""'
 
-# ── LD2450 组件 ───────────────────────────────────────────────────────────────
-ld2450:
+# ── LD2454 组件 ───────────────────────────────────────────────────────────────
+ld2454:
   id: radar
-  uart_id: uart_ld2450
+  uart_id: uart_ld2454
 
   # ── 编译期校准参数（初始值；运行时可被 number 实体覆盖）─────────────────
   # 说明：组件 setup() 时用这些值初始化；number 实体 set_action 之后调用

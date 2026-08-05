@@ -229,6 +229,12 @@ int16_t LD2453Component::decode_value_(uint8_t low, uint8_t high) {
 
 void LD2453Component::process_packet_() {
   uint32_t now_ms = millis();
+  if (now_ms - this->last_frame_publish_ms_ >= 100) {
+    this->last_frame_publish_ms_ = now_ms;
+    this->publish_target_frame_();
+  }
+
+  // Retain the legacy entity rate while the atomic frame supplies fusion at 10 Hz.
   if (now_ms - this->last_publish_ms_ < 1000) return;
   this->last_publish_ms_ = now_ms;
 
@@ -289,6 +295,42 @@ void LD2453Component::process_packet_() {
       this->presence_sensor_->publish_state(any_present);
     }
   }
+}
+
+void LD2453Component::publish_target_frame_() {
+  if (this->target_frame_sensor_ == nullptr) return;
+
+  char payload[176];
+  size_t offset = snprintf(payload, sizeof(payload),
+                           "{\"v\":1,\"f\":%lu,\"ts\":%lu,\"t\":[",
+                           static_cast<unsigned long>(++this->frame_id_),
+                           static_cast<unsigned long>(millis()));
+  bool first = true;
+  for (uint8_t i = 0; i < 3 && offset < sizeof(payload); i++) {
+    const uint8_t target_offset = 4 + (i * 8);
+    const int16_t x_mm = this->decode_value_(this->rx_buffer_[target_offset], this->rx_buffer_[target_offset + 1]);
+    const int16_t y_mm = this->decode_value_(this->rx_buffer_[target_offset + 2], this->rx_buffer_[target_offset + 3]);
+    const int16_t speed_cm_s = this->decode_value_(this->rx_buffer_[target_offset + 4], this->rx_buffer_[target_offset + 5]);
+    const uint16_t resolution_mm = (uint16_t(this->rx_buffer_[target_offset + 7]) << 8) |
+                                   this->rx_buffer_[target_offset + 6];
+    if (resolution_mm == 0 && x_mm == 0 && y_mm == 0) continue;
+    const int written = snprintf(payload + offset, sizeof(payload) - offset,
+                                 "%s[%.1f,%.1f,%d]", first ? "" : ",",
+                                 static_cast<float>(x_mm) / 10.0f,
+                                 static_cast<float>(y_mm) / 10.0f,
+                                 speed_cm_s);
+    if (written < 0 || static_cast<size_t>(written) >= sizeof(payload) - offset) {
+      ESP_LOGW(TAG, "Atomic target frame exceeded payload buffer");
+      return;
+    }
+    offset += static_cast<size_t>(written);
+    first = false;
+  }
+  if (offset + 3 >= sizeof(payload)) return;
+  payload[offset++] = ']';
+  payload[offset++] = '}';
+  payload[offset] = '\0';
+  this->target_frame_sensor_->publish_state(payload);
 }
 
 } // namespace ld2453
