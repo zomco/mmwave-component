@@ -247,6 +247,11 @@ class LD2454Component : public Component, public uart::UARTDevice {
 
   // ── 测试模拟数据状态 ───────────────────────────────────────────────────
   uint32_t mock_active_until_{0};
+
+  // ── 诊断计数器 ─────────────────────────────────────────────────────────
+  uint32_t diag_byte_count_{0};
+  uint32_t diag_frame_count_{0};
+  uint32_t diag_last_ms_{0};
 };
 
 } // namespace ld2454

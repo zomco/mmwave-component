@@ -6,7 +6,7 @@ namespace ld2451 {
 static const char *const TAG = "ld2451";
 
 void LD2451Component::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up LD2451 Component...");
+  ESP_LOGCONFIG(TAG, "Setting up LD2451...");
   this->rx_buffer_.reserve(64);
 }
 
@@ -41,7 +41,20 @@ void LD2451Component::dump_config() {
 }
 
 void LD2451Component::loop() {
+  static bool configured_ = false;
   const uint32_t now = millis();
+  
+  if (!configured_ && now > 15000) {
+    configured_ = true;
+    ESP_LOGI(TAG, "== Setting Radar Detection Params ==");
+    uint8_t cfg_cmd[4] = {0x64, 0x02, 0x05, 0x02};
+    this->send_command_(0x0002, cfg_cmd, 4);
+
+    ESP_LOGI(TAG, "== Setting Radar Sensitivity ==");
+    uint8_t sens_cmd[4] = {0x02, 0x08, 0x00, 0x00};
+    this->send_command_(0x0003, sens_cmd, 4);
+  }
+
   if (now - this->last_rx_ms_ > 100 && !this->rx_buffer_.empty()) {
     this->rx_buffer_.clear();
   }
@@ -49,6 +62,7 @@ void LD2451Component::loop() {
   while (this->available()) {
     this->last_rx_ms_ = now;
     uint8_t b = this->read();
+    
     if (now >= this->mock_active_until_) {
       this->process_byte_(b);
     }
@@ -63,7 +77,9 @@ void LD2451Component::loop() {
       this->alarm_sensor_->publish_state(false);
     }
     if (this->target_count_sensor_ != nullptr) {
-      this->target_count_sensor_->publish_state(0);
+      if (this->target_count_sensor_->state != 0 || !this->target_count_sensor_->has_state()) {
+        this->target_count_sensor_->publish_state(0);
+      }
     }
   }
 }
@@ -72,7 +88,7 @@ void LD2451Component::send_command_(uint16_t command, const uint8_t *command_val
   // Enable config
   uint8_t enable_cmd[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x04, 0x00, 0xFF, 0x00, 0x01, 0x00, 0x04, 0x03, 0x02, 0x01};
   this->write_array(enable_cmd, sizeof(enable_cmd));
-  delay(50);
+  delay(100);
 
   // Send command
   uint16_t len = 2 + command_value_len;
@@ -93,12 +109,12 @@ void LD2451Component::send_command_(uint16_t command, const uint8_t *command_val
   cmd.push_back(0x02);
   cmd.push_back(0x01);
   this->write_array(cmd.data(), cmd.size());
-  delay(50);
+  delay(250); // Important: Give radar enough time to write to flash!
 
   // Disable config
   uint8_t disable_cmd[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x02, 0x00, 0xFE, 0x00, 0x04, 0x03, 0x02, 0x01};
   this->write_array(disable_cmd, sizeof(disable_cmd));
-  delay(50);
+  delay(100);
 }
 
 void LD2451Component::factory_reset() {
@@ -128,14 +144,31 @@ void LD2451Component::process_ack_() {
 }
 
 void LD2451Component::handle_ack_data_(uint16_t command, uint16_t status, const uint8_t *data, uint8_t data_len) {
-  ESP_LOGD(TAG, "Received ACK for command 0x%04X, status: 0x%04X", command, status);
+  ESP_LOGI(TAG, "Received ACK for command 0x%04X, status: 0x%04X", command, status);
   if (status != 0) {
     ESP_LOGW(TAG, "Command 0x%04X failed!", command);
     return;
   }
+  
+  if (command == 0x01A0 && data_len >= 8) {
+    uint16_t type = (uint16_t(data[1]) << 8) | data[0];
+    uint16_t major = (uint16_t(data[3]) << 8) | data[2];
+    uint32_t minor = (uint32_t(data[7]) << 24) | (uint32_t(data[6]) << 16) | (uint32_t(data[5]) << 8) | data[4];
+    ESP_LOGI(TAG, "Radar Firmware Version: V%d.%02d.%08X (Type: %04X)", major, minor >> 24, minor & 0xFFFFFF, type);
+  }
 }
 
 void LD2451Component::process_byte_(uint8_t byte) {
+  // ESP_LOGD(TAG, "RX: %02X", byte); // Disabled to prevent flooding, we'll collect them in a static buffer and print
+  static std::vector<uint8_t> dump_buf;
+  dump_buf.push_back(byte);
+  if (dump_buf.size() >= 16) {
+    ESP_LOGI(TAG, "RAW RX DUMP: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
+             dump_buf[0], dump_buf[1], dump_buf[2], dump_buf[3], dump_buf[4], dump_buf[5], dump_buf[6], dump_buf[7],
+             dump_buf[8], dump_buf[9], dump_buf[10], dump_buf[11], dump_buf[12], dump_buf[13], dump_buf[14], dump_buf[15]);
+    dump_buf.clear();
+  }
+
   this->rx_buffer_.push_back(byte);
 
   if (this->rx_buffer_.size() >= 10 && this->rx_buffer_[0] == 0xFD && this->rx_buffer_[1] == 0xFC &&
@@ -157,13 +190,15 @@ void LD2451Component::process_byte_(uint8_t byte) {
     return;
   }
 
-  // Minimum frame is 12 bytes (Header 4 + Len 2 + Data 2 + Footer 4) for 0 targets
-  if (this->rx_buffer_.size() >= 12) {
+  // Minimum frame is 10 bytes (Header 4 + Len 2 + Data 0 + Footer 4)
+  if (this->rx_buffer_.size() >= 10) {
     // Check Header
     if (this->rx_buffer_[0] == 0xF4 && this->rx_buffer_[1] == 0xF3 &&
         this->rx_buffer_[2] == 0xF2 && this->rx_buffer_[3] == 0xF1) {
       
+      ESP_LOGI(TAG, "Data packet header found");
       uint16_t data_len = (uint16_t(this->rx_buffer_[5]) << 8) | this->rx_buffer_[4];
+      if (data_len > 30) { this->rx_buffer_.erase(this->rx_buffer_.begin()); return; }
       uint16_t full_frame_len = 4 + 2 + data_len + 4;
       
       if (this->rx_buffer_.size() >= full_frame_len) {
@@ -180,7 +215,7 @@ void LD2451Component::process_byte_(uint8_t byte) {
           this->rx_buffer_.erase(this->rx_buffer_.begin());
         }
       }
-    } else if (this->rx_buffer_[0] != 0xFD) {
+    } else {
       // Invalid header, drop byte
       this->rx_buffer_.erase(this->rx_buffer_.begin());
     }
@@ -190,10 +225,23 @@ void LD2451Component::process_byte_(uint8_t byte) {
 void LD2451Component::process_packet_() {
   uint16_t data_len = (uint16_t(this->rx_buffer_[5]) << 8) | this->rx_buffer_[4];
   
-  if (data_len < 2) return; // Need at least target_count and alarm_info
+  uint8_t target_count = 0;
+  uint8_t alarm_info = 0;
+  
+  if (data_len >= 2) {
+    target_count = this->rx_buffer_[6];
+    alarm_info = this->rx_buffer_[7]; // 01: approaching, 00: no approaching
+  }
 
-  uint8_t target_count = this->rx_buffer_[6];
-  uint8_t alarm_info = this->rx_buffer_[7]; // 01: approaching, 00: no approaching
+  ESP_LOGI(TAG, "RAW DATA: %02X %02X %02X %02X | %02X %02X | %02X %02X | %02X %02X %02X %02X",
+           this->rx_buffer_[0], this->rx_buffer_[1], this->rx_buffer_[2], this->rx_buffer_[3],
+           this->rx_buffer_[4], this->rx_buffer_[5],
+           (this->rx_buffer_.size() > 6) ? this->rx_buffer_[6] : 0, 
+           (this->rx_buffer_.size() > 7) ? this->rx_buffer_[7] : 0,
+           (this->rx_buffer_.size() > 8) ? this->rx_buffer_[8] : 0, 
+           (this->rx_buffer_.size() > 9) ? this->rx_buffer_[9] : 0,
+           (this->rx_buffer_.size() > 10) ? this->rx_buffer_[10] : 0,
+           (this->rx_buffer_.size() > 11) ? this->rx_buffer_[11] : 0);
 
   // Calculate maximum targets we can parse from payload.
   uint8_t parseable_targets = (data_len - 2) / 5;

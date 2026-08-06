@@ -22,19 +22,37 @@ void LD2454Switch::write_state(bool state) {
 void LD2454Component::setup() {
   ESP_LOGCONFIG(TAG, "LD2454 setup...");
   recompute_rotation_();
-  // 延迟 1 秒后查询设备状态，确保雷达启动完毕
+  
+  // 强制发送一个结束配置命令，防止因上次 ESP32 崩溃重启导致雷达卡在配置模式（暂停输出数据）
+  ESP_LOGI(TAG, "Sending END_CONFIG to recover from potential stuck state...");
+  send_raw_cmd_(CMD_END_CONFIG, nullptr, 0);
+
+  // 延迟 1 秒后重启模块，彻底清除可能因为 ESP32 重启时的乱码导致的雷达死机状态
   this->set_timeout(1000, [this]() {
-    this->query_state();
+    ESP_LOGI(TAG, "Proactively restarting radar module to ensure clean state...");
+    this->restart_module();
   });
 }
 
 void LD2454Component::loop() {
+  uint32_t bytes_this_loop = 0;
   while (available()) {
     const uint8_t byte = read();
+    bytes_this_loop++;
     if (millis() < this->mock_active_until_) {
       continue;
     }
     process_byte_(byte);
+  }
+  // 诊断日志：每 5 秒报告一次字节接收统计
+  diag_byte_count_ += bytes_this_loop;
+  if (millis() - diag_last_ms_ >= 5000) {
+    ESP_LOGI(TAG, "DIAG: %lu bytes received in last 5s, %lu data frames parsed",
+             static_cast<unsigned long>(diag_byte_count_),
+             static_cast<unsigned long>(diag_frame_count_));
+    diag_byte_count_ = 0;
+    diag_frame_count_ = 0;
+    diag_last_ms_ = millis();
   }
 }
 
@@ -110,15 +128,18 @@ void LD2454Component::send_raw_cmd_(uint16_t cmd_word,
 void LD2454Component::send_config_cmd(uint16_t cmd_word,
                                        const uint8_t *data, uint16_t len) {
   // 1. 使能配置
+  ESP_LOGD(TAG, "Entering config mode...");
   const uint8_t enable_val[] = {0x01, 0x00};
   send_raw_cmd_(CMD_ENABLE_CONFIG, enable_val, 2);
   delay(50);  // NOLINT
 
   // 2. 发送目标命令
+  ESP_LOGI(TAG, "Sending command: 0x%04X", cmd_word);
   send_raw_cmd_(cmd_word, data, len);
   delay(50);  // NOLINT
 
   // 3. 结束配置
+  ESP_LOGD(TAG, "Exiting config mode...");
   send_raw_cmd_(CMD_END_CONFIG, nullptr, 0);
 
   ESP_LOGD(TAG, "Config cmd sent: 0x%04X", cmd_word);
@@ -252,6 +273,7 @@ void LD2454Component::process_byte_(uint8_t byte) {
  * 全为 0 表示无目标
  */
 void LD2454Component::dispatch_data_frame_() {
+  diag_frame_count_++;
   bool any_active = false;
 
   for (uint8_t i = 0; i < MAX_TARGETS; i++) {
