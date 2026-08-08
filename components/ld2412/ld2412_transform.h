@@ -4,7 +4,7 @@
 #include <cstdint>
 
 namespace esphome {
-namespace ld2453 {
+namespace ld2412 {
 
 struct CalibrationParams {
   float radar_x{0.0f};
@@ -44,18 +44,17 @@ class Transform3D {
     float cr = std::cos(roll_rad);
     float sr = std::sin(roll_rad);
 
-    // Match mmwave-card/mmwave_fusion's room-coordinate convention:
-    // yaw=0 points along +Y and positive yaw rotates clockwise toward +X.
-    float R11 = cy * cr + sy * sp * sr;
-    float R12 = sy * cp;
-    float R13 = -cy * sr + sy * sp * cr;
+    // 3D Rotation Matrix elements (Tait-Bryan Z-Y-X)
+    float R11 = cy * cp;
+    float R12 = cy * sp * sr - sy * cr;
+    float R13 = cy * sp * cr + sy * sr;
 
-    float R21 = -sy * cr + cy * sp * sr;
-    float R22 = cy * cp;
-    float R23 = sy * sr + cy * sp * cr;
+    float R21 = sy * cp;
+    float R22 = sy * sp * sr + cy * cr;
+    float R23 = sy * sp * cr - cy * sr;
 
-    float R31 = cp * sr;
-    float R32 = -sp;
+    float R31 = -sp;
+    float R32 = cp * sr;
     float R33 = cp * cr;
 
     // Apply rotation to local coordinate
@@ -81,5 +80,5 @@ class Transform3D {
   }
 };
 
-} // namespace ld2453
+} // namespace ld2412
 } // namespace esphome

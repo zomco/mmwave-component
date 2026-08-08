@@ -153,6 +153,9 @@ ld2454:
   presence:
     name: "presence"
     device_class: presence
+  target_frame:
+    name: "target_frame"
+    icon: mdi:radar
 
   # ── 目标 1 ──────────────────────────────────────────────────────────────
   target_1_x:

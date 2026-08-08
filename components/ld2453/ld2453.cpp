@@ -82,6 +82,10 @@ void LD2453Component::inject_mock_data(const std::string &data) {
       this->rx_buffer_[0] == 0xAA && this->rx_buffer_[1] == 0xFF &&
       this->rx_buffer_[2] == 0x03 && this->rx_buffer_[3] == 0x00 &&
       this->rx_buffer_[28] == 0x55 && this->rx_buffer_[29] == 0xCC) {
+    // A requested mock frame must not be dropped just because a hardware frame
+    // was published within the normal output-rate window.
+    this->last_frame_publish_ms_ = millis() - 100;
+    this->last_publish_ms_ = millis() - 1000;
     this->process_packet_();
   } else {
     ESP_LOGW(TAG, "Injected mock data is not a valid LD2453 frame! length=%d", this->rx_buffer_.size());
@@ -220,11 +224,11 @@ void LD2453Component::process_byte_(uint8_t byte) {
 
 int16_t LD2453Component::decode_value_(uint8_t low, uint8_t high) {
   // LD2453 sign-magnitude format: MSB (bit 15) indicates sign
-  // 1 = negative, 0 = positive
+  // 1 = positive, 0 = negative (this is not two's complement).
   uint16_t val = (uint16_t(high) << 8) | low;
-  bool is_negative = (val & 0x8000) != 0;
+  bool is_positive = (val & 0x8000) != 0;
   int16_t magnitude = val & 0x7FFF;
-  return is_negative ? -magnitude : magnitude;
+  return is_positive ? magnitude : -magnitude;
 }
 
 void LD2453Component::process_packet_() {

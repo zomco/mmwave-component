@@ -158,6 +158,9 @@ void ld2412Component::handle_periodic_data_() {
   if (this->moving_energy_sensor_ != nullptr) this->moving_energy_sensor_->publish_state(moving_energy);
   if (this->stationary_distance_sensor_ != nullptr) this->stationary_distance_sensor_->publish_state(stationary_distance);
   if (this->stationary_energy_sensor_ != nullptr) this->stationary_energy_sensor_->publish_state(stationary_energy);
+  
+  uint16_t detection_distance = moving_distance > 0 ? moving_distance : stationary_distance;
+  if (this->detection_distance_sensor_ != nullptr) this->detection_distance_sensor_->publish_state(detection_distance);
 
   if (engineering_mode) {
     uint8_t max_moving_gate = this->buffer_data_[15];
@@ -177,7 +180,23 @@ void ld2412Component::handle_periodic_data_() {
     }
   }
 
-  // No 3D transform output needed
+  // Coordinate Transformation
+  if (presence) {
+    auto pos = Transform3D::transform(0.0f, (float)detection_distance, 0.0f, this->cal_);
+    if (this->room_x_sensor_ != nullptr) this->room_x_sensor_->publish_state(pos.room_x);
+    if (this->room_y_sensor_ != nullptr) this->room_y_sensor_->publish_state(pos.room_y);
+    if (this->room_z_sensor_ != nullptr) this->room_z_sensor_->publish_state(pos.room_z);
+    if (this->in_boundary_sensor_ != nullptr && (!this->in_boundary_sensor_->has_state() || this->in_boundary_sensor_->state != pos.in_boundary)) {
+      this->in_boundary_sensor_->publish_state(pos.in_boundary);
+    }
+  } else {
+    if (this->room_x_sensor_ != nullptr) this->room_x_sensor_->publish_state(0);
+    if (this->room_y_sensor_ != nullptr) this->room_y_sensor_->publish_state(0);
+    if (this->room_z_sensor_ != nullptr) this->room_z_sensor_->publish_state(0);
+    if (this->in_boundary_sensor_ != nullptr && (!this->in_boundary_sensor_->has_state() || this->in_boundary_sensor_->state != false)) {
+      this->in_boundary_sensor_->publish_state(false);
+    }
+  }
 }
 
 void ld2412Component::inject_mock_data(const std::string &data) {

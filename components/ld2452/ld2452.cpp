@@ -30,12 +30,23 @@ void LD2452Component::setup() {
 }
 
 void LD2452Component::loop() {
+  uint32_t bytes_this_loop = 0;
   while (available()) {
     const uint8_t byte = read();
+    bytes_this_loop++;
     if (millis() < this->mock_active_until_) {
       continue;
     }
     process_byte_(byte);
+  }
+  diag_byte_count_ += bytes_this_loop;
+  if (millis() - diag_last_ms_ >= 5000) {
+    ESP_LOGI(TAG, "DIAG: %lu bytes received in last 5s, %lu data frames parsed",
+             static_cast<unsigned long>(diag_byte_count_),
+             static_cast<unsigned long>(diag_frame_count_));
+    diag_byte_count_ = 0;
+    diag_frame_count_ = 0;
+    diag_last_ms_ = millis();
   }
 }
 
@@ -253,6 +264,7 @@ void LD2452Component::process_byte_(uint8_t byte) {
  * 全为 0 表示无目标
  */
 void LD2452Component::dispatch_data_frame_() {
+  diag_frame_count_++;
   bool any_active = false;
 
   for (uint8_t i = 0; i < MAX_TARGETS; i++) {
@@ -428,7 +440,7 @@ void LD2452Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
   // ── 边界过滤 ───────────────────────────────────────────────────────────
   if (t.in_boundary) t.in_boundary->publish_state(res.in_boundary);
 
-  ESP_LOGD(TAG, "T%u: x=%d y=%d mm  spd=%d cm/s  dist=%.1f cm  "
+  ESP_LOGV(TAG, "T%u: x=%d y=%d mm  spd=%d cm/s  dist=%.1f cm  "
            "room=(%.1f,%.1f) [%s]",
            idx + 1, x_mm, y_mm, speed_cm_s, dist_cm,
            res.room.x, res.room.y,

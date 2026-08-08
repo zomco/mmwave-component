@@ -7,7 +7,6 @@ from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
     DEVICE_CLASS_PRESENCE,
-    DEVICE_CLASS_SPEED,
     STATE_CLASS_MEASUREMENT,
     UNIT_CENTIMETER,
     ICON_EMPTY,
@@ -65,7 +64,7 @@ POLYGON_POINT_SCHEMA = cv.Schema({
 _TARGET_SENSOR_DEFS = [
     ("x",          "x",          "mdi:axis-x-arrow",         UNIT_CENTIMETER, 1, None),
     ("y",          "y",          "mdi:axis-y-arrow",         UNIT_CENTIMETER, 1, None),
-    ("speed",      "speed",      "mdi:speedometer",          UNIT_CM_PER_S,   0, DEVICE_CLASS_SPEED),
+    ("speed",      "speed",      "mdi:speedometer",          UNIT_CM_PER_S,   0, None),
     ("resolution", "resolution", "mdi:ruler",                UNIT_CENTIMETER, 1, None),
     ("distance",   "distance",   "mdi:map-marker-distance",  UNIT_CENTIMETER, 1, DEVICE_CLASS_DISTANCE),
     ("angle",      "angle",      "mdi:angle-acute",          UNIT_DEGREES,    1, None),

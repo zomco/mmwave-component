@@ -26,12 +26,6 @@ void LD2454Component::setup() {
   // 强制发送一个结束配置命令，防止因上次 ESP32 崩溃重启导致雷达卡在配置模式（暂停输出数据）
   ESP_LOGI(TAG, "Sending END_CONFIG to recover from potential stuck state...");
   send_raw_cmd_(CMD_END_CONFIG, nullptr, 0);
-
-  // 延迟 1 秒后重启模块，彻底清除可能因为 ESP32 重启时的乱码导致的雷达死机状态
-  this->set_timeout(1000, [this]() {
-    ESP_LOGI(TAG, "Proactively restarting radar module to ensure clean state...");
-    this->restart_module();
-  });
 }
 
 void LD2454Component::loop() {
@@ -431,7 +425,7 @@ void LD2454Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
   // ── 边界过滤 ───────────────────────────────────────────────────────────
   if (t.in_boundary) t.in_boundary->publish_state(res.in_boundary);
 
-  ESP_LOGD(TAG, "T%u: x=%d y=%d mm  spd=%d cm/s  dist=%.1f cm  "
+  ESP_LOGV(TAG, "T%u: x=%d y=%d mm  spd=%d cm/s  dist=%.1f cm  "
            "room=(%.1f,%.1f) [%s]",
            idx + 1, x_mm, y_mm, speed_cm_s, dist_cm,
            res.room.x, res.room.y,

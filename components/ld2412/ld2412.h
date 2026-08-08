@@ -5,7 +5,7 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
-// Removed ld2412_transform.h for 1D ranging radar
+#include "ld2412_transform.h"
 #include <vector>
 #include <array>
 #include <cstdint>
@@ -46,7 +46,10 @@ class ld2412Component : public Component, public uart::UARTDevice {
   void set_max_distance_sensor(sensor::Sensor *s) { max_distance_sensor_ = s; }
   void set_light_sensor(sensor::Sensor *s) { light_sensor_ = s; }
   
-  // No 3D transform sensors needed for 1D ranging radar
+  void set_room_x_sensor(sensor::Sensor *s) { room_x_sensor_ = s; }
+  void set_room_y_sensor(sensor::Sensor *s) { room_y_sensor_ = s; }
+  void set_room_z_sensor(sensor::Sensor *s) { room_z_sensor_ = s; }
+  void set_in_boundary_sensor(binary_sensor::BinarySensor *s) { in_boundary_sensor_ = s; }
   
   void set_gate_move_sensor(uint8_t gate, sensor::Sensor *s) { gate_move_sensors_[gate] = s; }
   void set_gate_still_sensor(uint8_t gate, sensor::Sensor *s) { gate_still_sensors_[gate] = s; }
@@ -78,7 +81,10 @@ class ld2412Component : public Component, public uart::UARTDevice {
   
   float distance_resolution_{0.75f};
   
-  // Removed 3D transform properties
+  sensor::Sensor *room_x_sensor_ = nullptr;
+  sensor::Sensor *room_y_sensor_ = nullptr;
+  sensor::Sensor *room_z_sensor_ = nullptr;
+  binary_sensor::BinarySensor *in_boundary_sensor_ = nullptr;
 
   std::array<sensor::Sensor *, TOTAL_GATES> gate_move_sensors_{};
   std::array<sensor::Sensor *, TOTAL_GATES> gate_still_sensors_{};

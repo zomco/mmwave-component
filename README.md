@@ -53,6 +53,8 @@ The DIY guide also contains detailed explanations of the technical principles be
 | LD6002      | 🔧 Developing | 3D (X, Y, Z, Bio) | Breathing, sleep, presence, positioning                                | [Documentation](docs/ld6002/)           |
 | LD2453      | 🔧 Developing | 2D (X, Y)         | Multi-target tracking, presence detection                              | [Documentation](docs/ld2453/)           |
 | LD2451      | 🔧 Developing | 2D (Polar)        | Multi-target tracking, presence detection                              | [Documentation](docs/ld2451/)           |
+| LD2452      | Testing       | 2D (X, Y)         | Multi-target tracking (up to 3), fusion testing                        | [Documentation](docs/ld2452/)           |
+| LD2454      | Testing       | 2D (X, Y)         | Multi-target tracking (up to 3), fusion testing                        | [Documentation](docs/ld2454/)           |
 
 ### Status Definitions
 

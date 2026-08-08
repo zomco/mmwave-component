@@ -41,18 +41,20 @@ void LD2451Component::dump_config() {
 }
 
 void LD2451Component::loop() {
-  static bool configured_ = false;
+  static uint32_t diag_bytes_ = 0;
+  static uint32_t diag_frames_ = 0;
+  static uint32_t last_diag_ms_ = 0;
   const uint32_t now = millis();
-  
-  if (!configured_ && now > 15000) {
-    configured_ = true;
-    ESP_LOGI(TAG, "== Setting Radar Detection Params ==");
-    uint8_t cfg_cmd[4] = {0x64, 0x02, 0x05, 0x02};
-    this->send_command_(0x0002, cfg_cmd, 4);
 
-    ESP_LOGI(TAG, "== Setting Radar Sensitivity ==");
-    uint8_t sens_cmd[4] = {0x02, 0x08, 0x00, 0x00};
-    this->send_command_(0x0003, sens_cmd, 4);
+  // Removed boot_phase_ configuration override to allow the radar to use its internal EEPROM settings.
+
+  // Diagnostic: every 5 seconds, report byte count
+  if (now - last_diag_ms_ >= 5000) {
+    ESP_LOGI(TAG, "DIAG: %u bytes received in last 5s, %u data frames parsed, available()=%d", 
+             diag_bytes_, diag_frames_, this->available());
+    diag_bytes_ = 0;
+    diag_frames_ = 0;
+    last_diag_ms_ = now;
   }
 
   if (now - this->last_rx_ms_ > 100 && !this->rx_buffer_.empty()) {
@@ -62,6 +64,7 @@ void LD2451Component::loop() {
   while (this->available()) {
     this->last_rx_ms_ = now;
     uint8_t b = this->read();
+    diag_bytes_++;
     
     if (now >= this->mock_active_until_) {
       this->process_byte_(b);
@@ -155,6 +158,18 @@ void LD2451Component::handle_ack_data_(uint16_t command, uint16_t status, const 
     uint16_t major = (uint16_t(data[3]) << 8) | data[2];
     uint32_t minor = (uint32_t(data[7]) << 24) | (uint32_t(data[6]) << 16) | (uint32_t(data[5]) << 8) | data[4];
     ESP_LOGI(TAG, "Radar Firmware Version: V%d.%02d.%08X (Type: %04X)", major, minor >> 24, minor & 0xFFFFFF, type);
+  }
+  
+  // Detection params ACK: 4 bytes (MaxDist, Direction, MinSpeed, Delay)
+  if (command == 0x0112 && data_len >= 4) {
+    ESP_LOGI(TAG, "Detection Params: MaxDist=%dm, Dir=%d (0=away,1=approach,2=both), MinSpeed=%dkm/h, Delay=%ds",
+             data[0], data[1], data[2], data[3]);
+  }
+  
+  // Sensitivity params ACK: 4 bytes (TriggerCount, SNRThreshold, ext, ext)
+  if (command == 0x0113 && data_len >= 4) {
+    ESP_LOGI(TAG, "Sensitivity Params: TriggerCount=%d, SNRThreshold=%d, ext=%d, ext=%d",
+             data[0], data[1], data[2], data[3]);
   }
 }
 
