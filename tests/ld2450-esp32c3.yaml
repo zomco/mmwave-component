@@ -58,28 +58,49 @@ script:
     mode: restart
     then:
       - lambda: |-
+          // 解析 "x1,y1;x2,y2;..." 形式的多边形字符串。
+          //
+          // 这里绝不能用 std::stof。ESPHome 的 esp-idf 构建关闭了 C++ 异常
+          // (sdkconfig: CONFIG_COMPILER_CXX_EXCEPTIONS is not set)，std::stof
+          // 遇到非法输入会 std::terminate() -> abort()，也就是用户在 HA 的
+          // 文本框里随手打错一个字符就会把雷达重启。
+          //
+          // 改用 strtof + endptr 校验：非法的点跳过并告警，其余照常应用。
           id(radar).clear_polygon();
-          std::string s = id(g_polygon);
-          if (s.empty()) return;
-          size_t pos = 0;
-          while ((pos = s.find(';')) != std::string::npos) {
-            std::string pt = s.substr(0, pos);
-            s.erase(0, pos + 1);
-            size_t comma = pt.find(',');
-            if (comma != std::string::npos) {
-              float px = std::stof(pt.substr(0, comma));
-              float py = std::stof(pt.substr(comma + 1));
-              id(radar).add_polygon_point(px, py);
+          const std::string s = id(g_polygon);
+          size_t start = 0;
+          uint8_t added = 0;
+          uint8_t rejected = 0;
+          // 上限同时防住超长输入撑爆内存。
+          while (start <= s.size() && added < 64) {
+            const size_t sep = s.find(';', start);
+            const std::string pt =
+                (sep == std::string::npos) ? s.substr(start) : s.substr(start, sep - start);
+            start = (sep == std::string::npos) ? s.size() + 1 : sep + 1;
+            if (pt.empty()) continue;
+
+            const size_t comma = pt.find(',');
+            if (comma == std::string::npos) { rejected++; continue; }
+
+            const std::string xs = pt.substr(0, comma);
+            const std::string ys = pt.substr(comma + 1);
+            char *xend = nullptr;
+            char *yend = nullptr;
+            const float px = strtof(xs.c_str(), &xend);
+            const float py = strtof(ys.c_str(), &yend);
+            // endptr 未前进 = 完全没解析出数字；再挡掉 inf/nan。
+            if (xend == xs.c_str() || yend == ys.c_str() ||
+                !std::isfinite(px) || !std::isfinite(py)) {
+              rejected++;
+              continue;
             }
+
+            id(radar).add_polygon_point(px, py);
+            added++;
           }
-          if (!s.empty()) {
-            size_t comma = s.find(',');
-            if (comma != std::string::npos) {
-              float px = std::stof(s.substr(0, comma));
-              float py = std::stof(s.substr(comma + 1));
-              id(radar).add_polygon_point(px, py);
-            }
-          }
+          if (rejected > 0)
+            ESP_LOGW("polygon", "Ignored %u malformed point(s) in polygon string", rejected);
+          ESP_LOGI("polygon", "Applied %u polygon point(s)", added);
 
 # ── UART（LD2450 默认波特率 256000，8N1） ─────────────────────────────────────
 uart:
