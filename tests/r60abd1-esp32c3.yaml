@@ -191,6 +191,11 @@ r60abd1:
     # 状态：on = 有人，off = 无人
     # 无人→有人：0.5s 内上报；有人→无人：40s 后上报（R60ABD1 内部逻辑）
 
+  # 多雷达融合入口：与 LD2450 系列同一个 v1 原子帧信封。
+  target_frame:
+    name: "target_frame"
+    icon: mdi:radar
+
   motion_state:
     name: "Motion State"
     # 0 = 无  1 = 静止  2 = 活跃

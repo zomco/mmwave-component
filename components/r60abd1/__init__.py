@@ -52,6 +52,7 @@ CONF_ROOM_Z             = "room_z"
 CONF_IN_BOUNDARY        = "in_boundary"
 CONF_BREATH_VALUE       = "breath_value"
 CONF_BREATH_STATE       = "breath_state"
+CONF_TARGET_FRAME     = "target_frame"
 CONF_HEART_RATE         = "heart_rate"
 CONF_IN_BED             = "in_bed"
 CONF_SLEEP_STATE        = "sleep_state"
@@ -158,6 +159,11 @@ CONFIG_SCHEMA = (
                 icon="mdi:lungs",
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            # 多雷达融合入口：与 LD2450 系列同一个 v1 信封，
+            # 单目标 3D，因此用 [x, y, z, speed] 四元组。
+            cv.Optional(CONF_TARGET_FRAME): text_sensor.text_sensor_schema(
+                icon="mdi:radar",
             ),
             cv.Optional(CONF_BREATH_STATE): text_sensor.text_sensor_schema(
                 icon="mdi:lungs",
@@ -267,6 +273,7 @@ async def to_code(config):
 
     # text_sensor 传感器
     _text_map = {
+        CONF_TARGET_FRAME:  "set_target_frame_sensor",
         CONF_BREATH_STATE:  "set_breath_state_sensor",
         CONF_SLEEP_STATE:   "set_sleep_state_sensor",
         CONF_SLEEP_QUALITY: "set_sleep_quality_sensor",

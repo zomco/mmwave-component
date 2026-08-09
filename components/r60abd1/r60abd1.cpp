@@ -522,6 +522,10 @@ void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
   if (room_z_)       room_z_->publish_state(res.room_z);
   if (in_boundary_sensor_) in_boundary_sensor_->publish_state(res.in_boundary);
 
+  // 原子帧发布的是雷达局部坐标，不是变换后的房间坐标：融合后端持有每台
+  // 雷达自己的标定，会各自做变换。
+  publish_target_frame_(rx, ry, rz);
+
   // 坐标帧更新了边界判定，重新计算 presence（隔墙鬼影不应算有人）
   last_in_boundary_ = res.in_boundary;
   publish_presence_();
@@ -529,6 +533,34 @@ void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
   ESP_LOGD(TAG, "Room: x=%.1f y=%.1f z=%.1f cm  [%s]",
            res.room.x, res.room.y, res.room_z,
            res.in_boundary ? "inside" : "OUTSIDE");
+}
+
+/**
+ * 发布 v1 原子目标帧（多雷达融合入口）
+ *
+ * 与 LD2450 系列共用同一个信封：
+ *   {"v":1,"f":<帧序号>,"ts":<开机毫秒>,"t":[[x,y,z,speed], ...]}
+ *
+ * R60ABD1 是单目标三维雷达且不上报速度，因此固定一个四元组、speed 记 0。
+ * 必须用四元组而不是三元组：解析端把三元组读作 [x, y, speed]，
+ * 那样 z 会被当成速度。
+ *
+ * 单位为 cm，与 apply() 接收的局部坐标一致。
+ */
+void R60ABD1Component::publish_target_frame_(int16_t rx, int16_t ry, int16_t rz) {
+  if (target_frame_ == nullptr) return;
+
+  char payload[96];
+  const int written = snprintf(payload, sizeof(payload),
+                               "{\"v\":1,\"f\":%lu,\"ts\":%lu,\"t\":[[%d,%d,%d,0]]}",
+                               static_cast<unsigned long>(++frame_id_),
+                               static_cast<unsigned long>(millis()),
+                               rx, ry, rz);
+  if (written < 0 || static_cast<size_t>(written) >= sizeof(payload)) {
+    ESP_LOGW(TAG, "Atomic target frame exceeded payload buffer");
+    return;
+  }
+  target_frame_->publish_state(payload);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

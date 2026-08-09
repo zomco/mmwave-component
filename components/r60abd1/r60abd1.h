@@ -91,6 +91,7 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   void set_room_y_sensor(sensor::Sensor *s)                   { room_y_             = s; }
   void set_room_z_sensor(sensor::Sensor *s)                   { room_z_             = s; }
   void set_in_boundary_sensor(binary_sensor::BinarySensor *s) { in_boundary_sensor_ = s; }
+  void set_target_frame_sensor(text_sensor::TextSensor *s)    { target_frame_       = s; }
   void set_breath_value_sensor(sensor::Sensor *s)             { breath_value_       = s; }
   void set_breath_state_sensor(text_sensor::TextSensor *s)    { breath_state_       = s; }
   void set_heart_rate_sensor(sensor::Sensor *s)               { heart_rate_         = s; }
@@ -136,6 +137,9 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   bool       initialized_{false};
   uint32_t   last_rx_ms_{0};
   uint32_t   last_publish_ms_{0};
+  uint32_t   frame_id_{0};
+  text_sensor::TextSensor *target_frame_{nullptr};
+  void publish_target_frame_(int16_t rx, int16_t ry, int16_t rz);
 
   // presence 与坐标来自不同的帧（0x80/0x01 与 0x80/0x0E），
   // 因此分别缓存，任一方更新时都重新计算最终的 presence。
