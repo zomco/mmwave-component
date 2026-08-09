@@ -82,6 +82,12 @@ class LD2451Component : public Component, public uart::UARTDevice {
 
   std::vector<uint8_t> rx_buffer_;
   uint32_t last_rx_ms_{0};
+
+  // 诊断计数器。曾经是 loop() 里的函数内 static，导致同一块 ESP 上的多个
+  // LD2451 实例共用同一份计数，日志互相污染。
+  uint32_t diag_bytes_{0};
+  uint32_t diag_frames_{0};
+  uint32_t last_diag_ms_{0};
   uint32_t last_publish_ms_{0};
   uint32_t last_frame_publish_ms_{0};
   uint32_t frame_id_{0};

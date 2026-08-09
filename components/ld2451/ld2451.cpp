@@ -41,20 +41,17 @@ void LD2451Component::dump_config() {
 }
 
 void LD2451Component::loop() {
-  static uint32_t diag_bytes_ = 0;
-  static uint32_t diag_frames_ = 0;
-  static uint32_t last_diag_ms_ = 0;
   const uint32_t now = millis();
 
   // Removed boot_phase_ configuration override to allow the radar to use its internal EEPROM settings.
 
   // Diagnostic: every 5 seconds, report byte count
-  if (now - last_diag_ms_ >= 5000) {
+  if (now - this->last_diag_ms_ >= 5000) {
     ESP_LOGV(TAG, "DIAG: %u bytes received in last 5s, %u data frames parsed, available()=%d",
-             diag_bytes_, diag_frames_, this->available());
-    diag_bytes_ = 0;
-    diag_frames_ = 0;
-    last_diag_ms_ = now;
+             this->diag_bytes_, this->diag_frames_, this->available());
+    this->diag_bytes_ = 0;
+    this->diag_frames_ = 0;
+    this->last_diag_ms_ = now;
   }
 
   if (now - this->last_rx_ms_ > 100 && !this->rx_buffer_.empty()) {
@@ -64,7 +61,7 @@ void LD2451Component::loop() {
   while (this->available()) {
     this->last_rx_ms_ = now;
     uint8_t b = this->read();
-    diag_bytes_++;
+    this->diag_bytes_++;
     
     if (now >= this->mock_active_until_) {
       this->process_byte_(b);
@@ -214,6 +211,7 @@ void LD2451Component::process_byte_(uint8_t byte) {
             this->rx_buffer_[full_frame_len - 1] == 0xF5) {
           
           this->process_packet_();
+          this->diag_frames_++;
           this->rx_buffer_.erase(this->rx_buffer_.begin(), this->rx_buffer_.begin() + full_frame_len);
         } else {
           // Invalid footer, drop header
