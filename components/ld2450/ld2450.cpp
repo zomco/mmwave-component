@@ -8,6 +8,10 @@ namespace ld2450 {
 
 static const char *const TAG = "ld2450";
 
+// UART 静默超时（ms）。超过该时长没有收到任何字节，则认为雷达已离线，
+// 主动把 presence 等状态推回 false，避免永久锁定在 on。
+static const uint32_t UART_STALE_TIMEOUT_MS = 1000;
+
 void LD2450Button::press_action() {
   if (type_ == RESTART) parent_->restart_module();
   else if (type_ == FACTORY_RESET) parent_->factory_reset();
@@ -44,12 +48,33 @@ void LD2450Component::setup() {
 void LD2450Component::loop() {
   while (available()) {
     const uint8_t byte = read();
+    this->last_rx_ms_ = millis();
     if (millis() < this->mock_active_until_) {
       continue;
     }
     process_byte_(byte);
   }
+
+  this->check_uart_stale_(millis());
 }
+
+void LD2450Component::check_uart_stale_(uint32_t now) {
+  // last_rx_ms_ == 0 表示上电后还从未收到过数据，此时各传感器仍是初始 false，
+  // 不需要（也不应该）推送状态。
+  if (this->last_rx_ms_ == 0 || (now - this->last_rx_ms_) <= UART_STALE_TIMEOUT_MS)
+    return;
+
+  if (this->presence_sensor_ != nullptr && this->presence_sensor_->state)
+    this->presence_sensor_->publish_state(false);
+
+  for (uint8_t i = 0; i < MAX_TARGETS; i++) {
+    if (this->targets_[i].active != nullptr && this->targets_[i].active->state)
+      this->targets_[i].active->publish_state(false);
+    if (this->targets_[i].in_boundary != nullptr && this->targets_[i].in_boundary->state)
+      this->targets_[i].in_boundary->publish_state(false);
+  }
+}
+
 
 void LD2450Component::dump_config() {
   ESP_LOGCONFIG(TAG, "LD2450:");

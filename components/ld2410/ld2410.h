@@ -69,6 +69,13 @@ class LD2410Component : public Component, public uart::UARTDevice {
   CalibrationParams cal_;
   
   binary_sensor::BinarySensor *presence_sensor_ = nullptr;
+  
+  // UART 静默看门狗：记录最后一次收到串口字节的时刻。
+  
+  uint32_t last_rx_ms_{0};
+  
+  void check_uart_stale_(uint32_t now);
+
   sensor::Sensor *target_state_sensor_ = nullptr;
   
   sensor::Sensor *moving_distance_sensor_ = nullptr;

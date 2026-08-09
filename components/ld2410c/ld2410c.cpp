@@ -5,6 +5,10 @@ namespace ld2410c {
 
 static const char *const TAG = "ld2410c";
 
+// UART 静默超时（ms）。超过该时长没有收到任何字节，则认为雷达已离线，
+// 主动把 presence 等状态推回 false，避免永久锁定在 on。
+static const uint32_t UART_STALE_TIMEOUT_MS = 1000;
+
 // Commands
 static constexpr uint8_t CMD_ENABLE_CONF = 0xFF;
 static constexpr uint8_t CMD_DISABLE_CONF = 0xFE;
@@ -76,6 +80,8 @@ void LD2410CComponent::loop() {
   }
 
   size_t avail = this->available();
+  if (avail > 0)
+    this->last_rx_ms_ = now;
   uint8_t buf[MAX_LINE_LENGTH];
   while (avail > 0) {
     size_t to_read = std::min(avail, sizeof(buf));
@@ -87,7 +93,22 @@ void LD2410CComponent::loop() {
       this->readline_(buf[i]);
     }
   }
+
+  this->check_uart_stale_(now);
 }
+
+void LD2410CComponent::check_uart_stale_(uint32_t now) {
+  // last_rx_ms_ == 0 表示上电后还从未收到过数据，此时各传感器仍是初始 false，
+  // 不需要（也不应该）推送状态。
+  if (this->last_rx_ms_ == 0 || (now - this->last_rx_ms_) <= UART_STALE_TIMEOUT_MS)
+    return;
+
+  if (this->presence_sensor_ != nullptr && this->presence_sensor_->state)
+    this->presence_sensor_->publish_state(false);
+  if (this->in_boundary_sensor_ != nullptr && this->in_boundary_sensor_->state)
+    this->in_boundary_sensor_->publish_state(false);
+}
+
 
 void LD2410CComponent::readline_(int readch) {
   if (readch < 0) return;

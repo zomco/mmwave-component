@@ -247,6 +247,10 @@ class LD2454Component : public Component, public uart::UARTDevice {
   // ── 传感器指针 ─────────────────────────────────────────────────────────
   TargetSensors targets_[MAX_TARGETS];
   binary_sensor::BinarySensor *presence_sensor_{nullptr};
+  // UART 静默看门狗：记录最后一次收到串口字节的时刻。
+  uint32_t last_rx_ms_{0};
+  void check_uart_stale_(uint32_t now);
+
   text_sensor::TextSensor *target_frame_sensor_{nullptr};
   uint32_t frame_id_{0};
   uint32_t presence_timeout_{5000};

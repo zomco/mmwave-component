@@ -152,7 +152,12 @@ inline float compute_yaw_from_two_points(Vec2 map_a, Vec2 map_b,
                                          Vec2 det_a, Vec2 det_b) {
   const float am = atan2f(map_b.y - map_a.y, map_b.x - map_a.x);
   const float ad = atan2f(det_b.y - det_a.y, det_b.x - det_a.x);
-  float yaw = (am - ad) * 180.f / static_cast<float>(M_PI);
+  // build_rotation maps a radar-local vector to the room by *decreasing* its
+  // standard math angle by yaw, so solving R(yaw)*det = map gives
+  //   angle(map) = angle(det) - yaw  ->  yaw = angle(det) - angle(map)
+  // This was (am - ad), i.e. the negated yaw. Kept in sync with
+  // mmwave-card's calcYawFromTwoPoints, where the same bug was live.
+  float yaw = (ad - am) * 180.f / static_cast<float>(M_PI);
   while (yaw >  180.f) yaw -= 360.f;
   while (yaw < -180.f) yaw += 360.f;
   return yaw;
