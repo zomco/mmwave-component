@@ -6,6 +6,19 @@ esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
   name_add_mac_suffix: true
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          // 开机启动后，将保存在闪存中的 globals 恢复给底层雷达组件
+          id(radar).set_radar_x(id(g_radar_x));
+          id(radar).set_radar_y(id(g_radar_y));
+          id(radar).set_radar_z(id(g_radar_z));
+          id(radar).set_yaw(id(g_yaw));
+          id(radar).set_pitch(id(g_pitch));
+          id(radar).set_roll(id(g_roll));
+          id(radar).set_distance_min(id(g_distance_min));
+          id(radar).set_distance_max(id(g_distance_max));
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -41,6 +54,7 @@ uart:
   stop_bits: 1
 
 ld2450a:
+  id: radar
   uart_id: uart_ld2450a
   presence:
     name: "Presence"
@@ -64,3 +78,298 @@ ld2450a:
     name: "Room Z"
   in_boundary:
     name: "In Boundary"
+
+globals:
+  - id: g_radar_x
+    type: float
+    restore_value: true # 掉电恢复
+    initial_value: "0.0"
+
+  - id: g_radar_y
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_radar_z
+    type: float
+    restore_value: true
+    initial_value: "150.0" # LD2450A 推荐高度
+
+  - id: g_yaw
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_pitch
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_roll
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_distance_min
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 0 cm 最小有效探测距离
+
+  - id: g_distance_max
+    type: float
+    restore_value: true
+    initial_value: "600.0" # 600 cm 最大有效距离
+
+  - id: g_gesture_dist_thresh
+    type: int
+    restore_value: true
+    initial_value: "20" # 默认挥手距离阈值 20cm
+
+  - id: g_gesture_spd_thresh
+    type: int
+    restore_value: true
+    initial_value: "30" # 默认挥手速度阈值 30cm/s
+
+  - id: g_gesture_ang_thresh
+    type: int
+    restore_value: true
+    initial_value: "45" # 默认挥手角度阈值 45°
+
+# =============================================================================
+# LD2450A 组件定义
+# =============================================================================
+
+number:
+  - platform: template
+    name: "Radar X"
+    id: num_radar_x
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(g_radar_x);"
+    set_action:
+      - lambda: |-
+          id(g_radar_x) = x;
+          id(radar).set_radar_x(x);
+          id(num_radar_x).publish_state(x);
+
+  - platform: template
+    name: "Radar Y"
+    id: num_radar_y
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(g_radar_y);"
+    set_action:
+      - lambda: |-
+          id(g_radar_y) = x;
+          id(radar).set_radar_y(x);
+          id(num_radar_y).publish_state(x);
+
+  - platform: template
+    name: "Radar Z"
+    id: num_radar_z
+    unit_of_measurement: cm
+    min_value: 50
+    max_value: 400
+    step: 1
+    mode: box
+    icon: mdi:ruler-square
+    lambda: "return id(g_radar_z);"
+    set_action:
+      - lambda: |-
+          id(g_radar_z) = x;
+          id(radar).set_radar_z(x);
+          id(num_radar_z).publish_state(x);
+
+  - platform: template
+    name: "Yaw"
+    id: num_yaw
+    unit_of_measurement: "°"
+    min_value: -180
+    max_value: 180
+    step: 0.1
+    mode: box
+    icon: mdi:rotate-3d-variant
+    lambda: "return id(g_yaw);"
+    set_action:
+      - lambda: |-
+          id(g_yaw) = x;
+          id(radar).set_yaw(x);
+          id(num_yaw).publish_state(x);
+
+  - platform: template
+    name: "Pitch"
+    id: num_pitch
+    unit_of_measurement: "°"
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(g_pitch);"
+    set_action:
+      - lambda: |-
+          id(g_pitch) = x;
+          id(radar).set_pitch(x);
+          id(num_pitch).publish_state(x);
+
+  - platform: template
+    name: "Roll"
+    id: num_roll
+    unit_of_measurement: "°"
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(g_roll);"
+    set_action:
+      - lambda: |-
+          id(g_roll) = x;
+          id(radar).set_roll(x);
+          id(num_roll).publish_state(x);
+
+  - platform: template
+    name: "Min Distance"
+    id: num_distance_min
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_min);"
+    set_action:
+      - lambda: |-
+          id(g_distance_min) = x;
+          id(radar).set_distance_min(x);
+          id(num_distance_min).publish_state(x);
+
+  - platform: template
+    name: "Max Distance"
+    id: num_distance_max
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_max);"
+    set_action:
+      - lambda: |-
+          id(g_distance_max) = x;
+          id(radar).set_distance_max(x);
+          id(num_distance_max).publish_state(x);
+
+  - platform: template
+    name: "Gesture Distance Threshold"
+    id: num_gesture_dist_thresh
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 40
+    step: 1
+    mode: box
+    icon: mdi:hand-wave
+    lambda: "return id(g_gesture_dist_thresh);"
+    set_action:
+      - lambda: |-
+          id(g_gesture_dist_thresh) = x;
+          id(radar).set_gesture_distance_threshold(x);
+          id(num_gesture_dist_thresh).publish_state(x);
+
+  - platform: template
+    name: "Gesture Speed Threshold"
+    id: num_gesture_spd_thresh
+    unit_of_measurement: cm/s
+    min_value: 0
+    max_value: 255
+    step: 1
+    mode: box
+    icon: mdi:speedometer
+    lambda: "return id(g_gesture_spd_thresh);"
+    set_action:
+      - lambda: |-
+          id(g_gesture_spd_thresh) = x;
+          id(radar).set_gesture_speed_threshold(x);
+          id(num_gesture_spd_thresh).publish_state(x);
+
+  - platform: template
+    name: "Gesture Angle Threshold"
+    id: num_gesture_ang_thresh
+    unit_of_measurement: "°"
+    min_value: 0
+    max_value: 255
+    step: 5
+    mode: box
+    icon: mdi:angle-obtuse
+    lambda: "return id(g_gesture_ang_thresh);"
+    set_action:
+      - lambda: |-
+          id(g_gesture_ang_thresh) = x;
+          id(radar).set_gesture_angle_threshold(x);
+          id(num_gesture_ang_thresh).publish_state(x);
+
+button:
+  - platform: template
+    name: "Factory Reset"
+    icon: mdi:factory
+    entity_category: config
+    on_press:
+      - lambda: "id(radar).factory_reset();"
+
+  - platform: template
+    name: "Reboot Radar Module"
+    icon: mdi:restart
+    entity_category: config
+    on_press:
+      - lambda: "id(radar).reboot();"
+
+# =============================================================================
+# 基础状态与诊断传感器
+# =============================================================================
+
+text:
+  - platform: template
+    name: "Mock Data"
+    id: text_mock_data
+    mode: text
+    entity_category: diagnostic
+    icon: mdi:bug
+    optimistic: true
+    set_action:
+      - lambda: 'id(radar).inject_mock_data(x);'
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: uptime
+    name: "Uptime"
+    entity_category: diagnostic
+    update_interval: 60s
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+    entity_category: diagnostic
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      entity_category: diagnostic
+    ssid:
+      name: "SSID"
+      entity_category: diagnostic
+    mac_address:
+      name: "MAC Address"
+      entity_category: diagnostic

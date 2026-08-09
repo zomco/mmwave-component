@@ -6,6 +6,14 @@ esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
   name_add_mac_suffix: true
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          // 开机启动后，将保存在闪存中的 globals 恢复给底层雷达组件
+          id(radar).set_distance_min(id(g_distance_min));
+          id(radar).set_distance_max(id(g_distance_max));
+          id(radar).set_distance_resolution(id(g_distance_resolution));
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -156,15 +164,30 @@ ld2412:
     gate_still_energy:
       name: "g13_still_energy"
 
+globals:
+  - id: g_distance_min
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 0 cm 最小有效探测距离
+  - id: g_distance_max
+    type: float
+    restore_value: true
+    initial_value: "900.0" # 900 cm 最大有效距离 (ld2412 max 9m)
+  - id: g_distance_resolution
+    type: float
+    restore_value: true
+    initial_value: "0.75" # 默认 0.75m 分辨率
+
+# =============================================================================
+# ld2412 组件定义
+# =============================================================================
+
 text:
   - platform: template
-    name: "Mock Data"
-    id: text_mock_data
-    min_length: 0
-    max_length: 255
-    optimistic: true
+    name: "ld2412_test_device Mock Data"
+    id: text_ld2412_mock_data
     mode: text
-    icon: mdi:code-json
-    set_action:
+    optimistic: true
+    on_value:
       - lambda: |-
-          id(radar).inject_mock_data(x);
+          id(radar).inject_mock_data(x.c_str());

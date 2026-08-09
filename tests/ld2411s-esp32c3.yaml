@@ -9,6 +9,18 @@ esphome:
   project:
     name: esphome.web
     version: '1.0'
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          // 开机后把闪存里持久化的校准参数recover回雷达组件。
+          // 缺了这段，globals 只写不读：用户校准完重启一次就回到默认值。
+          id(radar).set_radar_x(id(g_radar_x));
+          id(radar).set_radar_y(id(g_radar_y));
+          id(radar).set_radar_z(id(g_radar_z));
+          id(radar).set_yaw(id(g_yaw));
+          id(radar).set_pitch(id(g_pitch));
+          id(radar).set_roll(id(g_roll));
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -71,3 +83,154 @@ ld2411s:
     name: "Room Z"
   in_boundary:
     name: "In Boundary"
+
+globals:
+  - id: g_radar_x
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_radar_y
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_radar_z
+    type: float
+    restore_value: true
+    initial_value: "100.0"
+
+  - id: g_yaw
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_pitch
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_roll
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_polygon
+    type: std::string
+    restore_value: true
+    max_restore_data_length: 254
+    initial_value: '""'
+
+number:
+  - platform: template
+    name: "Radar X"
+    id: num_radar_x
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(g_radar_x);"
+    set_action:
+      - lambda: |-
+          id(g_radar_x) = x;
+          id(num_radar_x).publish_state(x);
+
+  - platform: template
+    name: "Radar Y"
+    id: num_radar_y
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(g_radar_y);"
+    set_action:
+      - lambda: |-
+          id(g_radar_y) = x;
+          id(num_radar_y).publish_state(x);
+
+  - platform: template
+    name: "Radar Z"
+    id: num_radar_z
+    unit_of_measurement: cm
+    min_value: 50
+    max_value: 400
+    step: 1
+    mode: box
+    icon: mdi:ruler-square
+    lambda: "return id(g_radar_z);"
+    set_action:
+      - lambda: |-
+          id(g_radar_z) = x;
+          id(num_radar_z).publish_state(x);
+
+  - platform: template
+    name: "Yaw"
+    id: num_yaw
+    unit_of_measurement: "°"
+    min_value: -180
+    max_value: 180
+    step: 0.1
+    mode: box
+    icon: mdi:rotate-3d-variant
+    lambda: "return id(g_yaw);"
+    set_action:
+      - lambda: |-
+          id(g_yaw) = x;
+          id(num_yaw).publish_state(x);
+
+  - platform: template
+    name: "Pitch"
+    id: num_pitch
+    unit_of_measurement: "°"
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(g_pitch);"
+    set_action:
+      - lambda: |-
+          id(g_pitch) = x;
+          id(num_pitch).publish_state(x);
+
+  - platform: template
+    name: "Roll"
+    id: num_roll
+    unit_of_measurement: "°"
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(g_roll);"
+    set_action:
+      - lambda: |-
+          id(g_roll) = x;
+          id(num_roll).publish_state(x);
+
+text:
+  - platform: template
+    name: "Mock Data"
+    id: text_mock_data
+    mode: text
+    entity_category: diagnostic
+    icon: mdi:bug
+    optimistic: true
+    set_action:
+      - lambda: 'id(radar).inject_mock_data(x);'
+
+  - platform: template
+    name: "Polygon Config"
+    id: text_polygon
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: text
+    icon: mdi:vector-polygon
+    set_action:
+      - lambda: |-
+          id(g_polygon) = x;
