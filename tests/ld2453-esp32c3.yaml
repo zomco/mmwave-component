@@ -1,7 +1,6 @@
 substitutions:
   name: ld2453
-  friendly_name: "LD2453 Radar"
-
+  friendly_name: "Radar"
 esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
@@ -41,11 +40,22 @@ uart:
   stop_bits: 1
 
 ld2453:
+  id: radar
   uart_id: uart_ld2453
+  
+  radar_x: 0.0
+  radar_y: 0.0
+  radar_z: 240.0
+  yaw: 0.0
+  pitch: 0.0
+  roll: 0.0
+  distance_min: 30.0
+  distance_max: 600.0
+
   presence:
     name: "Presence"
 
-  # ── 多雷达融合入口：10 Hz 原子目标帧（mmwave_fusion 的 frame_entity）──────
+  # 10 Hz atomic target frame consumed by mmwave_fusion.
   target_frame:
     name: "target_frame"
     icon: mdi:radar
@@ -57,5 +67,84 @@ ld2453:
       name: "Target 1 Y"
     speed:
       name: "Target 1 Speed"
-    resolution:
-      name: "Target 1 Resolution"
+    room_x:
+      name: "Target 1 Room X"
+    room_y:
+      name: "Target 1 Room Y"
+    room_z:
+      name: "Target 1 Room Z"
+    in_boundary:
+      name: "Target 1 In Boundary"
+
+  target_2:
+    x:
+      name: "Target 2 X"
+    y:
+      name: "Target 2 Y"
+    speed:
+      name: "Target 2 Speed"
+    room_x:
+      name: "Target 2 Room X"
+    room_y:
+      name: "Target 2 Room Y"
+    room_z:
+      name: "Target 2 Room Z"
+    in_boundary:
+      name: "Target 2 In Boundary"
+
+  target_3:
+    x:
+      name: "Target 3 X"
+    y:
+      name: "Target 3 Y"
+    speed:
+      name: "Target 3 Speed"
+    room_x:
+      name: "Target 3 Room X"
+    room_y:
+      name: "Target 3 Room Y"
+    room_z:
+      name: "Target 3 Room Z"
+    in_boundary:
+      name: "Target 3 In Boundary"
+
+number:
+  - platform: template
+    name: "yaw"
+    min_value: -180
+    max_value:  180
+    step: 0.1
+    set_action:
+      lambda: "id(radar).set_yaw(x);"
+
+  - platform: template
+    name: "pitch"
+    min_value: -90
+    max_value:  90
+    step: 0.5
+    set_action:
+      lambda: "id(radar).set_pitch(x);"
+
+  - platform: template
+    name: "roll"
+    min_value: -90
+    max_value:  90
+    step: 0.5
+    set_action:
+      lambda: "id(radar).set_roll(x);"
+
+  - platform: template
+    name: "radar_x"
+    min_value: -2000
+    max_value:  2000
+    step: 1
+    set_action:
+      lambda: "id(radar).set_radar_x(x);"
+
+  - platform: template
+    name: "radar_y"
+    min_value: -2000
+    max_value:  2000
+    step: 1
+    set_action:
+      lambda: "id(radar).set_radar_y(x);"

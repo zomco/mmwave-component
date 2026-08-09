@@ -1,6 +1,5 @@
 esphome:
-  name: ld2410-test
-
+  name: ld2410
 esp32:
   board: esp32-c3-devkitm-1
   framework:
@@ -19,10 +18,38 @@ uart:
   rx_pin: GPIO5
   baud_rate: 256000
 
+number:
+  - platform: template
+    name: "Radar Yaw"
+    id: radar_yaw
+    min_value: -180
+    max_value: 180
+    step: 1
+    initial_value: 0
+    optimistic: true
+  - platform: template
+    name: "Radar Pitch"
+    id: radar_pitch
+    min_value: -90
+    max_value: 90
+    step: 1
+    initial_value: 0
+    optimistic: true
+
 ld2410:
   id: my_radar
   uart_id: uart_bus
   
+  radar_x: 0.0
+  radar_y: 0.0
+  radar_z: 240.0
+  yaw: 0.0
+  pitch: 0.0
+  roll: 0.0
+  
+  distance_min: 0.0
+  distance_max: 300.0
+
   presence:
     name: "Presence"
   target_state:
@@ -46,3 +73,14 @@ ld2410:
     name: "Room Z"
   in_boundary:
     name: "In Boundary"
+
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+  ap:
+    ssid: "${friendly_name} Fallback"
+
+captive_portal:
