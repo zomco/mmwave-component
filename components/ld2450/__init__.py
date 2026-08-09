@@ -38,9 +38,36 @@ CONF_PITCH          = "pitch"
 CONF_ROLL           = "roll"
 CONF_POLYGON        = "polygon"
 
+# 雷达原生区域过滤（协议 2.2.12 / 2.2.13）
+CONF_ZONE_FILTER    = "zone_filter"
+CONF_ZONE_TYPE      = "type"
+CONF_ZONES          = "zones"
+
+ZONE_TYPES = {
+    "disabled": 0,  # 关闭区域过滤
+    "include": 1,   # 仅检测设置的区域
+    "exclude": 2,   # 不检测设置的区域
+}
+
+# 矩形区域：对角两顶点，YAML 使用 cm（与其它坐标一致），下发时转 mm
+ZONE_SCHEMA = cv.Schema({
+    cv.Required("x1"): cv.float_,
+    cv.Required("y1"): cv.float_,
+    cv.Required("x2"): cv.float_,
+    cv.Required("y2"): cv.float_,
+})
+
+ZONE_FILTER_SCHEMA = cv.Schema({
+    cv.Required(CONF_ZONE_TYPE): cv.enum(ZONE_TYPES, lower=True),
+    cv.Optional(CONF_ZONES, default=[]): cv.All(
+        cv.ensure_list(ZONE_SCHEMA), cv.Length(max=3)
+    ),
+})
+
 # 全局传感器
 CONF_PRESENCE       = "presence"
 CONF_PRESENCE_TIMEOUT = "presence_timeout"
+CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
 CONF_TARGET_FRAME    = "target_frame"
 
 # 控制实体
@@ -129,6 +156,9 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_POLYGON,  default=[]):
                 cv.ensure_list(POLYGON_POINT_SCHEMA),
 
+            # 雷达原生区域过滤（在雷达侧丢弃目标，与软件多边形过滤互补）
+            cv.Optional(CONF_ZONE_FILTER): ZONE_FILTER_SCHEMA,
+
             # ── 全局存在检测 ──────────────────────────────────────────────
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_PRESENCE,
@@ -137,6 +167,8 @@ CONFIG_SCHEMA = (
                 icon="mdi:radar",
             ),
             cv.Optional(CONF_PRESENCE_TIMEOUT, default="5s"): cv.positive_time_period_milliseconds,
+            # 边界外的目标（隔墙鬼影）默认不计入 presence
+            cv.Optional(CONF_BOUNDARY_GATES_PRESENCE, default=True): cv.boolean,
 
             # ── 控制实体 ──────────────────────────────────────────────────
             cv.Optional(CONF_MULTI_TARGET): switch.switch_schema(
@@ -183,6 +215,22 @@ async def to_code(config):
     for pt in config.get(CONF_POLYGON, []):
         cg.add(var.add_polygon_point(pt["x"], pt["y"]))
 
+    # 雷达原生区域过滤：YAML 用 cm，协议用 mm
+    if CONF_ZONE_FILTER in config:
+        zf = config[CONF_ZONE_FILTER]
+        cg.add(var.set_zone_type(zf[CONF_ZONE_TYPE]))
+        for i, z in enumerate(zf[CONF_ZONES]):
+            cg.add(
+                var.set_zone(
+                    i,
+                    int(round(z["x1"] * 10)),
+                    int(round(z["y1"] * 10)),
+                    int(round(z["x2"] * 10)),
+                    int(round(z["y2"] * 10)),
+                )
+            )
+        cg.add(var.set_zone_config_pending(True))
+
     # 全局 binary_sensor
     if CONF_PRESENCE in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_PRESENCE])
@@ -210,6 +258,7 @@ async def to_code(config):
 
     # 全局超时设置
     cg.add(var.set_presence_timeout(config[CONF_PRESENCE_TIMEOUT]))
+    cg.add(var.set_boundary_gates_presence(config[CONF_BOUNDARY_GATES_PRESENCE]))
 
     # 控制实体
     if CONF_MULTI_TARGET in config:
@@ -217,14 +266,14 @@ async def to_code(config):
         await switch.register_switch(sw, config[CONF_MULTI_TARGET])
         cg.add(sw.set_parent(var))
         cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2450::LD2450Switch::MULTI_TARGET")))
-        cg.add(var.multi_target_switch_, sw)
+        cg.add(var.set_multi_target_switch(sw))
 
     if CONF_BLUETOOTH in config:
         sw = cg.new_Pvariable(config[CONF_BLUETOOTH][CONF_ID])
         await switch.register_switch(sw, config[CONF_BLUETOOTH])
         cg.add(sw.set_parent(var))
         cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2450::LD2450Switch::BLUETOOTH")))
-        cg.add(var.bluetooth_switch_, sw)
+        cg.add(var.set_bluetooth_switch(sw))
 
     if CONF_FACTORY_RESET in config:
         btn = cg.new_Pvariable(config[CONF_FACTORY_RESET][CONF_ID])

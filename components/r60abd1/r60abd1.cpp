@@ -249,11 +249,9 @@ void R60ABD1Component::handle_presence_frame_() {
   switch (cmd_) {
 
     case 0x01: // 存在信息: 00=无人, 01=有人
-      if (presence_sensor_) {
-        const bool present = (rx_buf_[0] == 0x01);
-        presence_sensor_->publish_state(present);
-        ESP_LOGD(TAG, "Presence: %s", present ? "YES" : "NO");
-      }
+      last_raw_presence_ = (rx_buf_[0] == 0x01);
+      ESP_LOGD(TAG, "Presence (raw): %s", last_raw_presence_ ? "YES" : "NO");
+      publish_presence_();
       break;
 
     case 0x02: // 运动状态: 00=无, 01=静止, 02=活跃
@@ -494,6 +492,20 @@ void R60ABD1Component::handle_sleep_frame_() {
 // 坐标变换 & 发布
 // ═══════════════════════════════════════════════════════════════════════════
 
+void R60ABD1Component::publish_presence_() {
+  if (presence_sensor_ == nullptr) return;
+
+  // 雷达报告有人，且（未启用边界门控 或 最近一次坐标落在多边形内）
+  const bool present =
+      last_raw_presence_ && (!boundary_gates_presence_ || last_in_boundary_);
+
+  if (!presence_sensor_->has_state() || presence_sensor_->state != present) {
+    presence_sensor_->publish_state(present);
+    ESP_LOGD(TAG, "Presence: %s%s", present ? "YES" : "NO",
+             (last_raw_presence_ && !present) ? " (gated by boundary)" : "");
+  }
+}
+
 void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
   uint32_t now_ms = millis();
   if (now_ms - this->last_publish_ms_ < 1000) return;
@@ -509,6 +521,10 @@ void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
   if (room_y_)       room_y_->publish_state(res.room.y);
   if (room_z_)       room_z_->publish_state(res.room_z);
   if (in_boundary_sensor_) in_boundary_sensor_->publish_state(res.in_boundary);
+
+  // 坐标帧更新了边界判定，重新计算 presence（隔墙鬼影不应算有人）
+  last_in_boundary_ = res.in_boundary;
+  publish_presence_();
 
   ESP_LOGD(TAG, "Room: x=%.1f y=%.1f z=%.1f cm  [%s]",
            res.room.x, res.room.y, res.room_z,

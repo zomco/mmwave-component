@@ -13,7 +13,6 @@ void LD2452Button::press_action() {
 
 void LD2452Switch::write_state(bool state) {
   if (type_ == MULTI_TARGET) parent_->set_multi_target_mode(state);
-  else if (type_ == BLUETOOTH) parent_->set_bluetooth(state);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -265,7 +264,7 @@ void LD2452Component::process_byte_(uint8_t byte) {
  */
 void LD2452Component::dispatch_data_frame_() {
   diag_frame_count_++;
-  bool any_active = false;
+  bool any_present = false;
 
   for (uint8_t i = 0; i < MAX_TARGETS; i++) {
     const uint8_t *p = data_buf_ + i * TARGET_BYTES;
@@ -277,15 +276,17 @@ void LD2452Component::dispatch_data_frame_() {
 
   // 目标存在判定：X 和 Y 同时为 0 视为无目标
     const bool active = (x_mm != 0 || y_mm != 0);
-    if (active) any_active = true;
 
-    publish_target_(i, x_mm, y_mm, speed, res, active);
+    // publish_target_ 返回该目标是否计入 presence：
+    // boundary_gates_presence_ 为真时，只有落在多边形内的目标才算数，
+    // 这样隔墙的鬼影目标不会把 presence 拉高。
+    if (publish_target_(i, x_mm, y_mm, speed, res, active)) any_present = true;
   }
 
   publish_target_frame_();
 
   if (presence_sensor_) {
-    if (any_active) {
+    if (any_present) {
       last_presence_ms_ = millis();
       if (!presence_sensor_->state || !presence_sensor_->has_state()) {
         presence_sensor_->publish_state(true);
@@ -299,7 +300,7 @@ void LD2452Component::dispatch_data_frame_() {
     }
   }
 
-  ESP_LOGV(TAG, "Data frame: %s", any_active ? "targets detected" : "no targets");
+  ESP_LOGV(TAG, "Data frame: %s", any_present ? "targets detected" : "no targets");
 }
 
 void LD2452Component::publish_target_frame_() {
@@ -379,23 +380,14 @@ void LD2452Component::dispatch_cmd_frame_() {
     if (this->multi_target_switch_ != nullptr) this->multi_target_switch_->publish_state(false);
   }
 
-  // 特殊处理: 蓝牙查询或设置确认 (0xA501, 0xA401)
-  if (ack_cmd == (CMD_GET_MAC | 0x0100) && cmd_len_ >= 8 && status == 0) {
-    // MAC 全为 [0x08, 0x05, 0x04, 0x03, 0x02, 0x01] 时表示蓝牙已关闭
-    const uint8_t NO_MAC[] = {0x08, 0x05, 0x04, 0x03, 0x02, 0x01};
-    bool bt_on = std::memcmp(&cmd_buf_[4], NO_MAC, 6) != 0;
-    ESP_LOGI(TAG, "Bluetooth: %s", bt_on ? "ON" : "OFF");
-    if (this->bluetooth_switch_ != nullptr) {
-      this->bluetooth_switch_->publish_state(bt_on);
-    }
-  }
+  // LD2452 无蓝牙 / MAC 查询命令，实测不回 ACK，故不做处理。
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 目标处理: 变换 → 过滤 → 发布
 // ═══════════════════════════════════════════════════════════════════════════
 
-void LD2452Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
+bool LD2452Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
                                        int16_t speed_cm_s, uint16_t resolution_mm,
                                        bool active) {
   const auto &t = targets_[idx];
@@ -414,7 +406,7 @@ void LD2452Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
     if (t.room_x)     t.room_x->publish_state(0);
     if (t.room_y)     t.room_y->publish_state(0);
     if (t.in_boundary) t.in_boundary->publish_state(false);
-    return;
+    return false;
   }
 
   // ── 计算距离和角度 ─────────────────────────────────────────────────────
@@ -445,6 +437,9 @@ void LD2452Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
            idx + 1, x_mm, y_mm, speed_cm_s, dist_cm,
            res.room.x, res.room.y,
            res.in_boundary ? "inside" : "OUTSIDE");
+
+  // 计入 presence 与否：开启边界门控时，界外目标不算存在
+  return boundary_gates_presence_ ? res.in_boundary : true;
 }
 
 void LD2452Component::inject_mock_data(const std::string &hex_str) {

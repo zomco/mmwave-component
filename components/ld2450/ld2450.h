@@ -24,6 +24,25 @@ static constexpr uint8_t TARGET_BYTES    = 8;    // 每个目标 8 字节
 static constexpr uint8_t DATA_BODY_LEN   = 24;   // 3 目标 × 8 字节
 static constexpr uint8_t MAX_CMD_DATA    = 64;   // 命令 ACK 最大数据长度
 
+// ── 区域过滤（协议 2.2.12 / 2.2.13）────────────────────────────────────────
+static constexpr uint8_t MAX_ZONES       = 3;    // 雷达原生支持 3 个矩形区域
+static constexpr uint8_t ZONE_CFG_LEN    = 26;   // 2B 区域类型 + 3 区 × 4 坐标 × 2B
+
+/// 区域过滤类型（协议表 8）
+enum ZoneType : uint16_t {
+  ZONE_DISABLED = 0,  // 关闭区域过滤
+  ZONE_INCLUDE  = 1,  // 仅检测设置的区域
+  ZONE_EXCLUDE  = 2,  // 不检测设置的区域
+};
+
+/// 单个矩形区域：对角两顶点，单位 mm（协议原生单位）
+struct ZoneRect {
+  int16_t x1{0};
+  int16_t y1{0};
+  int16_t x2{0};
+  int16_t y2{0};
+};
+
 // ── 数据帧标记 ────────────────────────────────────────────────────────────────
 static constexpr uint8_t DATA_HDR1  = 0xAA;
 static constexpr uint8_t DATA_HDR2  = 0xFF;
@@ -156,7 +175,10 @@ class LD2450Component : public Component, public uart::UARTDevice {
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
   /// Set the optional atomic target-frame text sensor.
   void set_target_frame_sensor(text_sensor::TextSensor *s) { target_frame_sensor_ = s; }
-  void set_presence_timeout(uint32_t t) { presence_timeout_ = t * 1000; }
+  /// 设置存在检测保持时间（ms，由 codegen 直接传入毫秒值）
+  void set_presence_timeout(uint32_t ms) { presence_timeout_ = ms; }
+  /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
+  void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
 
   // ── 目标 1 传感器 setters ──────────────────────────────────────────────
   void set_target_1_x_sensor(sensor::Sensor *s)                    { targets_[0].x = s; }
@@ -202,9 +224,9 @@ class LD2450Component : public Component, public uart::UARTDevice {
     if (enable) send_config_cmd(CMD_MULTI_TARGET, nullptr, 0);
     else send_config_cmd(CMD_SINGLE_TARGET, nullptr, 0);
   }
-  /// 设置蓝牙广播
+  /// 设置蓝牙广播（协议 2.2.10：命令值小端，开=01 00，关=00 00）
   void set_bluetooth(bool enable) {
-    uint8_t data[] = { 0x01, static_cast<uint8_t>(enable ? 0x01 : 0x00) };
+    uint8_t data[] = { static_cast<uint8_t>(enable ? 0x01 : 0x00), 0x00 };
     send_config_cmd(CMD_BT_SETTING, data, 2);
   }
   /// 重启模块
@@ -214,13 +236,35 @@ class LD2450Component : public Component, public uart::UARTDevice {
   /// 查询雷达状态
   void query_state() {
     send_config_cmd(CMD_FW_VERSION, nullptr, 0);
-    send_config_cmd(CMD_GET_MAC, nullptr, 0);
+    // 协议 2.2.11：获取 MAC 地址必须带 2 字节命令值 0x0001
+    const uint8_t mac_query_val[] = { 0x01, 0x00 };
+    send_config_cmd(CMD_GET_MAC, mac_query_val, 2);
     send_config_cmd(CMD_QUERY_MODE, nullptr, 0);
   }
+  // ── 雷达原生区域过滤（协议 2.2.12 / 2.2.13）──────────────────────────
+  /// 设置区域过滤类型（0 关闭 / 1 仅检测区域内 / 2 不检测区域内）
+  void set_zone_type(uint16_t t) { zone_type_ = t; }
+  /// 设置第 idx 个矩形区域的对角顶点（mm）
+  void set_zone(uint8_t idx, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+    if (idx >= MAX_ZONES) return;
+    zones_[idx] = ZoneRect{x1, y1, x2, y2};
+  }
+  /// 标记 YAML 配置了区域过滤，setup() 时自动下发一次
+  void set_zone_config_pending(bool v) { zone_config_pending_ = v; }
+  /// 下发当前区域过滤配置（0x00C2，掉电不丢失，立即生效）
+  void apply_zone_config();
+  /// 查询雷达当前的区域过滤配置（0x00C1）
+  void query_zone_config() { send_config_cmd(CMD_QUERY_ZONE, nullptr, 0); }
+
   /// 注入测试数据
   void inject_mock_data(const std::string &hex_str);
 
   // 控制实体指针
+  /// 绑定多目标追踪开关实体（用于 ACK 状态回读）
+  void set_multi_target_switch(switch_::Switch *s) { multi_target_switch_ = s; }
+  /// 绑定蓝牙开关实体（用于 ACK 状态回读）
+  void set_bluetooth_switch(switch_::Switch *s) { bluetooth_switch_ = s; }
+
   switch_::Switch *multi_target_switch_{nullptr};
   switch_::Switch *bluetooth_switch_{nullptr};
 
@@ -230,7 +274,8 @@ class LD2450Component : public Component, public uart::UARTDevice {
   void publish_target_frame_();
   void dispatch_cmd_frame_();
   void recompute_rotation_();
-  void publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
+  /// 发布单个目标；返回该目标是否应计入全局 presence
+  bool publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
                        int16_t speed_cm_s, uint16_t resolution_mm, bool active);
   void send_raw_cmd_(uint16_t cmd_word, const uint8_t *data, uint16_t len);
 
@@ -257,6 +302,12 @@ class LD2450Component : public Component, public uart::UARTDevice {
   uint32_t frame_id_{0};
   uint32_t presence_timeout_{5000};
   uint32_t last_presence_ms_{0};
+  bool     boundary_gates_presence_{true};
+
+  // ── 雷达原生区域过滤配置 ───────────────────────────────────────────────
+  uint16_t zone_type_{ZONE_DISABLED};
+  ZoneRect zones_[MAX_ZONES]{};
+  bool     zone_config_pending_{false};
 
   // ── 测试模拟数据状态 ───────────────────────────────────────────────────
   uint32_t mock_active_until_{0};

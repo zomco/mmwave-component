@@ -35,19 +35,17 @@ class Transform1D {
     // Convert angles to radians
     float yaw_rad   = cal.yaw   * (M_PI / 180.0f);
     float pitch_rad = cal.pitch * (M_PI / 180.0f);
-    float roll_rad  = cal.roll  * (M_PI / 180.0f);
 
     float cy = std::cos(yaw_rad);
     float sy = std::sin(yaw_rad);
     float cp = std::cos(pitch_rad);
     float sp = std::sin(pitch_rad);
-    float sr = std::sin(roll_rad);
-    float cr = std::cos(roll_rad);
 
-    // Rotation matrix elements for local +Y projection
-    float R12 = -sy * cr + cy * sp * sr;
-    float R22 = cy * cr + sy * sp * sr;
-    float R32 = cp * sr;
+    // Room-frame convention: R = Rz(yaw) * Rx(pitch) * Ry(roll), boresight = local +Y.
+    // Column 1 of R; roll turns about the boresight and cancels out.
+    float R12 = sy * cp;
+    float R22 = cy * cp;
+    float R32 = -sp;
 
     // Global world offsets
     float wx = R12 * local_y;

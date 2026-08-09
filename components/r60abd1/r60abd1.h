@@ -76,6 +76,9 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   /** 清空多边形（可在运行时通过按钮实体调用以禁用边界过滤）*/
   void clear_polygon() { cal_.polygon.clear(); }
 
+  /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
+  void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
+
   // ── 传感器 setters（由 __init__.py 注册传感器对象）────────────────────
   void set_presence_sensor(binary_sensor::BinarySensor *s)    { presence_sensor_    = s; }
   void set_motion_sensor(sensor::Sensor *s)                   { motion_sensor_      = s; }
@@ -120,6 +123,8 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   void handle_sleep_frame_();
   void handle_work_state_frame_();
   void publish_position_(int16_t rx, int16_t ry, int16_t rz);
+  /// 结合 0x80 存在帧与最近一次坐标帧的边界判定后发布 presence
+  void publish_presence_();
 
   // 帧解析状态
   ParseState parse_state_{ParseState::IDLE};
@@ -131,6 +136,12 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   bool       initialized_{false};
   uint32_t   last_rx_ms_{0};
   uint32_t   last_publish_ms_{0};
+
+  // presence 与坐标来自不同的帧（0x80/0x01 与 0x80/0x0E），
+  // 因此分别缓存，任一方更新时都重新计算最终的 presence。
+  bool       boundary_gates_presence_{true};
+  bool       last_raw_presence_{false};
+  bool       last_in_boundary_{true};
 
   CalibrationParams cal_;
 

@@ -154,6 +154,29 @@ ld2450:
     name: "presence"
     device_class: presence
 
+  # ── 多雷达融合入口：10 Hz 原子目标帧（mmwave_fusion 的 frame_entity）──────
+  target_frame:
+    name: "target_frame"
+    icon: mdi:radar
+
+  # ── 雷达原生区域过滤（协议 2.2.12/2.2.13，配置掉电不丢失）──────────────
+  # type: disabled | include（仅检测区域内）| exclude（忽略区域内）
+  # 坐标为矩形对角两顶点，单位 cm（下发时转 mm）
+  zone_filter:
+    type: exclude
+    zones:
+      - { x1: -100.0, y1: 100.0, x2: 100.0, y2: 500.0 }
+
+  # ── 控制实体（CI 需覆盖这些 codegen 路径）──────────────────────────────
+  multi_target:
+    name: "multi_target"
+  bluetooth:
+    name: "bluetooth"
+  restart:
+    name: "restart"
+  factory_reset:
+    name: "factory_reset"
+
   # ── 目标 1 ──────────────────────────────────────────────────────────────
   target_1_x:
     name: "target_1_x"

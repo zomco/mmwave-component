@@ -36,6 +36,7 @@ CONF_YAW            = "yaw"
 CONF_PITCH          = "pitch"
 CONF_ROLL           = "roll"
 CONF_POLYGON        = "polygon"
+CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
 
 # 传感器
 CONF_PRESENCE           = "presence"
@@ -83,6 +84,8 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_ROLL,         default=0.0):   cv.float_range(-90, 90),
             cv.Optional(CONF_POLYGON,      default=[]):
                 cv.ensure_list(POLYGON_POINT_SCHEMA),
+            # 边界外的目标（隔墙鬼影）默认不计入 presence
+            cv.Optional(CONF_BOUNDARY_GATES_PRESENCE, default=True): cv.boolean,
 
             # ── 存在与运动 ─────────────────────────────────────────────────────
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
@@ -225,6 +228,8 @@ async def to_code(config):
     # 多边形：逐点追加（避免传递 std::vector，与 ESPHome codegen 兼容）
     for pt in config.get(CONF_POLYGON, []):
         cg.add(var.add_polygon_point(pt["x"], pt["y"]))
+
+    cg.add(var.set_boundary_gates_presence(config[CONF_BOUNDARY_GATES_PRESENCE]))
 
     # sensor 传感器
     _sensor_map = {

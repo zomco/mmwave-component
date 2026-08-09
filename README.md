@@ -55,6 +55,11 @@ The DIY guide also contains detailed explanations of the technical principles be
 | LD2451      | 🔧 Developing | 2D (Polar)        | Multi-target tracking, presence detection                              | [Documentation](docs/ld2451/)           |
 | LD2452      | Testing       | 2D (X, Y)         | Multi-target tracking (up to 3), fusion testing                        | [Documentation](docs/ld2452/)           |
 | LD2454      | Testing       | 2D (X, Y)         | Multi-target tracking (up to 3), fusion testing                        | [Documentation](docs/ld2454/)           |
+| LD2410      | 🔧 Developing | 1D (range)        | Presence/motion detection, per-gate energy (engineering mode)          | [Documentation](docs/ld2410/)           |
+| LD2412      | 🔧 Developing | 1D (range)        | Presence/motion detection, 14 gates, ambient light                     | [Documentation](docs/ld2412/)           |
+| LD2420      | 🔧 Developing | 1D (range)        | Presence/motion detection, 16 gates, threshold calibration             | [Documentation](docs/ld2420/)           |
+| LD2411S     | 🔧 Developing | 1D (range)        | Presence/motion + micro-motion detection                               | [Documentation](docs/ld2411s/)          |
+| LD2450A     | 🔧 Developing | 1D (range)        | Ranging + gesture recognition                                          | [Documentation](docs/ld2450a/)          |
 
 ### Status Definitions
 

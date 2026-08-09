@@ -42,6 +42,18 @@ uart:
 ld2411s:
   id: radar
   uart_id: uart_bus
+
+  # 安装校准（房间坐标系，cm / °）
+  radar_x: 0.0
+  radar_y: 0.0
+  radar_z: 240.0
+  yaw: 0.0
+  pitch: 0.0
+  roll: 0.0
+  # 1-D 雷达使用距离门作为边界；0 = 不过滤
+  distance_min: 0.0
+  distance_max: 0.0
+
   distance:
     name: "Distance"
   presence:
@@ -50,3 +62,12 @@ ld2411s:
     name: "Moving Target"
   micro_target:
     name: "Micro Target"
+
+  room_x:
+    name: "Room X"
+  room_y:
+    name: "Room Y"
+  room_z:
+    name: "Room Z"
+  in_boundary:
+    name: "In Boundary"

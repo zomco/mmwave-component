@@ -1,63 +1,63 @@
 substitutions:
-  device_name: ld2412-test
-  device_ip: !secret ld2412_ip
-  api_key: !secret ld2412_api_key
-  ota_password: !secret ld2412_ota_password
+  name: ld2412
+  friendly_name: "LD2412 Radar"
 
 esphome:
-  name: ${device_name}
-  friendly_name: ld2412 Test Device
-  on_boot:
-    priority: -100
-    then:
-      - lambda: |-
-          // 开机启动后，将保存在闪存中�?globals 恢复给底层雷达组�?          id(radar).set_distance_min(id(g_distance_min));
-          id(radar).set_distance_max(id(g_distance_max));
-          id(radar).set_distance_resolution(id(g_distance_resolution));
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
 
-packages:
-  base: !include common/base.yaml
-  board: !include common/esp32c3.yaml
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
 
+# ── 外部组件（本地路径） ──────────────────────────────────────────────────────
 external_components:
   - source:
       type: local
-      path: !env_var ESPHOME_COMPONENTS_DIR ../components
+      path: ../components
     components: [ld2412]
 
-# =============================================================================
-# UART (ld2412 默认波特�?115200, N1)
-# =============================================================================
+# ── 基础配置 ──────────────────────────────────────────────────────────────────
+logger:
+
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+  ap:
+    ssid: "${friendly_name} Fallback"
+
+captive_portal:
+
+# ── UART（LD2412 默认波特率 115200，8N1） ─────────────────────────────────────
 uart:
   id: uart_ld2412
-  tx_pin: GPIO21
-  rx_pin: GPIO20
+  tx_pin: GPIO21 # ESP32-C3 → LD2412 RX（交叉接线）
+  rx_pin: GPIO20 # ESP32-C3 ← LD2412 TX
   baud_rate: 115200
   data_bits: 8
   parity: NONE
   stop_bits: 1
 
-# =============================================================================
-# 校准参数（globals）持久化
-# =============================================================================
-globals:
-  - id: g_distance_min
-    type: float
-    restore_value: true
-    initial_value: "0.0" # 0 cm 最小有效探测距�?  - id: g_distance_max
-    type: float
-    restore_value: true
-    initial_value: "900.0" # 900 cm 最大有效距�?(ld2412 max 9m)
-  - id: g_distance_resolution
-    type: float
-    restore_value: true
-    initial_value: "0.75" # 默认 0.75m 分辨�?
-# =============================================================================
-# ld2412 组件定义
-# =============================================================================
+# ── LD2412 组件 ───────────────────────────────────────────────────────────────
 ld2412:
   id: radar
   uart_id: uart_ld2412
+
+  # 安装校准（房间坐标系，cm / °）
+  radar_x: 0.0
+  radar_y: 0.0
+  radar_z: 240.0
+  yaw: 0.0
+  pitch: 0.0
+  roll: 0.0
+  # 1-D 雷达使用距离门作为边界；0 = 不过滤
+  distance_min: 0.0
+  distance_max: 900.0 # LD2412 最远 9 m
 
   presence:
     name: "presence"
@@ -66,17 +66,25 @@ ld2412:
     name: "target_state"
   moving_distance:
     name: "moving_distance"
-    unit_of_measurement: "cm"
   moving_energy:
     name: "moving_energy"
   stationary_distance:
     name: "stationary_distance"
-    unit_of_measurement: "cm"
   stationary_energy:
     name: "stationary_energy"
   light:
     name: "light_sensor"
 
+  room_x:
+    name: "room_x"
+  room_y:
+    name: "room_y"
+  room_z:
+    name: "room_z"
+  in_boundary:
+    name: "in_boundary"
+
+  # 14 个距离门（0-13）的运动/静止能量
   g0:
     gate_move_energy:
       name: "g0_move_energy"
@@ -148,11 +156,15 @@ ld2412:
     gate_still_energy:
       name: "g13_still_energy"
 
-text_sensor:
+text:
   - platform: template
-    name: "ld2412_test_device Mock Data"
-    id: text_ld2412_mock_data
+    name: "Mock Data"
+    id: text_mock_data
+    min_length: 0
+    max_length: 255
     optimistic: true
-    on_value:
+    mode: text
+    icon: mdi:code-json
+    set_action:
       - lambda: |-
-          id(radar).inject_mock_data(x.c_str());
+          id(radar).inject_mock_data(x);

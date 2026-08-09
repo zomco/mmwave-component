@@ -50,7 +50,7 @@ void LD2451Component::loop() {
 
   // Diagnostic: every 5 seconds, report byte count
   if (now - last_diag_ms_ >= 5000) {
-    ESP_LOGI(TAG, "DIAG: %u bytes received in last 5s, %u data frames parsed, available()=%d", 
+    ESP_LOGV(TAG, "DIAG: %u bytes received in last 5s, %u data frames parsed, available()=%d",
              diag_bytes_, diag_frames_, this->available());
     diag_bytes_ = 0;
     diag_frames_ = 0;
@@ -88,36 +88,36 @@ void LD2451Component::loop() {
 }
 
 void LD2451Component::send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len) {
-  // Enable config
-  uint8_t enable_cmd[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x04, 0x00, 0xFF, 0x00, 0x01, 0x00, 0x04, 0x03, 0x02, 0x01};
-  this->write_array(enable_cmd, sizeof(enable_cmd));
-  delay(100);
+  static const uint8_t ENABLE_CONFIG[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x04, 0x00,
+                                          0xFF, 0x00, 0x01, 0x00, 0x04, 0x03, 0x02, 0x01};
+  static const uint8_t END_CONFIG[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x02, 0x00,
+                                       0xFE, 0x00, 0x04, 0x03, 0x02, 0x01};
 
-  // Send command
-  uint16_t len = 2 + command_value_len;
+  // Build the payload frame up front.
+  const uint16_t len = 2 + command_value_len;
   std::vector<uint8_t> cmd;
-  cmd.push_back(0xFD);
-  cmd.push_back(0xFC);
-  cmd.push_back(0xFB);
-  cmd.push_back(0xFA);
+  cmd.reserve(12 + command_value_len);
+  cmd.insert(cmd.end(), {0xFD, 0xFC, 0xFB, 0xFA});
   cmd.push_back(len & 0xFF);
   cmd.push_back((len >> 8) & 0xFF);
   cmd.push_back(command & 0xFF);
   cmd.push_back((command >> 8) & 0xFF);
-  for (uint8_t i = 0; i < command_value_len; i++) {
-    cmd.push_back(command_value[i]);
-  }
-  cmd.push_back(0x04);
-  cmd.push_back(0x03);
-  cmd.push_back(0x02);
-  cmd.push_back(0x01);
-  this->write_array(cmd.data(), cmd.size());
-  delay(250); // Important: Give radar enough time to write to flash!
+  cmd.insert(cmd.end(), command_value, command_value + command_value_len);
+  cmd.insert(cmd.end(), {0x04, 0x03, 0x02, 0x01});
 
-  // Disable config
-  uint8_t disable_cmd[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x02, 0x00, 0xFE, 0x00, 0x04, 0x03, 0x02, 0x01};
-  this->write_array(disable_cmd, sizeof(disable_cmd));
-  delay(100);
+  // Protocol 1.4.1 requires enable-config -> command -> end-config with time for
+  // the radar to answer (and to finish its flash write) in between. Staging the
+  // writes with set_timeout keeps loop() non-blocking; the previous inline
+  // delay() chain stalled the component for 450 ms, well over ESPHome's 30 ms
+  // budget.
+  this->write_array(ENABLE_CONFIG, sizeof(ENABLE_CONFIG));
+
+  this->set_timeout("ld2451_cmd", 100, [this, cmd]() {
+    this->write_array(cmd.data(), cmd.size());
+    this->set_timeout("ld2451_end_config", 250, [this]() {
+      this->write_array(END_CONFIG, sizeof(END_CONFIG));
+    });
+  });
 }
 
 void LD2451Component::factory_reset() {
@@ -147,17 +147,18 @@ void LD2451Component::process_ack_() {
 }
 
 void LD2451Component::handle_ack_data_(uint16_t command, uint16_t status, const uint8_t *data, uint8_t data_len) {
-  ESP_LOGI(TAG, "Received ACK for command 0x%04X, status: 0x%04X", command, status);
+  ESP_LOGD(TAG, "Received ACK for command 0x%04X, status: 0x%04X", command, status);
   if (status != 0) {
     ESP_LOGW(TAG, "Command 0x%04X failed!", command);
     return;
   }
   
+  // Protocol 1.2.7: 2B firmware type (0x2451) + 2B major + 4B minor,
+  // e.g. 51 24 | 01 01 | 10 15 05 24  ->  V1.01.24051510
   if (command == 0x01A0 && data_len >= 8) {
-    uint16_t type = (uint16_t(data[1]) << 8) | data[0];
-    uint16_t major = (uint16_t(data[3]) << 8) | data[2];
-    uint32_t minor = (uint32_t(data[7]) << 24) | (uint32_t(data[6]) << 16) | (uint32_t(data[5]) << 8) | data[4];
-    ESP_LOGI(TAG, "Radar Firmware Version: V%d.%02d.%08X (Type: %04X)", major, minor >> 24, minor & 0xFFFFFF, type);
+    const uint16_t type = (uint16_t(data[1]) << 8) | data[0];
+    ESP_LOGI(TAG, "Radar firmware: V%u.%02u.%02X%02X%02X%02X (type 0x%04X)",
+             data[3], data[2], data[7], data[6], data[5], data[4], type);
   }
   
   // Detection params ACK: 4 bytes (MaxDist, Direction, MinSpeed, Delay)
@@ -174,16 +175,6 @@ void LD2451Component::handle_ack_data_(uint16_t command, uint16_t status, const 
 }
 
 void LD2451Component::process_byte_(uint8_t byte) {
-  // ESP_LOGD(TAG, "RX: %02X", byte); // Disabled to prevent flooding, we'll collect them in a static buffer and print
-  static std::vector<uint8_t> dump_buf;
-  dump_buf.push_back(byte);
-  if (dump_buf.size() >= 16) {
-    ESP_LOGI(TAG, "RAW RX DUMP: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
-             dump_buf[0], dump_buf[1], dump_buf[2], dump_buf[3], dump_buf[4], dump_buf[5], dump_buf[6], dump_buf[7],
-             dump_buf[8], dump_buf[9], dump_buf[10], dump_buf[11], dump_buf[12], dump_buf[13], dump_buf[14], dump_buf[15]);
-    dump_buf.clear();
-  }
-
   this->rx_buffer_.push_back(byte);
 
   if (this->rx_buffer_.size() >= 10 && this->rx_buffer_[0] == 0xFD && this->rx_buffer_[1] == 0xFC &&
@@ -211,7 +202,6 @@ void LD2451Component::process_byte_(uint8_t byte) {
     if (this->rx_buffer_[0] == 0xF4 && this->rx_buffer_[1] == 0xF3 &&
         this->rx_buffer_[2] == 0xF2 && this->rx_buffer_[3] == 0xF1) {
       
-      ESP_LOGI(TAG, "Data packet header found");
       uint16_t data_len = (uint16_t(this->rx_buffer_[5]) << 8) | this->rx_buffer_[4];
       if (data_len > 30) { this->rx_buffer_.erase(this->rx_buffer_.begin()); return; }
       uint16_t full_frame_len = 4 + 2 + data_len + 4;
@@ -237,6 +227,22 @@ void LD2451Component::process_byte_(uint8_t byte) {
   }
 }
 
+/**
+ * 仅在数值真正变化时发布。
+ *
+ * ESPHome 会对 binary_sensor 去重，但不会对数值 sensor 去重。移除 1 Hz 节流后
+ * 本组件按雷达帧率发布，若不去重，空闲槽位会持续推送 NAN。NAN → NAN 视为未变化。
+ */
+void LD2451Component::publish_if_changed_(sensor::Sensor *s, float value) {
+  if (s == nullptr) return;
+  if (s->has_state()) {
+    const float prev = s->state;
+    if (std::isnan(prev) && std::isnan(value)) return;
+    if (prev == value) return;
+  }
+  s->publish_state(value);
+}
+
 void LD2451Component::process_packet_() {
   uint16_t data_len = (uint16_t(this->rx_buffer_[5]) << 8) | this->rx_buffer_[4];
   
@@ -248,15 +254,7 @@ void LD2451Component::process_packet_() {
     alarm_info = this->rx_buffer_[7]; // 01: approaching, 00: no approaching
   }
 
-  ESP_LOGI(TAG, "RAW DATA: %02X %02X %02X %02X | %02X %02X | %02X %02X | %02X %02X %02X %02X",
-           this->rx_buffer_[0], this->rx_buffer_[1], this->rx_buffer_[2], this->rx_buffer_[3],
-           this->rx_buffer_[4], this->rx_buffer_[5],
-           (this->rx_buffer_.size() > 6) ? this->rx_buffer_[6] : 0, 
-           (this->rx_buffer_.size() > 7) ? this->rx_buffer_[7] : 0,
-           (this->rx_buffer_.size() > 8) ? this->rx_buffer_[8] : 0, 
-           (this->rx_buffer_.size() > 9) ? this->rx_buffer_[9] : 0,
-           (this->rx_buffer_.size() > 10) ? this->rx_buffer_[10] : 0,
-           (this->rx_buffer_.size() > 11) ? this->rx_buffer_[11] : 0);
+  ESP_LOGV(TAG, "Data frame: len=%u targets=%u alarm=%u", data_len, target_count, alarm_info);
 
   // Calculate maximum targets we can parse from payload.
   uint8_t parseable_targets = (data_len - 2) / 5;
@@ -268,18 +266,13 @@ void LD2451Component::process_packet_() {
     this->publish_target_frame_(targets_to_process);
   }
 
-  // Retain the legacy entity rate while the atomic frame supplies fusion at 10 Hz.
-  if (now_ms - this->last_publish_ms_ < 1000) return;
+  // Entities publish at the radar's own frame rate; ESPHome deduplicates
+  // unchanged binary_sensor states, and the fusion integration needs presence
+  // to keep pace with DEFAULT_TRACK_TTL_S (1.2 s).
   this->last_publish_ms_ = now_ms;
 
-  bool presence = (target_count > 0);
   bool alarm = (alarm_info == 0x01);
 
-  if (this->presence_sensor_ != nullptr) {
-    if (this->presence_sensor_->state != presence || !this->presence_sensor_->has_state()) {
-      this->presence_sensor_->publish_state(presence);
-    }
-  }
   if (this->alarm_sensor_ != nullptr) {
     if (this->alarm_sensor_->state != alarm || !this->alarm_sensor_->has_state()) {
       this->alarm_sensor_->publish_state(alarm);
@@ -291,9 +284,12 @@ void LD2451Component::process_packet_() {
     }
   }
 
+  // 边界门控：只有落在距离门内的目标才计入 presence
+  bool presence = false;
+
   for (uint8_t i = 0; i < 3; i++) {
     bool target_valid = (i < targets_to_process);
-    
+
     if (target_valid) {
       uint16_t offset = 8 + (i * 5);
       
@@ -315,32 +311,52 @@ void LD2451Component::process_packet_() {
       float x_cm = distance_m * 100.0f * std::sin(angle_rad);
       float y_cm = distance_m * 100.0f * std::cos(angle_rad);
 
-      if (this->targets_[i].distance != nullptr) this->targets_[i].distance->publish_state(distance_m * 100.0f);
-      if (this->targets_[i].angle != nullptr) this->targets_[i].angle->publish_state(angle_deg);
-      if (this->targets_[i].speed != nullptr) this->targets_[i].speed->publish_state(speed_kmh);
-      if (this->targets_[i].snr != nullptr) this->targets_[i].snr->publish_state(snr);
-      if (this->targets_[i].x != nullptr) this->targets_[i].x->publish_state(x_cm);
-      if (this->targets_[i].y != nullptr) this->targets_[i].y->publish_state(y_cm);
+      publish_if_changed_(this->targets_[i].distance, distance_m * 100.0f);
+      publish_if_changed_(this->targets_[i].angle, angle_deg);
+      publish_if_changed_(this->targets_[i].speed, speed_kmh);
+      publish_if_changed_(this->targets_[i].snr, snr);
+      publish_if_changed_(this->targets_[i].x, x_cm);
+      publish_if_changed_(this->targets_[i].y, y_cm);
 
       // Coordinate Transformation (2D radar so local_z is 0)
       auto pos = Transform3D::transform(x_cm, y_cm, 0.0f, this->cal_);
 
-      if (this->targets_[i].room_x != nullptr) this->targets_[i].room_x->publish_state(pos.room_x);
-      if (this->targets_[i].room_y != nullptr) this->targets_[i].room_y->publish_state(pos.room_y);
-      if (this->targets_[i].room_z != nullptr) this->targets_[i].room_z->publish_state(pos.room_z);
+      publish_if_changed_(this->targets_[i].room_x, pos.room_x);
+      publish_if_changed_(this->targets_[i].room_y, pos.room_y);
+      publish_if_changed_(this->targets_[i].room_z, pos.room_z);
       
       if (this->targets_[i].in_boundary != nullptr) {
         if (this->targets_[i].in_boundary->state != pos.in_boundary || !this->targets_[i].in_boundary->has_state()) {
           this->targets_[i].in_boundary->publish_state(pos.in_boundary);
         }
       }
+
+      if (!this->boundary_gates_presence_ || pos.in_boundary) presence = true;
     } else {
-      // Clear out unused targets
+      // Clear out unused targets. Positional entities must go to NAN rather than
+      // keep the last tracked value, otherwise a vanished target stays "parked"
+      // at its final coordinates in Home Assistant.
+      publish_if_changed_(this->targets_[i].distance, NAN);
+      publish_if_changed_(this->targets_[i].angle, NAN);
+      publish_if_changed_(this->targets_[i].speed, NAN);
+      publish_if_changed_(this->targets_[i].snr, NAN);
+      publish_if_changed_(this->targets_[i].x, NAN);
+      publish_if_changed_(this->targets_[i].y, NAN);
+      publish_if_changed_(this->targets_[i].room_x, NAN);
+      publish_if_changed_(this->targets_[i].room_y, NAN);
+      publish_if_changed_(this->targets_[i].room_z, NAN);
+
       if (this->targets_[i].in_boundary != nullptr) {
         if (this->targets_[i].in_boundary->state != false || !this->targets_[i].in_boundary->has_state()) {
           this->targets_[i].in_boundary->publish_state(false);
         }
       }
+    }
+  }
+
+  if (this->presence_sensor_ != nullptr) {
+    if (this->presence_sensor_->state != presence || !this->presence_sensor_->has_state()) {
+      this->presence_sensor_->publish_state(presence);
     }
   }
 }

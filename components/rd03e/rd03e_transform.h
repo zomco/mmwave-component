@@ -7,14 +7,14 @@
  * 旋转顺序: Rz(yaw) · Rx(pitch) · Ry(roll)
  *
  * 雷达局部坐标系约定:
- *   X 轴 — 雷达正前方（距离方向）
- *   Y 轴 — 无（1-D 雷达无角度分辨）
+ *   Y 轴 — 雷达正前方（距离方向）
+ *   X 轴 — 无（1-D 雷达无角度分辨）
  *   Z 轴 — 无
  *   单位 — cm
  *   编码 — 小端 uint16，直接表示距离
  *
  * RD03E 为 1-D 雷达（仅输出距离），变换时将距离投射到
- * 雷达 +X 方向: local = (range, 0, 0)
+ * 雷达正前方 +Y: local = (0, range, 0)
  */
 
 #include <cmath>
@@ -99,7 +99,7 @@ inline bool in_distance_range(float distance_cm,
  * 将 1-D 雷达距离变换到房间坐标系
  *
  * 步骤：
- *   1. 将距离投射到雷达局部 X 轴: local = (range, 0, 0)
+ *   1. 将距离投射到雷达局部 Y 轴（正前方）: local = (0, range, 0)
  *   2. R = Rz(yaw) · Rx(pitch) · Ry(roll)
  *   3. world_vec = R * [range, 0, 0]ᵀ
  *   4. room.x = radar_x + world_vec.x
@@ -111,10 +111,10 @@ inline TransformResult apply(float range_cm,
                               const CalibrationParams& cal) {
   const Mat3 R = build_rotation(cal.yaw, cal.pitch, cal.roll);
 
-  // 1-D: 仅沿 X 轴投射，Y=Z=0
-  const float wx = R.m[0][0] * range_cm;
-  const float wy = R.m[1][0] * range_cm;
-  const float wz = R.m[2][0] * range_cm;
+  // 1-D: 沿雷达正前方（局部 +Y）投射，X=Z=0
+  const float wx = R.m[0][1] * range_cm;
+  const float wy = R.m[1][1] * range_cm;
+  const float wz = R.m[2][1] * range_cm;
 
   TransformResult res;
   res.room.x      = cal.radar_x + wx;

@@ -1,8 +1,16 @@
-# ld2452
+# LD2452
 
-HLK-ld2452 24 GHz mmWave multi-target tracking radar â€?ESPHome component.
+HLK-LD2452 24 GHz mmWave multi-target tracking radar â€” ESPHome component.
 
 [ä¸­æ–‡æ–‡æ¡£ (Chinese)](./README_CN.md)
+
+> [!IMPORTANT]
+> The LD2452 datasheet documents **no command protocol** â€” only the data output frame.
+> On hardware the module ignores `0x00FF` (enable config) and `0x00A4` (bluetooth),
+> but does answer `0x0090` (multi-target) and `0x00FE` (end config). The component
+> therefore exposes only the controls that were observed to work; there is no
+> bluetooth switch, no MAC query and no radar-side zone filter for this model.
+> Boundary filtering is done entirely on the ESP via `polygon`.
 
 ## Sensor Reference
 
@@ -21,7 +29,7 @@ HLK-ld2452 24 GHz mmWave multi-target tracking radar â€?ESPHome component.
 
 | YAML Key | Entity Type | Data Type | Values / States | Unit | Update Frequency | Description |
 |---|---|---|---|---|---|---|
-| `presence` | `binary_sensor` | `bool` | `true` / `false` | â€?| On state change | Human presence detection (`device_class: presence`). True if any of the 3 targets is active. |
+| `presence` | `binary_sensor` | `bool` | `true` / `false` | â€” | On state change | Human presence detection (`device_class: presence`). True if any of the 3 targets is active. |
 
 ### Per-Target Tracking (Targets 1, 2, 3)
 
@@ -37,8 +45,8 @@ For each target `n` (1, 2, or 3), the following entities are available:
 | `target_n_angle` | `sensor` | `float` | `-180` ~ `+180` | Â° | Every 100ms (10Hz) | Computed angle |
 | `target_n_room_x` | `sensor` | `float` | Depends on room | cm | Every 100ms (10Hz) | Target X coordinate in room frame |
 | `target_n_room_y` | `sensor` | `float` | Depends on room | cm | Every 100ms (10Hz) | Target Y coordinate in room frame |
-| `target_n_active` | `binary_sensor` | `bool` | `true` / `false` | â€?| On state change | Whether target `n` is currently being tracked |
-| `target_n_in_boundary` | `binary_sensor` | `bool` | `true` / `false` | â€?| Every 100ms (10Hz) | Whether the target is inside the configured polygon boundary |
+| `target_n_active` | `binary_sensor` | `bool` | `true` / `false` | â€” | On state change | Whether target `n` is currently being tracked |
+| `target_n_in_boundary` | `binary_sensor` | `bool` | `true` / `false` | â€” | Every 100ms (10Hz) | Whether the target is inside the configured polygon boundary |
 
 > [!IMPORTANT]
 > `target_n_room_x/y` and `target_n_in_boundary` are derived values computed on the ESP side.
@@ -61,12 +69,12 @@ The repository provides two example configs with the following relationship:
 
 ```
 tests/
-â”œâ”€â”€ ld2452-esp32c3.yaml            â†?Base config (hardware + all sensors)
-â””â”€â”€ ld2452-esp32c3.factory.yaml    â†?Factory config (!include base + OTA/provisioning)
+â”œâ”€â”€ ld2452-esp32c3.yaml            â† Base config (hardware + all sensors)
+â””â”€â”€ ld2452-esp32c3.factory.yaml    â† Factory config (!include base + OTA/provisioning)
 ```
 
 - **Base config** (`ld2452-esp32c3.yaml`): Contains all hardware parameters and sensor definitions. **Use this as a template for customization.**
-- **Factory config** (`ld2452-esp32c3.factory.yaml`): Includes the base config via `!include` and adds BLE provisioning, HTTP OTA updates, etc. Built automatically by CI â€?**users typically do not need to modify this.**
+- **Factory config** (`ld2452-esp32c3.factory.yaml`): Includes the base config via `!include` and adds BLE provisioning, HTTP OTA updates, etc. Built automatically by CI â€” **users typically do not need to modify this.**
 
 ### Step 1: Add the External Component
 
@@ -78,24 +86,24 @@ external_components:
 
 ### Step 2: Configure UART
 
-The ld2452 uses a fixed baud rate of **256000**, 8N1. This cannot be changed.
+The LD2452 uses a fixed baud rate of **9600**, 8N1. This cannot be changed.
 
 ```yaml
 uart:
   id: uart_ld2452
-  tx_pin: GPIO21   # ESP32-C3 â†?ld2452 RX (cross-wired)
-  rx_pin: GPIO20   # ESP32-C3 â†?ld2452 TX
-  baud_rate: 256000
+  tx_pin: GPIO21   # ESP32-C3 â†’ LD2452 RX (cross-wired)
+  rx_pin: GPIO20   # ESP32-C3 â† LD2452 TX
+  baud_rate: 9600
   data_bits: 8
   parity: NONE
   stop_bits: 1
 ```
 
 > [!IMPORTANT]
-> GPIO pins vary by hardware design. The ESP32-C3 defaults are GPIO20 (RX) / GPIO21 (TX) â€?adjust according to your actual PCB wiring.
-> TX/RX must be **cross-connected**: ESP TX â†?Radar RX, ESP RX â†?Radar TX.
+> GPIO pins vary by hardware design. The ESP32-C3 defaults are GPIO20 (RX) / GPIO21 (TX) â€” adjust according to your actual PCB wiring.
+> TX/RX must be **cross-connected**: ESP TX â†’ Radar RX, ESP RX â†’ Radar TX.
 
-### Step 3: Configure the ld2452 Component
+### Step 3: Configure the LD2452 Component
 
 #### Minimal Config (Presence Only)
 
@@ -106,7 +114,7 @@ ld2452:
     name: "presence"
 ```
 
-Only declare the sensors you need â€?undeclared sensors are not registered and consume no resources.
+Only declare the sensors you need â€” undeclared sensors are not registered and consume no resources.
 
 #### Full Config (All Sensors + Calibration)
 
@@ -227,8 +235,16 @@ text:
 |---|---|---|---|---|
 | `radar_x` | `float` | cm | `0.0` | Radar X position in the room (origin at bottom-left corner, rightward positive) |
 | `radar_y` | `float` | cm | `0.0` | Radar Y position in the room (forward positive) |
-| `radar_z` | `float` | cm | `150.0` | Radar mounting height above floor (recommended: 100-150cm) |
-| `yaw` | `float` | degrees | `0.0` | Yaw angle â€?horizontal offset of radar forward direction relative to room Y axis, clockwise positive (âˆ?80 ~ 180) |
-| `pitch` | `float` | degrees | `0.0` | Pitch angle â€?forward tilt positive (âˆ?0 ~ 90) |
-| `roll` | `float` | degrees | `0.0` | Roll angle â€?right tilt positive (âˆ?0 ~ 90) |
+| `radar_z` | `float` | cm | `150.0` | Radar mounting height above floor (recommended: 150-200cm, wall mounted) |
+| `yaw` | `float` | degrees | `0.0` | Yaw angle â€” horizontal offset of radar forward direction relative to room Y axis, clockwise positive (âˆ’180 ~ 180) |
+| `pitch` | `float` | degrees | `0.0` | Pitch angle â€” forward tilt positive (âˆ’90 ~ 90) |
+| `roll` | `float` | degrees | `0.0` | Roll angle â€” right tilt positive (âˆ’90 ~ 90) |
 | `polygon` | `list` | cm | `[]` (empty) | Room boundary polygon vertices, each as `{ x, y }`. Boundary filtering is disabled with fewer than 3 vertices |
+| `boundary_gates_presence` | `bool` | â€” | `true` | When true, only targets **inside** the polygon count towards `presence`. This is what suppresses through-wall ghost targets. Set to `false` to have `presence` follow any tracked target. |
+| `presence_timeout` | `time` | â€” | `5s` | How long `presence` stays on after the last in-boundary target disappears. |
+
+> [!NOTE]
+> `yaw = 0` means the radar boresight points along room **+Y**; positive yaw rotates
+> clockwise seen from above. This matches `mmwave-card` and the `mmwave_fusion`
+> Home Assistant integration, so a radar calibrated here lines up in the fused view.
+

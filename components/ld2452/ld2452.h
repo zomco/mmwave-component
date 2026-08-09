@@ -52,10 +52,10 @@ static constexpr uint16_t CMD_FW_VERSION      = 0x00A0;
 static constexpr uint16_t CMD_SET_BAUD_RATE   = 0x00A1;
 static constexpr uint16_t CMD_FACTORY_RESET   = 0x00A2;
 static constexpr uint16_t CMD_RESTART         = 0x00A3;
-static constexpr uint16_t CMD_BT_SETTING      = 0x00A4;
-static constexpr uint16_t CMD_GET_MAC         = 0x00A5;
-static constexpr uint16_t CMD_QUERY_ZONE      = 0x00C1;
-static constexpr uint16_t CMD_SET_ZONE        = 0x00C2;
+
+// 注意：LD2452 的说明书未定义任何配置命令协议。实测（2026-08）该模块对
+// 0x00FF 使能配置与 0x00A4 蓝牙命令均不回 ACK，仅 0x0090 与 0x00FE 有应答，
+// 因此这里不再声明 LD2450 的蓝牙 / MAC / 区域过滤命令字。
 
 // ─── 帧解析状态机 ─────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ class LD2452Button : public button::Button {
 
 class LD2452Switch : public switch_::Switch {
  public:
-  enum SwitchType { MULTI_TARGET, BLUETOOTH };
+  enum SwitchType { MULTI_TARGET };
   void set_parent(LD2452Component *parent) { parent_ = parent; }
   void set_switch_type(SwitchType type) { type_ = type; }
   void write_state(bool state) override;
@@ -156,7 +156,10 @@ class LD2452Component : public Component, public uart::UARTDevice {
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
   /// Set the optional atomic target-frame text sensor.
   void set_target_frame_sensor(text_sensor::TextSensor *s) { target_frame_sensor_ = s; }
-  void set_presence_timeout(uint32_t t) { presence_timeout_ = t * 1000; }
+  /// 设置存在检测保持时间（ms，由 codegen 直接传入毫秒值）
+  void set_presence_timeout(uint32_t ms) { presence_timeout_ = ms; }
+  /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
+  void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
 
   // ── 目标 1 传感器 setters ──────────────────────────────────────────────
   void set_target_1_x_sensor(sensor::Sensor *s)                    { targets_[0].x = s; }
@@ -202,27 +205,22 @@ class LD2452Component : public Component, public uart::UARTDevice {
     if (enable) send_config_cmd(CMD_MULTI_TARGET, nullptr, 0);
     else send_config_cmd(CMD_SINGLE_TARGET, nullptr, 0);
   }
-  /// 设置蓝牙广播
-  void set_bluetooth(bool enable) {
-    uint8_t data[] = { 0x01, static_cast<uint8_t>(enable ? 0x01 : 0x00) };
-    send_config_cmd(CMD_BT_SETTING, data, 2);
-  }
   /// 重启模块
   void restart_module()          { send_config_cmd(CMD_RESTART, nullptr, 0); }
   /// 恢复出厂设置
   void factory_reset()           { send_config_cmd(CMD_FACTORY_RESET, nullptr, 0); }
-  /// 查询雷达状态
+  /// 查询雷达状态（LD2452 无 MAC / 蓝牙查询命令）
   void query_state() {
     send_config_cmd(CMD_FW_VERSION, nullptr, 0);
-    send_config_cmd(CMD_GET_MAC, nullptr, 0);
     send_config_cmd(CMD_QUERY_MODE, nullptr, 0);
   }
   /// 注入测试数据
   void inject_mock_data(const std::string &hex_str);
 
   // 控制实体指针
+  /// 绑定多目标追踪开关实体（用于 ACK 状态回读）
+  void set_multi_target_switch(switch_::Switch *s) { multi_target_switch_ = s; }
   switch_::Switch *multi_target_switch_{nullptr};
-  switch_::Switch *bluetooth_switch_{nullptr};
 
  protected:
   void process_byte_(uint8_t byte);
@@ -230,7 +228,8 @@ class LD2452Component : public Component, public uart::UARTDevice {
   void publish_target_frame_();
   void dispatch_cmd_frame_();
   void recompute_rotation_();
-  void publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
+  /// 发布单个目标；返回该目标是否应计入全局 presence
+  bool publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
                        int16_t speed_cm_s, uint16_t resolution_mm, bool active);
   void send_raw_cmd_(uint16_t cmd_word, const uint8_t *data, uint16_t len);
 
@@ -257,6 +256,7 @@ class LD2452Component : public Component, public uart::UARTDevice {
   uint32_t frame_id_{0};
   uint32_t presence_timeout_{5000};
   uint32_t last_presence_ms_{0};
+  bool     boundary_gates_presence_{true};
 
   // ── 测试模拟数据状态 ───────────────────────────────────────────────────
   uint32_t mock_active_until_{0};

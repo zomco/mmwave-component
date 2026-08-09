@@ -157,6 +157,14 @@ ld2452:
     name: "target_frame"
     icon: mdi:radar
 
+  # ── 控制实体（CI 需覆盖这些 codegen 路径）──────────────────────────────
+  multi_target:
+    name: "multi_target"
+  restart:
+    name: "restart"
+  factory_reset:
+    name: "factory_reset"
+
   # ── 目标 1 ──────────────────────────────────────────────────────────────
   target_1_x:
     name: "target_1_x"

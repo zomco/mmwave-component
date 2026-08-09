@@ -1,6 +1,8 @@
 #include "ld2450.h"
 #include "esphome/core/log.h"
 
+#include <cstring>  // std::memcmp, used by the MAC/bluetooth ACK handling
+
 namespace esphome {
 namespace ld2450 {
 
@@ -26,6 +28,16 @@ void LD2450Component::setup() {
   // 延迟 1 秒后查询设备状态，确保雷达启动完毕
   this->set_timeout(1000, [this]() {
     this->query_state();
+    // 区域过滤配置掉电不丢失，仅在 YAML 明确配置了非默认值时才下发，
+    // 避免每次上电都写一遍雷达 flash。
+    if (this->zone_config_pending_) {
+      this->set_timeout("zone_cfg", 500, [this]() {
+        this->apply_zone_config();
+        this->set_timeout("zone_query", 500, [this]() { this->query_zone_config(); });
+      });
+    } else {
+      this->set_timeout("zone_query", 500, [this]() { this->query_zone_config(); });
+    }
   });
 }
 
@@ -123,6 +135,37 @@ void LD2450Component::send_config_cmd(uint16_t cmd_word,
   send_raw_cmd_(CMD_END_CONFIG, nullptr, 0);
 
   ESP_LOGD(TAG, "Config cmd sent: 0x%04X", cmd_word);
+}
+
+/**
+ * 下发区域过滤配置（协议 2.2.13，命令字 0x00C2）
+ *
+ * 命令值 26 字节，全部小端：
+ *   [0..1]   区域过滤类型（0 关闭 / 1 仅检测 / 2 不检测）
+ *   [2..25]  3 个区域 × (x1, y1, x2, y2)，signed int16，单位 mm
+ * 所有坐标为 0 表示该区域未使用。
+ */
+void LD2450Component::apply_zone_config() {
+  uint8_t data[ZONE_CFG_LEN];
+  data[0] = static_cast<uint8_t>(zone_type_ & 0xFF);
+  data[1] = static_cast<uint8_t>(zone_type_ >> 8);
+
+  uint8_t off = 2;
+  for (uint8_t i = 0; i < MAX_ZONES; i++) {
+    const int16_t coords[4] = {zones_[i].x1, zones_[i].y1, zones_[i].x2, zones_[i].y2};
+    for (uint8_t c = 0; c < 4; c++) {
+      const uint16_t raw = static_cast<uint16_t>(coords[c]);
+      data[off++] = static_cast<uint8_t>(raw & 0xFF);
+      data[off++] = static_cast<uint8_t>(raw >> 8);
+    }
+  }
+
+  send_config_cmd(CMD_SET_ZONE, data, ZONE_CFG_LEN);
+  ESP_LOGI(TAG, "Zone filter -> type=%u  z1=(%d,%d)-(%d,%d)  z2=(%d,%d)-(%d,%d)  z3=(%d,%d)-(%d,%d) mm",
+           zone_type_,
+           zones_[0].x1, zones_[0].y1, zones_[0].x2, zones_[0].y2,
+           zones_[1].x1, zones_[1].y1, zones_[1].x2, zones_[1].y2,
+           zones_[2].x1, zones_[2].y1, zones_[2].x2, zones_[2].y2);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -253,7 +296,7 @@ void LD2450Component::process_byte_(uint8_t byte) {
  * 全为 0 表示无目标
  */
 void LD2450Component::dispatch_data_frame_() {
-  bool any_active = false;
+  bool any_present = false;
 
   for (uint8_t i = 0; i < MAX_TARGETS; i++) {
     const uint8_t *p = data_buf_ + i * TARGET_BYTES;
@@ -265,15 +308,17 @@ void LD2450Component::dispatch_data_frame_() {
 
   // 目标存在判定：X 和 Y 同时为 0 视为无目标
     const bool active = (x_mm != 0 || y_mm != 0);
-    if (active) any_active = true;
 
-    publish_target_(i, x_mm, y_mm, speed, res, active);
+    // publish_target_ 返回该目标是否计入 presence：
+    // boundary_gates_presence_ 为真时，只有落在多边形内的目标才算数，
+    // 这样隔墙的鬼影目标不会把 presence 拉高。
+    if (publish_target_(i, x_mm, y_mm, speed, res, active)) any_present = true;
   }
 
   publish_target_frame_();
 
   if (presence_sensor_) {
-    if (any_active) {
+    if (any_present) {
       last_presence_ms_ = millis();
       if (!presence_sensor_->state || !presence_sensor_->has_state()) {
         presence_sensor_->publish_state(true);
@@ -287,7 +332,7 @@ void LD2450Component::dispatch_data_frame_() {
     }
   }
 
-  ESP_LOGV(TAG, "Data frame: %s", any_active ? "targets detected" : "no targets");
+  ESP_LOGV(TAG, "Data frame: %s", any_present ? "targets detected" : "no targets");
 }
 
 void LD2450Component::publish_target_frame_() {
@@ -367,8 +412,29 @@ void LD2450Component::dispatch_cmd_frame_() {
     if (this->multi_target_switch_ != nullptr) this->multi_target_switch_->publish_state(false);
   }
 
+  // 特殊处理: 区域过滤配置查询 (0xC101)
+  // 帧内数据 = 2B 命令字 + 2B 状态 + 2B 区域类型 + 24B 坐标 = 30 字节
+  if (ack_cmd == (CMD_QUERY_ZONE | 0x0100) && cmd_len_ >= 30 && status == 0) {
+    const uint16_t type = (static_cast<uint16_t>(cmd_buf_[5]) << 8) | cmd_buf_[4];
+    ESP_LOGI(TAG, "Zone filter: type=%u (%s)", type,
+             type == ZONE_INCLUDE ? "detect only inside"
+                                  : (type == ZONE_EXCLUDE ? "ignore inside" : "disabled"));
+    for (uint8_t i = 0; i < MAX_ZONES; i++) {
+      const uint8_t *z = &cmd_buf_[6 + i * 8];
+      const int16_t x1 = static_cast<int16_t>((static_cast<uint16_t>(z[1]) << 8) | z[0]);
+      const int16_t y1 = static_cast<int16_t>((static_cast<uint16_t>(z[3]) << 8) | z[2]);
+      const int16_t x2 = static_cast<int16_t>((static_cast<uint16_t>(z[5]) << 8) | z[4]);
+      const int16_t y2 = static_cast<int16_t>((static_cast<uint16_t>(z[7]) << 8) | z[6]);
+      if (x1 || y1 || x2 || y2)
+        ESP_LOGI(TAG, "  zone %u: (%d,%d) - (%d,%d) mm", i + 1, x1, y1, x2, y2);
+    }
+  } else if (ack_cmd == (CMD_SET_ZONE | 0x0100)) {
+    ESP_LOGI(TAG, "Zone filter config %s", status == 0 ? "accepted" : "REJECTED");
+  }
+
   // 特殊处理: 蓝牙查询或设置确认 (0xA501, 0xA401)
-  if (ack_cmd == (CMD_GET_MAC | 0x0100) && cmd_len_ >= 8 && status == 0) {
+  // 帧内数据 = 2B 命令字 + 2B 状态 + 6B MAC，至少 10 字节
+  if (ack_cmd == (CMD_GET_MAC | 0x0100) && cmd_len_ >= 10 && status == 0) {
     // MAC 全为 [0x08, 0x05, 0x04, 0x03, 0x02, 0x01] 时表示蓝牙已关闭
     const uint8_t NO_MAC[] = {0x08, 0x05, 0x04, 0x03, 0x02, 0x01};
     bool bt_on = std::memcmp(&cmd_buf_[4], NO_MAC, 6) != 0;
@@ -383,7 +449,7 @@ void LD2450Component::dispatch_cmd_frame_() {
 // 目标处理: 变换 → 过滤 → 发布
 // ═══════════════════════════════════════════════════════════════════════════
 
-void LD2450Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
+bool LD2450Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
                                        int16_t speed_cm_s, uint16_t resolution_mm,
                                        bool active) {
   const auto &t = targets_[idx];
@@ -402,7 +468,7 @@ void LD2450Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
     if (t.room_x)     t.room_x->publish_state(0);
     if (t.room_y)     t.room_y->publish_state(0);
     if (t.in_boundary) t.in_boundary->publish_state(false);
-    return;
+    return false;
   }
 
   // ── 计算距离和角度 ─────────────────────────────────────────────────────
@@ -428,11 +494,14 @@ void LD2450Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
   // ── 边界过滤 ───────────────────────────────────────────────────────────
   if (t.in_boundary) t.in_boundary->publish_state(res.in_boundary);
 
-  ESP_LOGD(TAG, "T%u: x=%d y=%d mm  spd=%d cm/s  dist=%.1f cm  "
+  ESP_LOGV(TAG, "T%u: x=%d y=%d mm  spd=%d cm/s  dist=%.1f cm  "
            "room=(%.1f,%.1f) [%s]",
            idx + 1, x_mm, y_mm, speed_cm_s, dist_cm,
            res.room.x, res.room.y,
            res.in_boundary ? "inside" : "OUTSIDE");
+
+  // 计入 presence 与否：开启边界门控时，界外目标不算存在
+  return boundary_gates_presence_ ? res.in_boundary : true;
 }
 
 void LD2450Component::inject_mock_data(const std::string &hex_str) {

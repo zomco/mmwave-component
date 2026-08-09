@@ -44,7 +44,12 @@ ld2453:
   uart_id: uart_ld2453
   presence:
     name: "Presence"
-  
+
+  # ── 多雷达融合入口：10 Hz 原子目标帧（mmwave_fusion 的 frame_entity）──────
+  target_frame:
+    name: "target_frame"
+    icon: mdi:radar
+
   target_1:
     x:
       name: "Target 1 X"

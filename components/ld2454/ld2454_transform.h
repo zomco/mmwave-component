@@ -4,7 +4,8 @@
  *
  * 二维坐标变换 + 房间边界过滤（射线法）
  *
- * 旋转顺序: R = Rz(yaw) · Ry(pitch) · Rx(roll)  (ZYX Tait-Bryan)
+ * 旋转顺序: R = Rz(yaw) · Rx(pitch) · Ry(roll)
+ * 房间坐标约定: yaw=0 时雷达正前方指向房间 +Y，yaw 俯视顺时针为正
  *
  * LD2454 局部坐标系约定（手册 v1.03）:
  *   Y 轴 — 雷达正前方（始终为正）
@@ -89,11 +90,15 @@ struct TransformResult {
 struct Mat3 { float m[3][3] = {}; };
 
 /**
- * 构建旋转矩阵 R = Rz(yaw) · Ry(pitch) · Rx(roll)  (ZYX Tait-Bryan)
+ * 构建旋转矩阵 R = Rz(yaw) · Rx(pitch) · Ry(roll)
  *
- *         ┌ cy·cp   cy·sp·sr−sy·cr   cy·sp·cr+sy·sr ┐
- * R(y,p,r)= │ sy·cp   sy·sp·sr+cy·cr   sy·sp·cr−cy·sr │
- *         └ −sp      cp·sr             cp·cr           ┘
+ *         ┌ cy·cr+sy·sp·sr    sy·cp   −cy·sr+sy·sp·cr ┐
+ * R(y,p,r)= │ −sy·cr+cy·sp·sr   cy·cp    sy·sr+cy·sp·cr │
+ *         └ cp·sr             −sp      cp·cr           ┘
+ *
+ * yaw=0 时雷达正前方指向房间 +Y，yaw 俯视顺时针为正（转向 +X）；
+ * roll 是绕雷达自身正前方（局部 +Y）的旋转。
+ * 与 mmwave-card / HA mmwave_fusion / r60abd1 保持一致。
  */
 inline Mat3 build_rotation(float yaw_deg, float pitch_deg, float roll_deg) {
   const float D2R = static_cast<float>(M_PI) / 180.f;
@@ -106,9 +111,9 @@ inline Mat3 build_rotation(float yaw_deg, float pitch_deg, float roll_deg) {
   const float sr = sinf(r), cr = cosf(r);
 
   Mat3 R;
-  R.m[0][0] =  cy*cp;  R.m[0][1] = cy*sp*sr - sy*cr;  R.m[0][2] = cy*sp*cr + sy*sr;
-  R.m[1][0] =  sy*cp;  R.m[1][1] = sy*sp*sr + cy*cr;  R.m[1][2] = sy*sp*cr - cy*sr;
-  R.m[2][0] = -sp;     R.m[2][1] = cp*sr;              R.m[2][2] = cp*cr;
+  R.m[0][0] =  cy*cr + sy*sp*sr;  R.m[0][1] =  sy*cp;  R.m[0][2] = -cy*sr + sy*sp*cr;
+  R.m[1][0] = -sy*cr + cy*sp*sr;  R.m[1][1] =  cy*cp;  R.m[1][2] =  sy*sr + cy*sp*cr;
+  R.m[2][0] =  cp*sr;             R.m[2][1] = -sp;     R.m[2][2] =  cp*cr;
   return R;
 }
 

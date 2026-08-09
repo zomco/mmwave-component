@@ -157,6 +157,15 @@ ld2454:
     name: "target_frame"
     icon: mdi:radar
 
+  # ── 控制实体（CI 需覆盖这些 codegen 路径）──────────────────────────────
+  # LD2454 协议无蓝牙/MAC 命令，故不声明 bluetooth 开关
+  multi_target:
+    name: "multi_target"
+  restart:
+    name: "restart"
+  factory_reset:
+    name: "factory_reset"
+
   # ── 目标 1 ──────────────────────────────────────────────────────────────
   target_1_x:
     name: "target_1_x"

@@ -41,17 +41,20 @@ class Transform3D {
     float cr = std::cos(roll_rad);
     float sr = std::sin(roll_rad);
 
-    // 3D Rotation Matrix elements (Tait-Bryan Z-Y-X)
-    float R11 = cy * cp;
-    float R12 = cy * sp * sr - sy * cr;
-    float R13 = cy * sp * cr + sy * sr;
+    // Room-frame convention, shared with mmwave-card / HA mmwave_fusion / r60abd1:
+    //   R = Rz(yaw) * Rx(pitch) * Ry(roll)
+    // yaw = 0 aims the radar boresight along room +Y; positive yaw turns clockwise
+    // seen from above (toward +X). Roll is rotation about the boresight itself.
+    float R11 = cy * cr + sy * sp * sr;
+    float R12 = sy * cp;
+    float R13 = -cy * sr + sy * sp * cr;
 
-    float R21 = sy * cp;
-    float R22 = sy * sp * sr + cy * cr;
-    float R23 = sy * sp * cr - cy * sr;
+    float R21 = -sy * cr + cy * sp * sr;
+    float R22 = cy * cp;
+    float R23 = sy * sr + cy * sp * cr;
 
-    float R31 = -sp;
-    float R32 = cp * sr;
+    float R31 = cp * sr;
+    float R32 = -sp;
     float R33 = cp * cr;
 
     // Apply rotation to local coordinate

@@ -299,16 +299,27 @@ This name is used for the uploaded artifact (`firmware-r60abd1-ESP32-C3`), the `
 
 ### 1. Coordinate Transformation
 
-Full 3-D ZYX Tait-Bryan rotation (Yaw → Pitch → Roll). All six parameters exposed in CONFIG_SCHEMA for every model.
+**Room-frame convention (normative).** `R = Rz(yaw) · Rx(pitch) · Ry(roll)`.
 
-| Parameter     | Type    | Unit    | Default | Description                                                 |
-|---------------|---------|---------|---------|-------------------------------------------------------------|
-| `radar_x`     | `float` | m       | `0.0`   | Radar origin along the room X-axis.                        |
-| `radar_y`     | `float` | m       | `0.0`   | Radar origin along the room Y-axis.                        |
-| `radar_z`     | `float` | m       | `0.0`   | Radar mounting height (room Z-axis).                       |
-| `radar_yaw`   | `float` | degrees | `0.0`   | Rotation around the room Z-axis (azimuth).                 |
-| `radar_pitch` | `float` | degrees | `0.0`   | Rotation around the intermediate Y-axis (elevation tilt).  |
-| `radar_roll`  | `float` | degrees | `0.0`   | Rotation around the radar's own X-axis (bank/roll).        |
+- `yaw = 0` aims the radar boresight along room **+Y**. Positive yaw turns **clockwise** seen from above (toward +X).
+- `pitch` tilts about the intermediate X-axis (nose up/down).
+- `roll` turns about the radar's **own boresight** (local +Y).
+- Room Z is measured **up from the floor**, so the translation is `room_z = radar_z − world_z`.
+
+This convention is shared across three repositories and must not be changed in one of them alone:
+`components/*/[model]_transform.h`, `mmwave-card`, and `ha-config/custom_components/mmwave_fusion/fusion.py::transform_point`.
+`components/r60abd1/` is the reference. Any change here requires updating all three plus the numeric cross-check.
+
+All six parameters exposed in CONFIG_SCHEMA for every model. **Lengths are centimetres**, matching the YAML configs and the published `room_*` sensors.
+
+| Parameter     | Type    | Unit    | Default | Description                                                |
+|---------------|---------|---------|---------|------------------------------------------------------------|
+| `radar_x`     | `float` | cm      | `0.0`   | Radar origin along the room X-axis.                        |
+| `radar_y`     | `float` | cm      | `0.0`   | Radar origin along the room Y-axis.                        |
+| `radar_z`     | `float` | cm      | `0.0`   | Radar mounting height above the floor.                     |
+| `radar_yaw`   | `float` | degrees | `0.0`   | Rotation about room Z. 0 = boresight along +Y, CW positive.|
+| `radar_pitch` | `float` | degrees | `0.0`   | Rotation about the intermediate X-axis (elevation tilt).   |
+| `radar_roll`  | `float` | degrees | `0.0`   | Rotation about the radar's own boresight (local +Y).       |
 
 #### C++ rotation matrix (pre-computed in `setup()`)
 
@@ -317,17 +328,17 @@ void precompute_rotation_matrix() {
   const float cy = cosf(yaw_rad_),   sy = sinf(yaw_rad_);
   const float cp = cosf(pitch_rad_), sp = sinf(pitch_rad_);
   const float cr = cosf(roll_rad_),  sr = sinf(roll_rad_);
-  // R = Rz(yaw) * Ry(pitch) * Rx(roll)
-  r_[0][0]=cy*cp;  r_[0][1]=cy*sp*sr-sy*cr;  r_[0][2]=cy*sp*cr+sy*sr;
-  r_[1][0]=sy*cp;  r_[1][1]=sy*sp*sr+cy*cr;  r_[1][2]=sy*sp*cr-cy*sr;
-  r_[2][0]=-sp;    r_[2][1]=cp*sr;            r_[2][2]=cp*cr;
+  // R = Rz(yaw) * Rx(pitch) * Ry(roll)
+  r_[0][0]= cy*cr + sy*sp*sr;  r_[0][1]= sy*cp;  r_[0][2]= -cy*sr + sy*sp*cr;
+  r_[1][0]=-sy*cr + cy*sp*sr;  r_[1][1]= cy*cp;  r_[1][2]=  sy*sr + cy*sp*cr;
+  r_[2][0]= cp*sr;             r_[2][1]=-sp;     r_[2][2]=  cp*cr;
 }
 
 void transform_point(float lx, float ly, float lz,
                      float &rx, float &ry, float &rz) const {
   rx = r_[0][0]*lx + r_[0][1]*ly + r_[0][2]*lz + radar_x_;
   ry = r_[1][0]*lx + r_[1][1]*ly + r_[1][2]*lz + radar_y_;
-  rz = r_[2][0]*lx + r_[2][1]*ly + r_[2][2]*lz + radar_z_;
+  rz = radar_z_ - (r_[2][0]*lx + r_[2][1]*ly + r_[2][2]*lz);
 }
 ```
 
@@ -335,11 +346,15 @@ Never call `sinf`/`cosf` inside `loop()`.
 
 #### Dimensionality mapping
 
+The radar boresight is local **+Y**, so a range-only radar projects along +Y — not +X.
+
 | Radar output     | Input to transform     | Published entities          |
 |------------------|------------------------|-----------------------------|
-| 1-D (range only) | `(range, 0, 0)`        | `room_x`, `room_y`, `room_z`|
+| 1-D (range only) | `(0, range, 0)`        | `room_x`, `room_y`, `room_z`|
 | 2-D (X, Y)       | `(lx, ly, 0)`          | `room_x`, `room_y`          |
 | 3-D (X, Y, Z)    | `(lx, ly, lz)`         | `room_x`, `room_y`, `room_z`|
+
+For a 1-D radar only column 1 of `R` is needed (`sy*cp`, `cy*cp`, `−sp`); roll cancels out because it turns about the boresight.
 
 ---
 
@@ -347,11 +362,42 @@ Never call `sinf`/`cosf` inside `loop()`.
 
 Operates **exclusively in room-frame coordinates** (after transform).
 
-- Minimum 3 vertices; validate in `__init__.py`.
-- Empty → filter disabled (pass-through).
-- For 2-D/3-D: Ray Casting on XY projection. For 1-D: `distance_min`/`distance_max` range gate.
+- Minimum 3 vertices; validate in `__init__.py`. Empty → filter disabled (pass-through).
+- For 2-D/3-D: Ray Casting on the XY projection. For 1-D: `distance_min`/`distance_max` range gate.
 
 **Required processing order:** parse → transform → filter → publish.
+
+#### What "filter" means
+
+Out-of-boundary targets are **not** dropped from the per-target entities — the raw
+coordinates stay visible so the Lovelace card can show a ghost and the user can
+tell a mis-calibration from a real detection. Filtering is expressed two ways:
+
+| Entity | Behaviour |
+|---|---|
+| `target_n_in_boundary` | Per-target verdict, published every frame. |
+| `presence` | Counts **only in-boundary targets** when `boundary_gates_presence: true` (the default). |
+
+`boundary_gates_presence` is what makes the through-wall ghost rejection in
+`README.md` actually true; without it a target outside the polygon still drives
+`presence`. Every component with a boundary must expose this option and default
+it to `true`.
+
+#### Native (radar-side) zone filtering
+
+Some radars filter in firmware, which is strictly better than filtering on the
+ESP because the ghost never reaches the UART. Where the protocol documents it,
+expose it **in addition to** the polygon filter — they are complementary, not
+alternatives:
+
+- **LD2450** — protocol 2.2.12/2.2.13, commands `0x00C1` (query) / `0x00C2` (set).
+  3 rectangles, `signed int16` mm, 26-byte payload, type `0`/`1`/`2`
+  (off / detect-only-inside / ignore-inside). Config key `zone_filter`, coordinates
+  in **cm** for consistency with the rest of the schema, converted to mm on the wire.
+  The setting survives power-off, so only push it when the YAML actually specifies one.
+
+Do not copy a native zone implementation to a model whose protocol document does
+not define those commands — verify against `docs/{radar_model}/` first.
 
 ---
 

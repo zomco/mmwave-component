@@ -27,8 +27,8 @@ void LD2410BComponent::setup() {
   const uint8_t enable_cmd_value[2] = {0x01, 0x00};
   this->send_command_(CMD_ENABLE_CONF, enable_cmd_value, sizeof(enable_cmd_value));
   this->send_command_(CMD_ENABLE_ENG, nullptr, 0);
-  const uint8_t disable_cmd_value[2] = {0x01, 0x00};
-  this->send_command_(CMD_DISABLE_CONF, disable_cmd_value, sizeof(disable_cmd_value));
+  // 协议 2.2.2：结束配置命令的命令值为「无」，不得携带数据
+  this->send_command_(CMD_DISABLE_CONF, nullptr, 0);
 }
 
 void LD2410BComponent::dump_config() {

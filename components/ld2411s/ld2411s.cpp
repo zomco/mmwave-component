@@ -16,6 +16,15 @@ void LD2411SComponent::dump_config() {
   LOG_BINARY_SENSOR("  ", "Presence", this->presence_sensor_);
   LOG_BINARY_SENSOR("  ", "Moving Target", this->moving_target_sensor_);
   LOG_BINARY_SENSOR("  ", "Micro Target", this->micro_target_sensor_);
+  LOG_SENSOR("  ", "Room X", this->room_x_);
+  LOG_SENSOR("  ", "Room Y", this->room_y_);
+  LOG_SENSOR("  ", "Room Z", this->room_z_);
+  LOG_BINARY_SENSOR("  ", "In Boundary", this->in_boundary_sensor_);
+
+  ESP_LOGCONFIG(TAG, "  Calibration:");
+  ESP_LOGCONFIG(TAG, "    Radar pos:   X=%.1f cm  Y=%.1f cm  H=%.1f cm", cal_.radar_x, cal_.radar_y, cal_.radar_z);
+  ESP_LOGCONFIG(TAG, "    Orientation: Yaw=%.1f°  Pitch=%.1f°  Roll=%.1f°", cal_.yaw, cal_.pitch, cal_.roll);
+  ESP_LOGCONFIG(TAG, "    Distance gate: %.1f - %.1f cm (0 = off)", cal_.distance_min, cal_.distance_max);
 }
 
 void LD2411SComponent::loop() {
@@ -79,6 +88,26 @@ void LD2411SComponent::process_packet_() {
   bool is_present = (type != 0x00);
   bool is_moving = (type == 0x01);
   bool is_micro = (type == 0x02);
+
+  // 坐标变换（1-D：沿雷达正前方投射）+ 距离门边界过滤
+  const auto pos = Transform1D::transform(static_cast<float>(dist_cm), this->cal_);
+
+  if (this->room_x_ != nullptr) this->room_x_->publish_state(is_present ? pos.room_x : NAN);
+  if (this->room_y_ != nullptr) this->room_y_->publish_state(is_present ? pos.room_y : NAN);
+  if (this->room_z_ != nullptr) this->room_z_->publish_state(is_present ? pos.room_z : NAN);
+
+  const bool in_boundary = is_present && pos.in_boundary;
+  if (this->in_boundary_sensor_ != nullptr &&
+      (!this->in_boundary_sensor_->has_state() || this->in_boundary_sensor_->state != in_boundary)) {
+    this->in_boundary_sensor_->publish_state(in_boundary);
+  }
+
+  // 边界门控：距离门之外的目标默认不计入 presence
+  if (this->boundary_gates_presence_ && !pos.in_boundary) {
+    is_present = false;
+    is_moving = false;
+    is_micro = false;
+  }
 
   if (this->presence_sensor_ != nullptr && (!this->presence_sensor_->has_state() || this->presence_sensor_->state != is_present)) {
     this->presence_sensor_->publish_state(is_present);

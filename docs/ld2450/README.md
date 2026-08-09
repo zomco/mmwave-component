@@ -232,3 +232,37 @@ text:
 | `pitch` | `float` | degrees | `0.0` | Pitch angle — forward tilt positive (−90 ~ 90) |
 | `roll` | `float` | degrees | `0.0` | Roll angle — right tilt positive (−90 ~ 90) |
 | `polygon` | `list` | cm | `[]` (empty) | Room boundary polygon vertices, each as `{ x, y }`. Boundary filtering is disabled with fewer than 3 vertices |
+| `boundary_gates_presence` | `bool` | — | `true` | When true, only targets **inside** the polygon count towards `presence`. This is what suppresses through-wall ghost targets. Set to `false` to have `presence` follow any tracked target. |
+| `presence_timeout` | `time` | — | `5s` | How long `presence` stays on after the last in-boundary target disappears. |
+| `zone_filter` | `map` | cm | unset | Radar-side zone filtering (protocol 2.2.12/2.2.13). See below. |
+
+> [!NOTE]
+> `yaw = 0` means the radar boresight points along room **+Y**; positive yaw rotates
+> clockwise seen from above. This matches `mmwave-card` and the `mmwave_fusion`
+> Home Assistant integration, so a radar calibrated here lines up in the fused view.
+
+### Radar-side Zone Filtering (optional)
+
+The LD2450 can discard targets in firmware, before they ever reach the UART. This is
+complementary to `polygon`: use `zone_filter` to kill a known reflection source at the
+radar, and `polygon` for the room outline.
+
+```yaml
+ld2450:
+  zone_filter:
+    type: exclude # disabled | include (detect only inside) | exclude (ignore inside)
+    zones: # up to 3 rectangles, diagonal corners, in cm
+      - { x1: -100.0, y1: 100.0, x2: 100.0, y2: 500.0 }
+```
+
+| Field | Meaning |
+|---|---|
+| `type: disabled` | Zone filtering off (factory default). |
+| `type: include` | Only targets **inside** a configured rectangle are reported. |
+| `type: exclude` | Targets inside a configured rectangle are **not** reported. |
+| `zones` | Up to 3 rectangles given as two diagonal corners, in cm (sent to the radar as mm). |
+
+> [!IMPORTANT]
+> The zone configuration is stored in the radar and survives power-off. The component
+> only writes it when `zone_filter` is present in the YAML, so it will not rewrite the
+> radar's flash on every boot. It is read back and logged at startup either way.

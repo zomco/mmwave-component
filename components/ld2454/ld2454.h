@@ -151,7 +151,10 @@ class LD2454Component : public Component, public uart::UARTDevice {
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
   /// Set the optional atomic target-frame text sensor.
   void set_target_frame_sensor(text_sensor::TextSensor *s) { target_frame_sensor_ = s; }
-  void set_presence_timeout(uint32_t t) { presence_timeout_ = t * 1000; }
+  /// 设置存在检测保持时间（ms，由 codegen 直接传入毫秒值）
+  void set_presence_timeout(uint32_t ms) { presence_timeout_ = ms; }
+  /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
+  void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
 
   // ── 目标 1 传感器 setters ──────────────────────────────────────────────
   void set_target_1_x_sensor(sensor::Sensor *s)                    { targets_[0].x = s; }
@@ -209,6 +212,9 @@ class LD2454Component : public Component, public uart::UARTDevice {
   void inject_mock_data(const std::string &hex_str);
 
   // 控制实体指针
+  /// 绑定多目标追踪开关实体（用于 ACK 状态回读）
+  void set_multi_target_switch(switch_::Switch *s) { multi_target_switch_ = s; }
+
   switch_::Switch *multi_target_switch_{nullptr};
 
  protected:
@@ -217,7 +223,8 @@ class LD2454Component : public Component, public uart::UARTDevice {
   void publish_target_frame_();
   void dispatch_cmd_frame_();
   void recompute_rotation_();
-  void publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
+  /// 发布单个目标；返回该目标是否应计入全局 presence
+  bool publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
                        int16_t speed_cm_s, uint16_t resolution_mm, bool active);
   void send_raw_cmd_(uint16_t cmd_word, const uint8_t *data, uint16_t len);
 
@@ -244,6 +251,7 @@ class LD2454Component : public Component, public uart::UARTDevice {
   uint32_t frame_id_{0};
   uint32_t presence_timeout_{5000};
   uint32_t last_presence_ms_{0};
+  bool     boundary_gates_presence_{true};
 
   // ── 测试模拟数据状态 ───────────────────────────────────────────────────
   uint32_t mock_active_until_{0};

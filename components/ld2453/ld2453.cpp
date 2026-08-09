@@ -231,6 +231,23 @@ int16_t LD2453Component::decode_value_(uint8_t low, uint8_t high) {
   return is_positive ? magnitude : -magnitude;
 }
 
+/**
+ * 仅在数值真正变化时发布。
+ *
+ * ESPHome 会对 binary_sensor 去重，但不会对数值 sensor 去重。本组件按雷达
+ * 的 ~10 Hz 帧率发布 24 个实体，若不去重，空闲槽位会持续以 10 Hz 推送 NAN，
+ * 白白占用 API 带宽和 HA 的 recorder。NAN → NAN 视为未变化。
+ */
+void LD2453Component::publish_if_changed_(sensor::Sensor *s, float value) {
+  if (s == nullptr) return;
+  if (s->has_state()) {
+    const float prev = s->state;
+    if (std::isnan(prev) && std::isnan(value)) return;
+    if (prev == value) return;
+  }
+  s->publish_state(value);
+}
+
 void LD2453Component::process_packet_() {
   uint32_t now_ms = millis();
   if (now_ms - this->last_frame_publish_ms_ >= 100) {
@@ -238,8 +255,9 @@ void LD2453Component::process_packet_() {
     this->publish_target_frame_();
   }
 
-  // Retain the legacy entity rate while the atomic frame supplies fusion at 10 Hz.
-  if (now_ms - this->last_publish_ms_ < 1000) return;
+  // Entities publish at the radar's own 10 Hz frame rate. ESPHome already
+  // deduplicates unchanged binary_sensor states, and the fusion integration
+  // needs presence/room_* to keep pace with DEFAULT_TRACK_TTL_S (1.2 s).
   this->last_publish_ms_ = now_ms;
 
   bool any_present = false;
@@ -254,37 +272,40 @@ void LD2453Component::process_packet_() {
 
     // If resolution is 0 and x/y are 0, this target slot is empty
     bool target_valid = (res_mm > 0 || x_mm != 0 || y_mm != 0);
-    
-    if (this->targets_[i].speed != nullptr) this->targets_[i].speed->publish_state(speed_cm_s);
-    if (this->targets_[i].resolution != nullptr) this->targets_[i].resolution->publish_state(res_mm);
+
+    // Speed/resolution are only meaningful for an occupied slot; publishing 0
+    // for empty slots contradicts the NAN used for the positional entities.
+    publish_if_changed_(this->targets_[i].speed, target_valid ? speed_cm_s : NAN);
+    publish_if_changed_(this->targets_[i].resolution, target_valid ? res_mm : NAN);
 
     if (target_valid) {
-      any_present = true;
-
       float x_cm = x_mm / 10.0f;
       float y_cm = y_mm / 10.0f;
-      
-      if (this->targets_[i].x != nullptr) this->targets_[i].x->publish_state(x_cm);
-      if (this->targets_[i].y != nullptr) this->targets_[i].y->publish_state(y_cm);
+
+      publish_if_changed_(this->targets_[i].x, x_cm);
+      publish_if_changed_(this->targets_[i].y, y_cm);
 
       // Coordinate Transformation (2D radar so local_z is 0)
       auto pos = Transform3D::transform(x_cm, y_cm, 0.0f, this->cal_);
 
-      if (this->targets_[i].room_x != nullptr) this->targets_[i].room_x->publish_state(pos.room_x);
-      if (this->targets_[i].room_y != nullptr) this->targets_[i].room_y->publish_state(pos.room_y);
-      if (this->targets_[i].room_z != nullptr) this->targets_[i].room_z->publish_state(pos.room_z);
-      
+      publish_if_changed_(this->targets_[i].room_x, pos.room_x);
+      publish_if_changed_(this->targets_[i].room_y, pos.room_y);
+      publish_if_changed_(this->targets_[i].room_z, pos.room_z);
+
       if (this->targets_[i].in_boundary != nullptr) {
         if (this->targets_[i].in_boundary->state != pos.in_boundary || !this->targets_[i].in_boundary->has_state()) {
           this->targets_[i].in_boundary->publish_state(pos.in_boundary);
         }
       }
+
+      // 边界门控：界外目标（隔墙鬼影）默认不计入 presence
+      if (!this->boundary_gates_presence_ || pos.in_boundary) any_present = true;
     } else {
-      if (this->targets_[i].x != nullptr) this->targets_[i].x->publish_state(NAN);
-      if (this->targets_[i].y != nullptr) this->targets_[i].y->publish_state(NAN);
-      if (this->targets_[i].room_x != nullptr) this->targets_[i].room_x->publish_state(NAN);
-      if (this->targets_[i].room_y != nullptr) this->targets_[i].room_y->publish_state(NAN);
-      if (this->targets_[i].room_z != nullptr) this->targets_[i].room_z->publish_state(NAN);
+      publish_if_changed_(this->targets_[i].x, NAN);
+      publish_if_changed_(this->targets_[i].y, NAN);
+      publish_if_changed_(this->targets_[i].room_x, NAN);
+      publish_if_changed_(this->targets_[i].room_y, NAN);
+      publish_if_changed_(this->targets_[i].room_z, NAN);
 
       if (this->targets_[i].in_boundary != nullptr) {
         if (this->targets_[i].in_boundary->state != false || !this->targets_[i].in_boundary->has_state()) {

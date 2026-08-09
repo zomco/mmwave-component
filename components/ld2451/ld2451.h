@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <cmath>
 
 namespace esphome {
 namespace ld2451 {
@@ -43,6 +44,8 @@ class LD2451Component : public Component, public uart::UARTDevice {
   void set_roll(float v)         { cal_.roll         = v; }
   void set_distance_min(float v) { cal_.distance_min = v; }
   void set_distance_max(float v) { cal_.distance_max = v; }
+  /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
+  void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
 
   // ── Sensor setters ──
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
@@ -71,6 +74,8 @@ class LD2451Component : public Component, public uart::UARTDevice {
   void process_byte_(uint8_t byte);
   void process_packet_();
   void publish_target_frame_(uint8_t target_count);
+  /// 仅在数值变化时发布（ESPHome 不会对数值 sensor 去重）
+  void publish_if_changed_(sensor::Sensor *s, float value);
   void process_ack_();
   void send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
   void handle_ack_data_(uint16_t command, uint16_t status, const uint8_t *data, uint8_t data_len);
@@ -81,6 +86,7 @@ class LD2451Component : public Component, public uart::UARTDevice {
   uint32_t last_frame_publish_ms_{0};
   uint32_t frame_id_{0};
   uint32_t mock_active_until_{0};
+  bool boundary_gates_presence_{true};
   bool config_mode_{false};
 
   CalibrationParams cal_;

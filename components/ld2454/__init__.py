@@ -40,6 +40,7 @@ CONF_POLYGON        = "polygon"
 # 全局传感器
 CONF_PRESENCE       = "presence"
 CONF_PRESENCE_TIMEOUT = "presence_timeout"
+CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
 CONF_TARGET_FRAME    = "target_frame"
 
 # 控制实体
@@ -135,6 +136,8 @@ CONFIG_SCHEMA = (
                 icon="mdi:radar",
             ),
             cv.Optional(CONF_PRESENCE_TIMEOUT, default="5s"): cv.positive_time_period_milliseconds,
+            # 边界外的目标（隔墙鬼影）默认不计入 presence
+            cv.Optional(CONF_BOUNDARY_GATES_PRESENCE, default=True): cv.boolean,
 
             # ── 控制实体 ──────────────────────────────────────────────────
             cv.Optional(CONF_MULTI_TARGET): switch.switch_schema(
@@ -204,6 +207,7 @@ async def to_code(config):
 
     # 全局超时设置
     cg.add(var.set_presence_timeout(config[CONF_PRESENCE_TIMEOUT]))
+    cg.add(var.set_boundary_gates_presence(config[CONF_BOUNDARY_GATES_PRESENCE]))
 
     # 控制实体
     if CONF_MULTI_TARGET in config:
@@ -211,7 +215,7 @@ async def to_code(config):
         await switch.register_switch(sw, config[CONF_MULTI_TARGET])
         cg.add(sw.set_parent(var))
         cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2454::LD2454Switch::MULTI_TARGET")))
-        cg.add(var.multi_target_switch_, sw)
+        cg.add(var.set_multi_target_switch(sw))
 
 
     if CONF_FACTORY_RESET in config:

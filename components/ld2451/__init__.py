@@ -30,6 +30,7 @@ CONF_PITCH = "pitch"
 CONF_ROLL = "roll"
 CONF_DISTANCE_MIN = "distance_min"
 CONF_DISTANCE_MAX = "distance_max"
+CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
 
 UNIT_KM_PER_H = "km/h"
 
@@ -92,6 +93,8 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_ROLL, default=0.0): cv.float_range(min=-90.0, max=90.0),
             cv.Optional(CONF_DISTANCE_MIN, default=0.0): cv.float_,
             cv.Optional(CONF_DISTANCE_MAX, default=0.0): cv.float_,
+            # 边界外的目标默认不计入 presence
+            cv.Optional(CONF_BOUNDARY_GATES_PRESENCE, default=True): cv.boolean,
             
             # Globals
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
@@ -165,6 +168,7 @@ async def to_code(config):
     cg.add(var.set_roll(config[CONF_ROLL]))
     cg.add(var.set_distance_min(config[CONF_DISTANCE_MIN]))
     cg.add(var.set_distance_max(config[CONF_DISTANCE_MAX]))
+    cg.add(var.set_boundary_gates_presence(config[CONF_BOUNDARY_GATES_PRESENCE]))
 
     if CONF_PRESENCE in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_PRESENCE])

@@ -2,9 +2,15 @@
 
 #include <cmath>
 #include <cstdint>
+#include <vector>
 
 namespace esphome {
 namespace ld2453 {
+
+struct Vec2 {
+  float x = 0.f;
+  float y = 0.f;
+};
 
 struct CalibrationParams {
   float radar_x{0.0f};
@@ -15,7 +21,27 @@ struct CalibrationParams {
   float roll{0.0f};
   float distance_min{0.0f};
   float distance_max{0.0f};
+  std::vector<Vec2> polygon;  // 房间边界多边形（cm）; 少于 3 个顶点 = 不过滤
 };
+
+/**
+ * 判断点 (px, py) 是否在多边形内（Ray Casting 算法，O(n)）
+ * 顶点不足 3 个时始终返回 true（不过滤）
+ */
+inline bool point_in_polygon(float px, float py, const std::vector<Vec2> &polygon) {
+  const size_t n = polygon.size();
+  if (n < 3) return true;
+
+  bool inside = false;
+  for (size_t i = 0, j = n - 1; i < n; j = i++) {
+    const float xi = polygon[i].x, yi = polygon[i].y;
+    const float xj = polygon[j].x, yj = polygon[j].y;
+    const bool cross = ((yi > py) != (yj > py)) &&
+                       (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+    if (cross) inside = !inside;
+  }
+  return inside;
+}
 
 struct Position3D {
   float room_x;
@@ -68,12 +94,16 @@ class Transform3D {
     pos.room_y = cal.radar_y + wy;
     pos.room_z = cal.radar_z - wz; // -wz because z-axis points down from radar but room_z points up from floor
 
-    // Boundary filtering based on radial distance
+    // Boundary filtering: radial distance gate AND room-frame polygon (ray casting).
+    // The polygon is evaluated post-transform, in room coordinates.
     pos.in_boundary = true;
     if (cal.distance_min > 0.01f && range_cm < cal.distance_min) {
         pos.in_boundary = false;
     }
     if (cal.distance_max > 0.01f && range_cm > cal.distance_max) {
+        pos.in_boundary = false;
+    }
+    if (pos.in_boundary && !point_in_polygon(pos.room_x, pos.room_y, cal.polygon)) {
         pos.in_boundary = false;
     }
 
