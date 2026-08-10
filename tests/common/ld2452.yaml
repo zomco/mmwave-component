@@ -8,6 +8,11 @@
 # each consumer supplies its own, and two declarations of the same key
 # would collide with no way to drop just one.
 
+# Diagnostics and recovery controls are the same on every model, so they live
+# in one place rather than being copied into sixteen radar cores.
+packages:
+  device: !include _device.yaml
+
 esphome:
   on_boot:
     priority: -100
@@ -317,34 +322,6 @@ number:
           id(g_roll) = x;
           id(radar).set_roll(x);
           id(num_roll).publish_state(x);
-
-sensor:
-  - platform: wifi_signal
-    name: "WiFi Signal"
-    update_interval: 60s
-    entity_category: diagnostic
-
-  - platform: uptime
-    name: "Uptime"
-    entity_category: diagnostic
-    update_interval: 60s
-
-binary_sensor:
-  - platform: status
-    name: "Status"
-    entity_category: diagnostic
-
-text_sensor:
-  - platform: wifi_info
-    ip_address:
-      name: "IP Address"
-      entity_category: diagnostic
-    ssid:
-      name: "SSID"
-      entity_category: diagnostic
-    mac_address:
-      name: "MAC Address"
-      entity_category: diagnostic
 
 text:
   - platform: template

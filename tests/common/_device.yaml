@@ -1,0 +1,85 @@
+# Device-level entities shared by every radar model.
+#
+# Included by each tests/common/<model>.yaml, so a device exposes the same
+# operational surface no matter which radar it carries. Radar-specific entities
+# stay in the model file; anything here must be true of an ESP32 running any of
+# them.
+#
+# Carries no board, networking or external_components block, for the same
+# reason the radar cores do not: each consumer supplies its own, and two
+# declarations of the same key collide with no way to drop just one.
+#
+# These are all lists, which ESPHome merges across packages, so a model file
+# may still add its own sensors and buttons alongside these.
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: uptime
+    name: "Uptime"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  # On-die temperature. Not the room temperature — it reads well above ambient
+  # because it sits on the same silicon as the radio. Useful for spotting a
+  # device cooking inside a sealed ceiling enclosure, not for climate control.
+  - platform: internal_temperature
+    name: "ESP Temperature"
+    entity_category: diagnostic
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+    entity_category: diagnostic
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      entity_category: diagnostic
+    ssid:
+      name: "SSID"
+      entity_category: diagnostic
+    mac_address:
+      name: "MAC Address"
+      entity_category: diagnostic
+
+button:
+  # Named "Restart ESP" rather than "Restart" because r60abd1 already shipped
+  # under that name. Renaming would change its entity_id and silently break any
+  # dashboard or automation referring to it.
+  - platform: restart
+    name: "Restart ESP"
+    entity_category: config
+    icon: mdi:power-cycle
+
+  # Reboots with every component disabled except WiFi and OTA. This is the
+  # recovery path when a radar component wedges the device hard enough that it
+  # never reaches the point of accepting an OTA update.
+  - platform: safe_mode
+    name: "Restart (Safe Mode)"
+    entity_category: config
+    icon: mdi:lifebuoy
+
+# Local fallback UI: live entity states, logs, and a browser OTA upload. The
+# point is the case where Home Assistant is unreachable and the radar is on a
+# ceiling — without this there is no way in at all short of a ladder.
+#
+# Measured cost of web_server + improv_serial together: 24 KB, taking an
+# r60abd1 build from 53.1% to 54.4% of the 1792 KB app partition.
+#
+# NOTE: version 3 loads its JavaScript from esphome.io rather than from the
+# device. That is fine on a LAN with internet, but it means the fallback UI is
+# unavailable in exactly the wide-outage case it exists for. `local: true`
+# embeds the assets instead, at a flash cost this workspace has not yet
+# measured. Worth doing before calling the fallback story finished.
+web_server:
+  port: 80
+
+# Wi-Fi provisioning over the USB serial port, which is what the web installer
+# at static/ drives. Safe here only because the logger is on USB_SERIAL_JTAG:
+# on the ESP32-C3, UART0 is GPIO20/21, which is where every radar is wired.
+improv_serial:
