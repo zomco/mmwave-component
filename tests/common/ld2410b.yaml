@@ -1,0 +1,345 @@
+# LD2410B radar definition, shared by every consumer.
+#
+# Included by tests/ld2410b-esp32c3.yaml (standalone firmware, and via
+# that the factory build users flash) and by the workspace's
+# esphome-config/ld2410b-esp32c3.yaml. Edit here once.
+#
+# Carries no board, networking or external_components block on purpose:
+# each consumer supplies its own, and two declarations of the same key
+# would collide with no way to drop just one.
+
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          // 开机启动后，将保存在闪存中的 globals 恢复给底层雷达组件
+          id(radar).set_radar_x(id(g_radar_x));
+          id(radar).set_radar_y(id(g_radar_y));
+          id(radar).set_radar_z(id(g_radar_z));
+          id(radar).set_yaw(id(g_yaw));
+          id(radar).set_pitch(id(g_pitch));
+          id(radar).set_roll(id(g_roll));
+          id(radar).set_distance_min(id(g_distance_min));
+          id(radar).set_distance_max(id(g_distance_max));
+          id(radar).set_distance_resolution(id(g_distance_resolution));
+
+uart:
+  id: uart_ld2410b
+  tx_pin: GPIO21   # ESP32-C3 → LD2410B RX（交叉接线）
+  rx_pin: GPIO20   # ESP32-C3 ← LD2410B TX
+  baud_rate: 256000
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+
+# =============================================================================
+# 校准参数（globals）持久化
+# =============================================================================
+
+globals:
+  - id: g_radar_x
+    type: float
+    restore_value: true # 掉电恢复，避免每次重启都要重新校准
+    initial_value: "0.0" # 上电默认值，首次烧录后通过 number 实体覆盖
+
+  - id: g_radar_y
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_radar_z
+    type: float
+    restore_value: true
+    initial_value: "240.0" # LD2410B 推荐吸顶/壁挂高度 2.4m
+
+  - id: g_yaw
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 由 Lovelace 卡片校准后更新
+
+  - id: g_pitch
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 水平安装为 0；斜装时填实测值或 IMU 读数
+
+  - id: g_roll
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_distance_min
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 0 cm 最小有效探测距离
+
+  - id: g_distance_max
+    type: float
+    restore_value: true
+    initial_value: "600.0" # 600 cm 最大有效距离
+
+  - id: g_distance_resolution
+    type: float
+    restore_value: true
+    initial_value: "0.75" # 默认 0.75m 分辨率
+
+# =============================================================================
+# LD2410B 组件定义
+# =============================================================================
+
+ld2410b:
+  id: radar
+  uart_id: uart_ld2410b
+
+  # ── 存在探测、目标距离与状态 ────────────────────────────────────────────────────
+  presence:
+    name: "presence"
+    device_class: presence
+  target_state:
+    name: "target_state"
+  moving_distance:
+    name: "moving_distance"
+    unit_of_measurement: "cm"
+  moving_energy:
+    name: "moving_energy"
+  stationary_distance:
+    name: "stationary_distance"
+    unit_of_measurement: "cm"
+  stationary_energy:
+    name: "stationary_energy"
+  detection_distance:
+    name: "detection_distance"
+    unit_of_measurement: "cm"
+  max_distance:
+    name: "max_distance"
+    unit_of_measurement: "cm"
+
+  # ── 坐标转换与区域过滤 ────────────────────────────────────────────────
+  room_x:
+    name: "room_x"
+    unit_of_measurement: "cm"
+  room_y:
+    name: "room_y"
+    unit_of_measurement: "cm"
+  room_z:
+    name: "room_z"
+    unit_of_measurement: "cm"
+  in_boundary:
+    name: "in_boundary"
+
+# =============================================================================
+# 运行时校准控制实体 (number)
+# =============================================================================
+
+  # carried over from the component config
+  radar_x: 0.0
+  # carried over from the component config
+  radar_y: 0.0
+  # carried over from the component config
+  radar_z: 240.0
+  # carried over from the component config
+  yaw: 0.0
+  # carried over from the component config
+  pitch: 0.0
+  # carried over from the component config
+  roll: 0.0
+  
+  # carried over from the component config
+  distance_min: 0.0
+  # carried over from the component config
+  distance_max: 300.0
+
+number:
+  - platform: template
+    name: "Radar X"
+    id: num_radar_x
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(g_radar_x);"
+    set_action:
+      - lambda: |-
+          id(g_radar_x) = x;
+          id(radar).set_radar_x(x);
+          id(num_radar_x).publish_state(x);
+
+  - platform: template
+    name: "Radar Y"
+    id: num_radar_y
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(g_radar_y);"
+    set_action:
+      - lambda: |-
+          id(g_radar_y) = x;
+          id(radar).set_radar_y(x);
+          id(num_radar_y).publish_state(x);
+
+  - platform: template
+    name: "Radar Z"
+    id: num_radar_z
+    unit_of_measurement: cm
+    min_value: 50
+    max_value: 400
+    step: 1
+    mode: box
+    icon: mdi:ruler-square
+    lambda: "return id(g_radar_z);"
+    set_action:
+      - lambda: |-
+          id(g_radar_z) = x;
+          id(radar).set_radar_z(x);
+          id(num_radar_z).publish_state(x);
+
+  - platform: template
+    name: "Yaw"
+    id: num_yaw
+    unit_of_measurement: "°"
+    min_value: -180
+    max_value: 180
+    step: 0.1
+    mode: box
+    icon: mdi:rotate-3d-variant
+    lambda: "return id(g_yaw);"
+    set_action:
+      - lambda: |-
+          id(g_yaw) = x;
+          id(radar).set_yaw(x);
+          id(num_yaw).publish_state(x);
+
+  - platform: template
+    name: "Pitch"
+    id: num_pitch
+    unit_of_measurement: "°"
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(g_pitch);"
+    set_action:
+      - lambda: |-
+          id(g_pitch) = x;
+          id(radar).set_pitch(x);
+          id(num_pitch).publish_state(x);
+
+  - platform: template
+    name: "Roll"
+    id: num_roll
+    unit_of_measurement: "°"
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(g_roll);"
+    set_action:
+      - lambda: |-
+          id(g_roll) = x;
+          id(radar).set_roll(x);
+          id(num_roll).publish_state(x);
+
+  - platform: template
+    name: "Min Distance"
+    id: num_distance_min
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_min);"
+    set_action:
+      - lambda: |-
+          id(g_distance_min) = x;
+          id(radar).set_distance_min(x);
+          id(num_distance_min).publish_state(x);
+
+  - platform: template
+    name: "Max Distance"
+    id: num_distance_max
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_max);"
+    set_action:
+      - lambda: |-
+          id(g_distance_max) = x;
+          id(radar).set_distance_max(x);
+          id(num_distance_max).publish_state(x);
+
+# =============================================================================
+# 运行时配置实体 (select)
+# =============================================================================
+
+select:
+  - platform: template
+    name: "Distance Resolution"
+    id: select_distance_resolution
+    icon: mdi:ruler
+    options:
+      - "0.75m"
+      - "0.20m"
+    lambda: |-
+      if (id(g_distance_resolution) > 0.5) return {"0.75m"};
+      else return {"0.20m"};
+    set_action:
+      - lambda: |-
+          float res = (x == "0.75m") ? 0.75 : 0.20;
+          id(g_distance_resolution) = res;
+          id(radar).set_distance_resolution(res);
+          id(select_distance_resolution).publish_state(x);
+
+# =============================================================================
+# 基础状态与诊断传感器
+# =============================================================================
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: uptime
+    name: "Uptime"
+    entity_category: diagnostic
+    update_interval: 60s
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+    entity_category: diagnostic
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      entity_category: diagnostic
+    ssid:
+      name: "SSID"
+      entity_category: diagnostic
+    mac_address:
+      name: "MAC Address"
+      entity_category: diagnostic
+
+text:
+  - platform: template
+    name: "Mock Data"
+    id: text_mock_data
+    mode: text
+    entity_category: diagnostic
+    icon: mdi:bug
+    optimistic: true
+    set_action:
+      - lambda: |-
+          id(radar).inject_mock_data(x);

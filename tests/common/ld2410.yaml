@@ -1,0 +1,71 @@
+# LD2410 radar definition, shared by every consumer.
+#
+# Included by tests/ld2410-esp32c3.yaml (standalone firmware, and via
+# that the factory build users flash) and by the workspace's
+# esphome-config/ld2410-esp32c3.yaml. Edit here once.
+#
+# Carries no board, networking or external_components block on purpose:
+# each consumer supplies its own, and two declarations of the same key
+# would collide with no way to drop just one.
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO4
+  rx_pin: GPIO5
+  baud_rate: 256000
+
+number:
+  - platform: template
+    name: "Radar Yaw"
+    id: radar_yaw
+    min_value: -180
+    max_value: 180
+    step: 1
+    initial_value: 0
+    optimistic: true
+  - platform: template
+    name: "Radar Pitch"
+    id: radar_pitch
+    min_value: -90
+    max_value: 90
+    step: 1
+    initial_value: 0
+    optimistic: true
+
+ld2410:
+  id: my_radar
+  uart_id: uart_bus
+  
+  radar_x: 0.0
+  radar_y: 0.0
+  radar_z: 240.0
+  yaw: 0.0
+  pitch: 0.0
+  roll: 0.0
+  
+  distance_min: 0.0
+  distance_max: 300.0
+
+  presence:
+    name: "Presence"
+  target_state:
+    name: "Target State"
+  moving_distance:
+    name: "Moving Distance"
+  moving_energy:
+    name: "Moving Energy"
+  stationary_distance:
+    name: "Stationary Distance"
+  stationary_energy:
+    name: "Stationary Energy"
+  detection_distance:
+    name: "Detection Distance"
+  
+  room_x:
+    name: "Room X"
+  room_y:
+    name: "Room Y"
+  room_z:
+    name: "Room Z"
+  in_boundary:
+    name: "In Boundary"

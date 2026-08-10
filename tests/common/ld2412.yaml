@@ -1,0 +1,186 @@
+# LD2412 radar definition, shared by every consumer.
+#
+# Included by tests/ld2412-esp32c3.yaml (standalone firmware, and via
+# that the factory build users flash) and by the workspace's
+# esphome-config/ld2412-esp32c3.yaml. Edit here once.
+#
+# Carries no board, networking or external_components block on purpose:
+# each consumer supplies its own, and two declarations of the same key
+# would collide with no way to drop just one.
+
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          // 开机启动后，将保存在闪存中的 globals 恢复给底层雷达组件
+          id(radar).set_distance_min(id(g_distance_min));
+          id(radar).set_distance_max(id(g_distance_max));
+          id(radar).set_distance_resolution(id(g_distance_resolution));
+
+uart:
+  id: uart_ld2412
+  tx_pin: GPIO21
+  rx_pin: GPIO20
+  baud_rate: 115200
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+
+# =============================================================================
+# 校准参数（globals）持久化
+# =============================================================================
+
+globals:
+  - id: g_distance_min
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 0 cm 最小有效探测距离
+  - id: g_distance_max
+    type: float
+    restore_value: true
+    initial_value: "900.0" # 900 cm 最大有效距离 (ld2412 max 9m)
+  - id: g_distance_resolution
+    type: float
+    restore_value: true
+    initial_value: "0.75" # 默认 0.75m 分辨率
+
+# =============================================================================
+# ld2412 组件定义
+# =============================================================================
+
+ld2412:
+  id: radar
+  uart_id: uart_ld2412
+
+  presence:
+    name: "presence"
+    device_class: presence
+  target_state:
+    name: "target_state"
+  moving_distance:
+    name: "moving_distance"
+    unit_of_measurement: "cm"
+  moving_energy:
+    name: "moving_energy"
+  stationary_distance:
+    name: "stationary_distance"
+    unit_of_measurement: "cm"
+  stationary_energy:
+    name: "stationary_energy"
+  light:
+    name: "light_sensor"
+
+  g0:
+    gate_move_energy:
+      name: "g0_move_energy"
+    gate_still_energy:
+      name: "g0_still_energy"
+  g1:
+    gate_move_energy:
+      name: "g1_move_energy"
+    gate_still_energy:
+      name: "g1_still_energy"
+  g2:
+    gate_move_energy:
+      name: "g2_move_energy"
+    gate_still_energy:
+      name: "g2_still_energy"
+  g3:
+    gate_move_energy:
+      name: "g3_move_energy"
+    gate_still_energy:
+      name: "g3_still_energy"
+  g4:
+    gate_move_energy:
+      name: "g4_move_energy"
+    gate_still_energy:
+      name: "g4_still_energy"
+  g5:
+    gate_move_energy:
+      name: "g5_move_energy"
+    gate_still_energy:
+      name: "g5_still_energy"
+  g6:
+    gate_move_energy:
+      name: "g6_move_energy"
+    gate_still_energy:
+      name: "g6_still_energy"
+  g7:
+    gate_move_energy:
+      name: "g7_move_energy"
+    gate_still_energy:
+      name: "g7_still_energy"
+  g8:
+    gate_move_energy:
+      name: "g8_move_energy"
+    gate_still_energy:
+      name: "g8_still_energy"
+  g9:
+    gate_move_energy:
+      name: "g9_move_energy"
+    gate_still_energy:
+      name: "g9_still_energy"
+  g10:
+    gate_move_energy:
+      name: "g10_move_energy"
+    gate_still_energy:
+      name: "g10_still_energy"
+  g11:
+    gate_move_energy:
+      name: "g11_move_energy"
+    gate_still_energy:
+      name: "g11_still_energy"
+  g12:
+    gate_move_energy:
+      name: "g12_move_energy"
+    gate_still_energy:
+      name: "g12_still_energy"
+  g13:
+    gate_move_energy:
+      name: "g13_move_energy"
+    gate_still_energy:
+      name: "g13_still_energy"
+
+  # carried over from the component config
+  radar_x: 0.0
+  # carried over from the component config
+  radar_y: 0.0
+  # carried over from the component config
+  radar_z: 240.0
+  # carried over from the component config
+  yaw: 0.0
+  # carried over from the component config
+  pitch: 0.0
+  # carried over from the component config
+  roll: 0.0
+  # 1-D 雷达使用距离门作为边界；0 = 不过滤
+  # carried over from the component config
+  distance_min: 0.0
+  # carried over from the component config
+  distance_max: 900.0 # LD2412 最远 9 m
+
+  # carried over from the component config
+  room_x:
+    name: "room_x"
+  # carried over from the component config
+  room_y:
+    name: "room_y"
+  # carried over from the component config
+  room_z:
+    name: "room_z"
+  # carried over from the component config
+  in_boundary:
+    name: "in_boundary"
+
+  # 14 个距离门（0-13）的运动/静止能量
+
+text:
+  - platform: template
+    name: "ld2412_test_device Mock Data"
+    id: text_ld2412_mock_data
+    mode: text
+    optimistic: true
+    on_value:
+      - lambda: |-
+          id(radar).inject_mock_data(x.c_str());
