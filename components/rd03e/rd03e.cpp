@@ -19,10 +19,18 @@ void RD03EComponent::loop() {
   const uint32_t now = millis();
   while (available()) {
     const uint8_t byte = read();
+    // Stamp the receive time before deciding whether to use the byte. Bytes are
+    // still arriving while mock data is active — they are discarded, not
+    // absent — and the watchdog below reads this to decide whether the radar
+    // has gone quiet. Stamping it after the skip meant that one second into any
+    // injection the watchdog concluded the link was dead and published
+    // presence = false, wiping the state the injection had just set. Every
+    // other component with mock support either does it in this order or leaves
+    // loop() entirely while mock is active.
+    last_rx_ms_ = now;
     if (now < this->mock_active_until_) {
       continue;
     }
-    last_rx_ms_ = now;
     process_byte_(byte);
   }
 
