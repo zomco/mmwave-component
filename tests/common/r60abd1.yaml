@@ -8,6 +8,11 @@
 # each consumer supplies its own, and two declarations of the same key
 # would collide with no way to drop just one.
 
+# Diagnostics and recovery controls are the same on every model, so they live
+# in one place rather than being copied into sixteen radar cores.
+packages:
+  device: !include _device.yaml
+
 esphome:
   on_boot:
     priority: -100
@@ -401,44 +406,11 @@ button:
     on_press:
       - lambda: "id(radar).reset_module();"
 
-  - platform: restart
-    name: "Restart ESP"
-    icon: mdi:power-cycle
+# 通用诊断传感器（WiFi Signal / Uptime / Status / IP / SSID / MAC）和重启按钮
+# 已移入 _device.yaml，由本文件顶部的 packages 引入。
 
 # =============================================================================
-# 9. 诊断传感器
-# =============================================================================
-
-sensor:
-  - platform: wifi_signal
-    name: "WiFi Signal"
-    update_interval: 60s
-    entity_category: diagnostic
-
-  - platform: uptime
-    name: "Uptime"
-    entity_category: diagnostic
-    update_interval: 60s
-
-binary_sensor:
-  - platform: status
-    name: "Status"
-    entity_category: diagnostic
-
-text_sensor:
-  - platform: wifi_info
-    ip_address:
-      name: "IP Address"
-      entity_category: diagnostic
-    ssid:
-      name: "SSID"
-      entity_category: diagnostic
-    mac_address:
-      name: "MAC Address"
-      entity_category: diagnostic
-
-# =============================================================================
-# 10. Text 实体（接收 Lovelace 卡片下发的多边形字符串）
+# 9. Text 实体（接收 Lovelace 卡片下发的多边形字符串）
 # =============================================================================
 
 text:

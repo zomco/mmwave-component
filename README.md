@@ -29,6 +29,23 @@ ever sees a value:
 
 The result is a position you can write an automation against directly.
 
+### What every device exposes, whatever radar it carries
+
+Beyond the radar's own entities, each build carries the same operational
+surface — WiFi signal, uptime, online status, IP/SSID/MAC, ESP die temperature,
+a restart button and a **safe-mode restart** that boots with everything but
+WiFi and OTA disabled, for recovering a device that will not otherwise take an
+update.
+
+There is also a **local web UI** on port 80, which is the way in when Home
+Assistant is unreachable and the radar is on a ceiling, and **USB provisioning**
+(Improv) that the web flasher above drives.
+
+A **Bluetooth proxy** is available but off by default: it costs 502 KB of flash
+and shares the ESP32-C3's single radio and 320 KB of RAM with WiFi, and the
+thing that degrades is the radar's own connection to Home Assistant. Turn it on
+deliberately — see `tests/common/_bluetooth.yaml`.
+
 <img src="https://raw.githubusercontent.com/zomco/mmwave-card/main/assets/screenshot-live.gif" alt="Live View Demo" width="600">
 
 ---

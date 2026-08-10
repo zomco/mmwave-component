@@ -1,0 +1,53 @@
+# Optional Bluetooth stack — NOT included by default.
+#
+# A radar is mains-powered and spread through the house, which makes it an
+# attractive Bluetooth proxy. The cost is what keeps this opt-in rather than
+# part of _device.yaml:
+#
+#   Measured on an r60abd1 ESP32-C3 build, 1792 KB app partition:
+#     without this file   997 KB    54.4%
+#     with this file     1512 KB    82.4%      (+502 KB)
+#
+# Flash is only half of it. The ESP32-C3 has a single radio and 320 KB of RAM,
+# both shared between Wi-Fi and Bluetooth. Running the Bluedroid stack next to
+# Wi-Fi on this chip costs airtime and heap, and the thing it degrades is the
+# radar's own connection to Home Assistant. For a presence sensor — whose whole
+# job is reporting promptly and staying online — that is a poor trade unless
+# you actively want the proxy.
+#
+# ESP-IDF reports no static RAM figure, so the heap cost cannot be measured
+# from a build. Verify on hardware before deploying this to a device you rely
+# on, and watch for API disconnects and Wi-Fi instability rather than just
+# checking that it boots.
+#
+# Usage — add to a device config, alongside the radar package:
+#
+#   packages:
+#     radar:     !include common/<model>.yaml
+#     bluetooth: !include common/_bluetooth.yaml
+
+esp32_ble_tracker:
+  scan_parameters:
+    # Continuous scanning (interval == window) finds devices fastest but never
+    # yields the radio. These values leave Wi-Fi some room; raise the interval
+    # further if the radar starts dropping its API connection.
+    interval: 1100ms
+    window: 1100ms
+    active: true
+
+bluetooth_proxy:
+  active: true
+
+# Wi-Fi provisioning over BLE from a phone. Deliberately left off, even though
+# the BLE stack it needs is already paid for above, because the device offers
+# two provisioning paths already: improv_serial over USB (what the web
+# installer drives) and captive_portal on the fallback access point (what a
+# phone uses). A third path buys little.
+#
+# It is only cheap when this file is already included; on its own it drags in
+# the same ~400 KB BLE stack. Uncomment both keys together to enable it.
+#
+# esp32_ble_server:
+#
+# esp32_improv:
+#   authorizer: none

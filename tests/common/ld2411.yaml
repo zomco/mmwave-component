@@ -8,6 +8,11 @@
 # each consumer supplies its own, and two declarations of the same key
 # would collide with no way to drop just one.
 
+# Diagnostics and recovery controls are the same on every model, so they live
+# in one place rather than being copied into sixteen radar cores.
+packages:
+  device: !include _device.yaml
+
 uart:
   id: uart_ld2411
   tx_pin: GPIO21
