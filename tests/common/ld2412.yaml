@@ -182,10 +182,18 @@ ld2412:
 
 text:
   - platform: template
-    name: "ld2412_test_device Mock Data"
+    # "Mock Data", not "ld2412_test_device Mock Data". Home Assistant already
+    # prefixes the device name, so the longer form produced
+    # text.ld2412_test_device_ld2412_test_device_mock_data — the only model
+    # spelled differently from the other eleven, and a name nothing could
+    # reasonably guess.
+    name: "Mock Data"
     id: text_ld2412_mock_data
     mode: text
     optimistic: true
-    on_value:
+    # set_action, not on_value. on_value fires only when the value *changes*,
+    # so replaying the same frame twice — which is how the e2e harness gets past
+    # the 1 Hz publish rate limit — silently did nothing the second time.
+    set_action:
       - lambda: |-
           id(radar).inject_mock_data(x.c_str());
