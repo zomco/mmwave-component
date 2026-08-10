@@ -44,10 +44,22 @@ The **authoritative radar model status table** lives in `README.md`. The AI must
 │   ├── _config.yml                    # Jekyll site config
 │   └── index.html                     # GitHub Pages install site (ESP Web Tools)
 ├── tests/
+│   ├── common/{radar_model}.yaml              # ← Shared radar core: uart, component,
+│   │                                          #   globals, scripts, entity wiring.
+│   │                                          #   Included by BOTH the base config here
+│   │                                          #   and the workspace's esphome-config/.
 │   ├── {radar_model}-{platform}.yaml          # Base config (CI validation + user adoption)
 │   └── {radar_model}-{platform}.factory.yaml  # Factory firmware (CI + Publish + Pages flash)
+├── GETTING-STARTED.md / GETTING-STARTED_CN.md # First-time setup for DIY users
+├── DIY.md / DIY_CN.md                         # Advanced config, principles, limitations
 └── README.md                                  # ← Radar model status table lives here
 ```
+
+> **Note on `tests/common/`:** the radar definition is declared **once** per
+> model there and included as a package. The per-platform file carries only
+> board, networking and `external_components`. Never duplicate a radar
+> definition into a platform file — the workspace includes the same core, and
+> two copies drift apart silently.
 
 > **Note on platform files:** All entities are declared in `__init__.py`. Do not create `sensor.py`, `binary_sensor.py`, or `number.py`.
 
@@ -208,12 +220,29 @@ wifi:
 
 captive_portal:
 
+# The radar itself — uart, component config, globals, scripts and entity
+# wiring — lives in the shared core, not here.
+packages:
+  radar: !include common/{radar_model}.yaml
+```
+
+**Rules for base config:**
+- `esphome.name` must equal the radar model identifier (e.g. `r60abd1`). The build-action uses this as the firmware name prefix.
+- No `esphome.project` block — that belongs in the factory file only.
+- `esp32.framework.type` must be `esp-idf`.
+- `external_components.source.path` must be `../components`.
+- The radar is pulled in via `packages: radar: !include common/{radar_model}.yaml`. Do not inline `uart:` or the `{radar_model}:` block here.
+
+### Shared radar core: `tests/common/{radar_model}.yaml`
+
+```yaml
 uart:
-  tx_pin: GPIO21                     # verify against hardware; add # TODO if uncertain
-  rx_pin: GPIO20
-  baud_rate: 115200                  # must match radar protocol document exactly
+  tx_pin: GPIO21                     # ESP32-C3 → radar RX (crossed)
+  rx_pin: GPIO20                     # ESP32-C3 ← radar TX
+  baud_rate: 115200                  # must match the radar protocol document exactly
 
 {radar_model}:
+  id: radar
   radar_x: 0.0
   radar_y: 0.0
   radar_z: 2.4
@@ -222,13 +251,12 @@ uart:
   radar_roll: 0.0
 ```
 
-**Rules for base config:**
-- `esphome.name` must equal the radar model identifier (e.g. `r60abd1`). The build-action uses this as the firmware name prefix.
-- No `esphome.project` block — that belongs in the factory file only.
-- `esp32.framework.type` must be `esp-idf`.
-- `external_components.source.path` must be `../components`.
-- `uart.baud_rate` must match the radar's protocol document exactly.
-- GPIO defaults: `GPIO20` (RX), `GPIO21` (TX). Add `# TODO` if hardware is not yet confirmed.
+**Rules for the shared core:**
+- Carries **no** `esp32:`, `wifi:`, `api:` or `external_components:` block. Each consumer supplies its own, and two declarations of the same key collide with no way to drop just one.
+- `uart.baud_rate` must match the radar's protocol document exactly. Current values range from 9600 (LD2452) to 1382400 (LD6002) — never assume 115200.
+- GPIO defaults: `GPIO20` (RX), `GPIO21` (TX). LD2410 is the sole exception at `GPIO5`/`GPIO4`. Add `# TODO` if hardware is not yet confirmed.
+- Calibration restored from `globals` in `esphome.on_boot` so it survives a reboot.
+- Any polygon parsing must use `strtof` with endptr validation, never `std::stof`. The esp-idf build disables C++ exceptions, so `std::stof` on malformed input calls `std::terminate()` — one typo in the HA text box reboots the radar.
 
 ### Factory config: `tests/{radar_model}-{platform}.factory.yaml`
 
@@ -306,9 +334,30 @@ This name is used for the uploaded artifact (`firmware-r60abd1-ESP32-C3`), the `
 - `roll` turns about the radar's **own boresight** (local +Y).
 - Room Z is measured **up from the floor**, so the translation is `room_z = radar_z − world_z`.
 
-This convention is shared across three repositories and must not be changed in one of them alone:
-`components/*/[model]_transform.h`, `mmwave-card`, and `ha-config/custom_components/mmwave_fusion/fusion.py::transform_point`.
-`components/r60abd1/` is the reference. Any change here requires updating all three plus the numeric cross-check.
+**This convention is implemented three times, in three separate repositories, and
+changing one alone silently mirrors or rotates everyone's coordinates without
+any test failing in that repo.** The three implementations are:
+
+| Repository | File |
+| --- | --- |
+| mmwave-component (here) | `components/{model}/{model}_transform.h` — one per model, 16 of them |
+| [mmwave-card](https://github.com/zomco/mmwave-card) | `src/utils/transform.ts` |
+| [mmwave-fusion](https://github.com/zomco/mmwave-fusion) | `custom_components/mmwave_fusion/fusion.py` — `transform_point()` |
+
+`components/r60abd1/` is the reference implementation. Any change to the
+convention requires updating all three **in the same change set**.
+
+The cross-check that catches a divergence lives in the development workspace
+([mmwave-workspace](https://github.com/zomco/mmwave-workspace)), which carries
+all three as submodules:
+
+```bash
+python -m unittest tests.unit.test_rotation_convention -v
+```
+
+It extracts the TypeScript expressions from the card's source and evaluates
+them against `fusion.py`, so it fails if any of the three drift apart. A change
+made in this repository alone will pass this repository's CI and fail there.
 
 All six parameters exposed in CONFIG_SCHEMA for every model. **Lengths are centimetres**, matching the YAML configs and the published `room_*` sensors.
 

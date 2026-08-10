@@ -4,12 +4,40 @@
 
 本指南面向希望自定义 ESPHome 配置（例如添加传感器、修改接线引脚）、手动编译固件，或希望了解本组件背后技术原理的高级用户。
 
+> **第一次安装？** 请先看[新手上手指南](./GETTING-STARTED_CN.md) —— 它覆盖接线、浏览器
+> 烧录和校准，全程不用写 YAML。等你要改它没覆盖的东西时，再回到本文。
+
 ## 配置项说明
 
-有关特定雷达型号所有可用配置项的详细说明，请参阅对应型号的文档：
+所有型号都提供同样的六个校准参数和一个边界多边形；型号专属选项（距离门、阈值、区域
+过滤等）各不相同。在[雷达型号状态表](./README_CN.md#雷达型号状态)里找到你的型号，
+`文档` 一列指向它的实体与配置说明。
 
-- [R60ABD1 使用文档](docs/r60abd1/README.md)
-- *(其他型号请参考 [主 README](./README_CN.md) 中的雷达型号状态表)*
+参考实现、也是文档最完整的型号是 [R60ABD1](docs/r60abd1/README_CN.md)。
+
+### 雷达定义实际写在哪
+
+每个型号的雷达定义只写**一份**，位于 `tests/common/{型号}.yaml`，以 package 方式引入：
+
+```yaml
+packages:
+  radar: !include common/r60abd1.yaml
+```
+
+这份共享核心包含 `uart:` 块、组件配置、校准用的 `globals`，以及多边形解析脚本。
+按平台区分的文件（`tests/r60abd1-esp32c3.yaml`）只负责开发板、网络和
+`external_components`。
+
+开发工作区引入的是**同一份**核心文件，所以改一次就同时作用于出厂固件和联调环境。
+如果图省事把雷达配置块复制进平台文件，两边就会悄悄地不一致。
+
+### 接线
+
+所有型号都是 `GPIO21` → 雷达 `RX`、`GPIO20` ← 雷达 `TX`（交叉），只有一个例外：
+**LD2410** 用 `GPIO4`/`GPIO5`。
+
+各型号波特率差异很大，必须和协议文档完全一致 —— 从 9600（LD2452）到
+1382400（LD6002）都有。改 UART 配置前先查主 README 里的表。
 
 ## 功能特性
 
@@ -181,16 +209,24 @@ flowchart LR
 │       ├── ci.yml                # PR 检查：编译所有 tests/*.yaml
 │       ├── publish.yml           # 构建固件，上传产物
 │       └── publish-pages.yml     # 部署 GitHub Pages（与固件构建分离）
-├── components/{radar_model}/     # ESPHome 外部组件
-├── docs/{radar_model}/           # 产品文档、接线图、使用说明 (README.md)
+├── components/{radar_model}/     # ESPHome 外部组件（__init__.py、.h、.cpp）
+├── docs/{radar_model}/           # 规格书、协议 PDF、接线图、README.md
 ├── static/                       # GitHub Pages 源文件 (Jekyll)
 │   ├── _config.yml
 │   └── index.html                # ESP Web Tools 安装页
 ├── tests/
+│   ├── common/{radar_model}.yaml              # 共享雷达核心 —— uart、组件、
+│   │                                          # globals、脚本，只在这里改一次
 │   ├── {radar_model}-{platform}.yaml          # 基础固件配置
 │   └── {radar_model}-{platform}.factory.yaml  # 出厂固件配置
-└── README.md
+├── GETTING-STARTED_CN.md         # 新手上手指南，不用写 YAML
+├── DIY_CN.md                     # 本文件
+├── AGENTS.md                     # → .github/copilot-instructions.md
+└── README_CN.md                  # 雷达型号状态表（权威来源）
 ```
+
+文档全程双语：每个 `X.md` 都有对应的 `X_CN.md`，每个 `docs/{型号}/README.md` 都有
+对应的 `README_CN.md`。
 
 ---
 

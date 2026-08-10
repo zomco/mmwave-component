@@ -4,12 +4,49 @@
 
 This guide is intended for advanced users who want to customize their ESPHome configuration (e.g., adding sensors, modifying wiring pins), compile the firmware manually, or understand the technical principles behind this component.
 
+> **Setting up for the first time?** Start with
+> [Getting Started](./GETTING-STARTED.md) instead — it covers wiring, browser
+> flashing and calibration without any YAML. Come back here when you want to
+> change something it does not cover.
+
 ## Configuration Items
 
-For detailed explanations of all configuration items available for your specific radar model, please refer to the model-specific documentation:
+Every model exposes the same six calibration parameters plus a boundary
+polygon; model-specific options (gates, thresholds, zone filters) differ. Look
+your model up in the [Radar Model Status table](./README.md#radar-model-status)
+— the `Docs` column links to its entity and configuration reference.
 
-- [R60ABD1 Documentation](docs/r60abd1/README.md)
-- *(See the Radar Model Status table in the [main README](./README.md) for other models)*
+The canonical reference implementation, and the most completely documented, is
+[R60ABD1](docs/r60abd1/README.md).
+
+### Where the radar is actually declared
+
+The radar definition lives **once** per model in `tests/common/{model}.yaml`
+and is pulled in as a package:
+
+```yaml
+packages:
+  radar: !include common/r60abd1.yaml
+```
+
+That shared core carries the `uart:` block, the component config, the
+calibration `globals`, and the polygon-parsing script. The per-platform file
+(`tests/r60abd1-esp32c3.yaml`) carries only the board, networking and
+`external_components`.
+
+The development workspace includes the *same* core file, so a change to the
+radar definition reaches both the shipped firmware and the joint-debugging
+setup. Copying the radar block into a platform file instead of including it
+means the two silently drift apart.
+
+### Wiring
+
+All models use `GPIO21` → radar `RX` and `GPIO20` ← radar `TX` (crossed), with
+one exception: **LD2410** uses `GPIO4`/`GPIO5`.
+
+Baud rates vary widely by model and must match the protocol document exactly —
+from 9600 (LD2452) to 1382400 (LD6002). Check the table in the main README
+before changing a UART block.
 
 ## Features
 
@@ -181,16 +218,24 @@ flowchart LR
 │       ├── ci.yml                # PR check: compiles all tests/*.yaml
 │       ├── publish.yml           # Builds firmware, uploads artifacts
 │       └── publish-pages.yml     # Deploys GitHub Pages (separate from firmware build)
-├── components/{radar_model}/     # ESPHome external component
-├── docs/{radar_model}/           # Product docs, wiring images, usage guide (README.md)
+├── components/{radar_model}/     # ESPHome external component (__init__.py, .h, .cpp)
+├── docs/{radar_model}/           # Datasheets, protocol PDFs, wiring images, README.md
 ├── static/                       # GitHub Pages source (Jekyll)
 │   ├── _config.yml
 │   └── index.html                # ESP Web Tools install page
 ├── tests/
+│   ├── common/{radar_model}.yaml              # Shared radar core — uart, component,
+│   │                                          # globals, scripts. Edit here once.
 │   ├── {radar_model}-{platform}.yaml          # Base firmware config
 │   └── {radar_model}-{platform}.factory.yaml  # Factory firmware config
-└── README.md
+├── GETTING-STARTED.md            # First-time setup, no YAML required
+├── DIY.md                        # This file
+├── AGENTS.md                     # → .github/copilot-instructions.md
+└── README.md                     # Radar model status table (authoritative)
 ```
+
+Documentation is bilingual throughout: every `X.md` has an `X_CN.md`
+counterpart, and every `docs/{model}/README.md` has a `README_CN.md`.
 
 ---
 
