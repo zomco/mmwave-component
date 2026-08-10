@@ -19,6 +19,12 @@ esphome:
     then:
       - lambda: |-
           // 开机启动后，将保存在闪存中的 globals 恢复给底层雷达组件
+          id(radar).set_radar_x(id(g_radar_x));
+          id(radar).set_radar_y(id(g_radar_y));
+          id(radar).set_radar_z(id(g_radar_z));
+          id(radar).set_yaw(id(g_yaw));
+          id(radar).set_pitch(id(g_pitch));
+          id(radar).set_roll(id(g_roll));
           id(radar).set_distance_min(id(g_distance_min));
           id(radar).set_distance_max(id(g_distance_max));
           id(radar).set_distance_resolution(id(g_distance_resolution));
@@ -37,6 +43,33 @@ uart:
 # =============================================================================
 
 globals:
+  # 安装位置与朝向。room_x / room_y 依赖这些值，此前 ld2412 是唯一没有它们的
+  # 型号，坐标只能停留在编译期默认值，装好之后无法校准。
+  - id: g_radar_x
+    type: float
+    restore_value: true # 掉电恢复，避免每次重启都要重新校准
+    initial_value: "0.0"
+  - id: g_radar_y
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+  - id: g_radar_z
+    type: float
+    restore_value: true
+    initial_value: "240.0" # cm，典型吸顶安装高度
+  - id: g_yaw
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 由 Lovelace 卡片两点偏航校准后更新
+  - id: g_pitch
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+  - id: g_roll
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
   - id: g_distance_min
     type: float
     restore_value: true
@@ -179,6 +212,109 @@ ld2412:
     name: "in_boundary"
 
   # 14 个距离门（0-13）的运动/静止能量
+
+# =============================================================================
+# Number 实体（接收 Lovelace 卡片或 HA 自动化写入的校准参数）
+# =============================================================================
+# 与其余型号一致：set_action 写入 global 并立即下发给组件，无需重启。
+# ld2412 此前缺少整个 number 块，是唯一无法在运行时校准的型号。
+
+number:
+  - platform: template
+    name: "Radar X"
+    id: num_radar_x
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(g_radar_x);"
+    set_action:
+      - lambda: |-
+          id(g_radar_x) = x;
+          id(radar).set_radar_x(x);
+          id(num_radar_x).publish_state(x);
+
+  - platform: template
+    name: "Radar Y"
+    id: num_radar_y
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(g_radar_y);"
+    set_action:
+      - lambda: |-
+          id(g_radar_y) = x;
+          id(radar).set_radar_y(x);
+          id(num_radar_y).publish_state(x);
+
+  - platform: template
+    name: "Radar Z"
+    id: num_radar_z
+    unit_of_measurement: cm
+    min_value: 50
+    max_value: 400
+    step: 1
+    mode: box
+    icon: mdi:ruler-square
+    lambda: "return id(g_radar_z);"
+    set_action:
+      - lambda: |-
+          id(g_radar_z) = x;
+          id(radar).set_radar_z(x);
+          id(num_radar_z).publish_state(x);
+
+  - platform: template
+    name: "Yaw"
+    id: num_yaw
+    unit_of_measurement: "°"
+    min_value: -180
+    max_value: 180
+    step: 0.1
+    mode: box
+    icon: mdi:rotate-3d-variant
+    lambda: "return id(g_yaw);"
+    set_action:
+      - lambda: |-
+          id(g_yaw) = x;
+          id(radar).set_yaw(x);
+          id(num_yaw).publish_state(x);
+
+  - platform: template
+    name: "Pitch"
+    id: num_pitch
+    unit_of_measurement: "°"
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(g_pitch);"
+    set_action:
+      - lambda: |-
+          id(g_pitch) = x;
+          id(radar).set_pitch(x);
+          id(num_pitch).publish_state(x);
+
+  - platform: template
+    name: "Roll"
+    id: num_roll
+    unit_of_measurement: "°"
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(g_roll);"
+    set_action:
+      - lambda: |-
+          id(g_roll) = x;
+          id(radar).set_roll(x);
+          id(num_roll).publish_state(x);
 
 text:
   - platform: template
