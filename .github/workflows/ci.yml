@@ -21,8 +21,13 @@ jobs:
       - uses: actions/checkout@v6
       - name: List test YAML files
         id: list
+        # -maxdepth 1 on purpose. Firmware configs live directly in tests/;
+        # tests/common/ holds packages — radar cores and the shared device
+        # package — which carry no board, no networking and no esphome: name,
+        # and cannot build on their own. Recursing into it queued one doomed
+        # job per package and is why this workflow had never been green.
         run: |
-          configs=$(find tests -name "*.yaml" | sort \
+          configs=$(find tests -maxdepth 1 -name "*.yaml" | sort \
             | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "configs=$configs" >> "$GITHUB_OUTPUT"
           echo "Found: $configs"
