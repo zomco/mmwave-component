@@ -28,12 +28,12 @@ class Transform1D {
  public:
   static Position1D transform(float range_cm, const CalibrationParams &cal) {
     Position1D pos{};
-    
+
     // LD2420 is a 1-D radar; the target is projected along the boresight (local +Y)
     float local_y = range_cm;
 
     // Convert angles to radians
-    float yaw_rad   = cal.yaw   * (M_PI / 180.0f);
+    float yaw_rad = cal.yaw * (M_PI / 180.0f);
     float pitch_rad = cal.pitch * (M_PI / 180.0f);
 
     float cy = std::cos(yaw_rad);
@@ -59,15 +59,15 @@ class Transform1D {
     // 1-D boundary filtering: simple distance gate
     pos.in_boundary = true;
     if (cal.distance_min > 0.01f && range_cm < cal.distance_min) {
-        pos.in_boundary = false;
+      pos.in_boundary = false;
     }
     if (cal.distance_max > 0.01f && range_cm > cal.distance_max) {
-        pos.in_boundary = false;
+      pos.in_boundary = false;
     }
 
     return pos;
   }
 };
 
-} // namespace ld2420
-} // namespace esphome
+}  // namespace ld2420
+}  // namespace esphome

@@ -513,14 +513,20 @@ void LD2420Component::handle_energy_mode_(uint8_t *buffer, int len) {
   }
 
   // --- Custom Inline Entities ---
-  if (this->presence_sensor_) this->presence_sensor_->publish_state(this->presence_);
-  if (this->distance_sensor_) this->distance_sensor_->publish_state(this->distance_);
-  
+  if (this->presence_sensor_)
+    this->presence_sensor_->publish_state(this->presence_);
+  if (this->distance_sensor_)
+    this->distance_sensor_->publish_state(this->distance_);
+
   auto t1d = this->transform_1d(this->distance_);
-  if (this->room_x_sensor_) this->room_x_sensor_->publish_state(t1d.x);
-  if (this->room_y_sensor_) this->room_y_sensor_->publish_state(t1d.y);
-  if (this->room_z_sensor_) this->room_z_sensor_->publish_state(t1d.z);
-  if (this->in_boundary_sensor_) this->in_boundary_sensor_->publish_state(t1d.in_boundary);
+  if (this->room_x_sensor_)
+    this->room_x_sensor_->publish_state(t1d.x);
+  if (this->room_y_sensor_)
+    this->room_y_sensor_->publish_state(t1d.y);
+  if (this->room_z_sensor_)
+    this->room_z_sensor_->publish_state(t1d.z);
+  if (this->in_boundary_sensor_)
+    this->in_boundary_sensor_->publish_state(t1d.in_boundary);
 
   if (this->current_operating_mode == OP_CALIBRATE_MODE) {
     this->auto_calibrate_sensitivity();
@@ -576,14 +582,20 @@ void LD2420Component::handle_simple_mode_(const uint8_t *inbuf, int len) {
       listener->on_presence(this->get_presence_());
 
     // --- Custom Inline Entities ---
-    if (this->presence_sensor_) this->presence_sensor_->publish_state(this->presence_);
-    if (this->distance_sensor_) this->distance_sensor_->publish_state(this->distance_);
-    
+    if (this->presence_sensor_)
+      this->presence_sensor_->publish_state(this->presence_);
+    if (this->distance_sensor_)
+      this->distance_sensor_->publish_state(this->distance_);
+
     auto t1d = this->transform_1d(this->distance_);
-    if (this->room_x_sensor_) this->room_x_sensor_->publish_state(t1d.x);
-    if (this->room_y_sensor_) this->room_y_sensor_->publish_state(t1d.y);
-    if (this->room_z_sensor_) this->room_z_sensor_->publish_state(t1d.z);
-    if (this->in_boundary_sensor_) this->in_boundary_sensor_->publish_state(t1d.in_boundary);
+    if (this->room_x_sensor_)
+      this->room_x_sensor_->publish_state(t1d.x);
+    if (this->room_y_sensor_)
+      this->room_y_sensor_->publish_state(t1d.y);
+    if (this->room_z_sensor_)
+      this->room_z_sensor_->publish_state(t1d.z);
+    if (this->in_boundary_sensor_)
+      this->in_boundary_sensor_->publish_state(t1d.in_boundary);
   }
 }
 

@@ -28,14 +28,14 @@ class Transform3D {
  public:
   static Position3D transform(float local_x, float local_y, float local_z, const CalibrationParams &cal) {
     Position3D pos{};
-    
+
     // Radial distance for boundary filtering
     float range_cm = std::sqrt(local_x * local_x + local_y * local_y + local_z * local_z);
 
     // Convert angles to radians
-    float yaw_rad   = cal.yaw   * (M_PI / 180.0f);
+    float yaw_rad = cal.yaw * (M_PI / 180.0f);
     float pitch_rad = cal.pitch * (M_PI / 180.0f);
-    float roll_rad  = cal.roll  * (M_PI / 180.0f);
+    float roll_rad = cal.roll * (M_PI / 180.0f);
 
     float cy = std::cos(yaw_rad);
     float sy = std::sin(yaw_rad);
@@ -68,20 +68,20 @@ class Transform3D {
     // Apply translation to room coordinate
     pos.room_x = cal.radar_x + wx;
     pos.room_y = cal.radar_y + wy;
-    pos.room_z = cal.radar_z - wz; // -wz because z-axis points down from radar but room_z points up from floor
+    pos.room_z = cal.radar_z - wz;  // -wz because z-axis points down from radar but room_z points up from floor
 
     // Boundary filtering based on radial distance
     pos.in_boundary = true;
     if (cal.distance_min > 0.01f && range_cm < cal.distance_min) {
-        pos.in_boundary = false;
+      pos.in_boundary = false;
     }
     if (cal.distance_max > 0.01f && range_cm > cal.distance_max) {
-        pos.in_boundary = false;
+      pos.in_boundary = false;
     }
 
     return pos;
   }
 };
 
-} // namespace ld2451
-} // namespace esphome
+}  // namespace ld2451
+}  // namespace esphome
