@@ -33,7 +33,7 @@ class Transform1D {
     float local_y = range_cm;
 
     // Convert angles to radians
-    float yaw_rad   = cal.yaw   * (M_PI / 180.0f);
+    float yaw_rad = cal.yaw * (M_PI / 180.0f);
     float pitch_rad = cal.pitch * (M_PI / 180.0f);
 
     float cy = std::cos(yaw_rad);
@@ -69,5 +69,5 @@ class Transform1D {
   }
 };
 
-} // namespace ld2450a
-} // namespace esphome
+}  // namespace ld2450a
+}  // namespace esphome

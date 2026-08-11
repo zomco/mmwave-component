@@ -40,7 +40,8 @@ void LD2453Component::loop() {
   const uint32_t now = millis();
 
   if (this->mock_active_until_ > 0 && now < this->mock_active_until_) {
-    while (this->available()) this->read();
+    while (this->available())
+      this->read();
     return;
   }
 
@@ -78,10 +79,9 @@ void LD2453Component::inject_mock_data(const std::string &data) {
     this->rx_buffer_.push_back(byte);
   }
 
-  if (this->rx_buffer_.size() >= 30 &&
-      this->rx_buffer_[0] == 0xAA && this->rx_buffer_[1] == 0xFF &&
-      this->rx_buffer_[2] == 0x03 && this->rx_buffer_[3] == 0x00 &&
-      this->rx_buffer_[28] == 0x55 && this->rx_buffer_[29] == 0xCC) {
+  if (this->rx_buffer_.size() >= 30 && this->rx_buffer_[0] == 0xAA && this->rx_buffer_[1] == 0xFF &&
+      this->rx_buffer_[2] == 0x03 && this->rx_buffer_[3] == 0x00 && this->rx_buffer_[28] == 0x55 &&
+      this->rx_buffer_[29] == 0xCC) {
     // A requested mock frame must not be dropped just because a hardware frame
     // was published within the normal output-rate window.
     this->last_frame_publish_ms_ = millis() - 100;
@@ -90,7 +90,7 @@ void LD2453Component::inject_mock_data(const std::string &data) {
   } else {
     ESP_LOGW(TAG, "Injected mock data is not a valid LD2453 frame! length=%d", this->rx_buffer_.size());
   }
-  
+
   this->rx_buffer_.clear();
 }
 
@@ -133,9 +133,7 @@ void LD2453Component::set_tracking_mode(uint8_t mode) {
   ESP_LOGI(TAG, "Set tracking mode: %d", mode);
 }
 
-void LD2453Component::query_parameters() {
-  this->send_command_(0x0091, nullptr, 0);
-}
+void LD2453Component::query_parameters() { this->send_command_(0x0091, nullptr, 0); }
 
 void LD2453Component::factory_reset() {
   this->send_command_(0x00A2, nullptr, 0);
@@ -148,10 +146,11 @@ void LD2453Component::restart_module() {
 }
 
 void LD2453Component::process_ack_() {
-  if (this->rx_buffer_.size() < 10) return;
+  if (this->rx_buffer_.size() < 10)
+    return;
   uint16_t command = (uint16_t(this->rx_buffer_[7]) << 8) | this->rx_buffer_[6];
   uint16_t status = (uint16_t(this->rx_buffer_[9]) << 8) | this->rx_buffer_[8];
-  
+
   uint8_t data_len = 0;
   const uint8_t *data = nullptr;
   uint16_t total_len = (uint16_t(this->rx_buffer_[5]) << 8) | this->rx_buffer_[4];
@@ -159,7 +158,7 @@ void LD2453Component::process_ack_() {
     data_len = total_len - 4;
     data = &this->rx_buffer_[10];
   }
-  
+
   this->handle_ack_data_(command, status, data, data_len);
 }
 
@@ -179,18 +178,16 @@ void LD2453Component::process_byte_(uint8_t byte) {
   this->rx_buffer_.push_back(byte);
 
   if (this->rx_buffer_.size() >= 30) {
-    if (this->rx_buffer_[0] == 0xAA && this->rx_buffer_[1] == 0xFF &&
-        this->rx_buffer_[2] == 0x03 && this->rx_buffer_[3] == 0x00 &&
-        this->rx_buffer_[28] == 0x55 && this->rx_buffer_[29] == 0xCC) {
-      
+    if (this->rx_buffer_[0] == 0xAA && this->rx_buffer_[1] == 0xFF && this->rx_buffer_[2] == 0x03 &&
+        this->rx_buffer_[3] == 0x00 && this->rx_buffer_[28] == 0x55 && this->rx_buffer_[29] == 0xCC) {
       this->process_packet_();
       this->rx_buffer_.clear();
-    } else if (this->rx_buffer_[0] == 0xFD && this->rx_buffer_[1] == 0xFC &&
-               this->rx_buffer_[2] == 0xFB && this->rx_buffer_[3] == 0xFA) {
+    } else if (this->rx_buffer_[0] == 0xFD && this->rx_buffer_[1] == 0xFC && this->rx_buffer_[2] == 0xFB &&
+               this->rx_buffer_[3] == 0xFA) {
       size_t tail_idx = 0;
       for (size_t i = 4; i < this->rx_buffer_.size() - 3; i++) {
-        if (this->rx_buffer_[i] == 0x04 && this->rx_buffer_[i+1] == 0x03 &&
-            this->rx_buffer_[i+2] == 0x02 && this->rx_buffer_[i+3] == 0x01) {
+        if (this->rx_buffer_[i] == 0x04 && this->rx_buffer_[i + 1] == 0x03 && this->rx_buffer_[i + 2] == 0x02 &&
+            this->rx_buffer_[i + 3] == 0x01) {
           tail_idx = i;
           break;
         }
@@ -207,18 +204,18 @@ void LD2453Component::process_byte_(uint8_t byte) {
     }
   } else if (this->rx_buffer_.size() >= 10 && this->rx_buffer_[0] == 0xFD && this->rx_buffer_[1] == 0xFC &&
              this->rx_buffer_[2] == 0xFB && this->rx_buffer_[3] == 0xFA) {
-      size_t tail_idx = 0;
-      for (size_t i = 4; i < this->rx_buffer_.size() - 3; i++) {
-        if (this->rx_buffer_[i] == 0x04 && this->rx_buffer_[i+1] == 0x03 &&
-            this->rx_buffer_[i+2] == 0x02 && this->rx_buffer_[i+3] == 0x01) {
-          tail_idx = i;
-          break;
-        }
+    size_t tail_idx = 0;
+    for (size_t i = 4; i < this->rx_buffer_.size() - 3; i++) {
+      if (this->rx_buffer_[i] == 0x04 && this->rx_buffer_[i + 1] == 0x03 && this->rx_buffer_[i + 2] == 0x02 &&
+          this->rx_buffer_[i + 3] == 0x01) {
+        tail_idx = i;
+        break;
       }
-      if (tail_idx > 0) {
-        this->process_ack_();
-        this->rx_buffer_.erase(this->rx_buffer_.begin(), this->rx_buffer_.begin() + tail_idx + 4);
-      }
+    }
+    if (tail_idx > 0) {
+      this->process_ack_();
+      this->rx_buffer_.erase(this->rx_buffer_.begin(), this->rx_buffer_.begin() + tail_idx + 4);
+    }
   }
 }
 
@@ -239,11 +236,14 @@ int16_t LD2453Component::decode_value_(uint8_t low, uint8_t high) {
  * 白白占用 API 带宽和 HA 的 recorder。NAN → NAN 视为未变化。
  */
 void LD2453Component::publish_if_changed_(sensor::Sensor *s, float value) {
-  if (s == nullptr) return;
+  if (s == nullptr)
+    return;
   if (s->has_state()) {
     const float prev = s->state;
-    if (std::isnan(prev) && std::isnan(value)) return;
-    if (prev == value) return;
+    if (std::isnan(prev) && std::isnan(value))
+      return;
+    if (prev == value)
+      return;
   }
   s->publish_state(value);
 }
@@ -264,11 +264,11 @@ void LD2453Component::process_packet_() {
 
   for (uint8_t i = 0; i < 3; i++) {
     uint8_t offset = 4 + (i * 8);
-    
-    int16_t x_mm = this->decode_value_(this->rx_buffer_[offset], this->rx_buffer_[offset+1]);
-    int16_t y_mm = this->decode_value_(this->rx_buffer_[offset+2], this->rx_buffer_[offset+3]);
-    int16_t speed_cm_s = this->decode_value_(this->rx_buffer_[offset+4], this->rx_buffer_[offset+5]);
-    uint16_t res_mm = (uint16_t(this->rx_buffer_[offset+7]) << 8) | this->rx_buffer_[offset+6];
+
+    int16_t x_mm = this->decode_value_(this->rx_buffer_[offset], this->rx_buffer_[offset + 1]);
+    int16_t y_mm = this->decode_value_(this->rx_buffer_[offset + 2], this->rx_buffer_[offset + 3]);
+    int16_t speed_cm_s = this->decode_value_(this->rx_buffer_[offset + 4], this->rx_buffer_[offset + 5]);
+    uint16_t res_mm = (uint16_t(this->rx_buffer_[offset + 7]) << 8) | this->rx_buffer_[offset + 6];
 
     // If resolution is 0 and x/y are 0, this target slot is empty
     bool target_valid = (res_mm > 0 || x_mm != 0 || y_mm != 0);
@@ -299,7 +299,8 @@ void LD2453Component::process_packet_() {
       }
 
       // 边界门控：界外目标（隔墙鬼影）默认不计入 presence
-      if (!this->boundary_gates_presence_ || pos.in_boundary) any_present = true;
+      if (!this->boundary_gates_presence_ || pos.in_boundary)
+        any_present = true;
     } else {
       publish_if_changed_(this->targets_[i].x, NAN);
       publish_if_changed_(this->targets_[i].y, NAN);
@@ -323,27 +324,25 @@ void LD2453Component::process_packet_() {
 }
 
 void LD2453Component::publish_target_frame_() {
-  if (this->target_frame_sensor_ == nullptr) return;
+  if (this->target_frame_sensor_ == nullptr)
+    return;
 
   char payload[176];
-  size_t offset = snprintf(payload, sizeof(payload),
-                           "{\"v\":1,\"f\":%lu,\"ts\":%lu,\"t\":[",
-                           static_cast<unsigned long>(++this->frame_id_),
-                           static_cast<unsigned long>(millis()));
+  size_t offset = snprintf(payload, sizeof(payload), "{\"v\":1,\"f\":%lu,\"ts\":%lu,\"t\":[",
+                           static_cast<unsigned long>(++this->frame_id_), static_cast<unsigned long>(millis()));
   bool first = true;
   for (uint8_t i = 0; i < 3 && offset < sizeof(payload); i++) {
     const uint8_t target_offset = 4 + (i * 8);
     const int16_t x_mm = this->decode_value_(this->rx_buffer_[target_offset], this->rx_buffer_[target_offset + 1]);
     const int16_t y_mm = this->decode_value_(this->rx_buffer_[target_offset + 2], this->rx_buffer_[target_offset + 3]);
-    const int16_t speed_cm_s = this->decode_value_(this->rx_buffer_[target_offset + 4], this->rx_buffer_[target_offset + 5]);
-    const uint16_t resolution_mm = (uint16_t(this->rx_buffer_[target_offset + 7]) << 8) |
-                                   this->rx_buffer_[target_offset + 6];
-    if (resolution_mm == 0 && x_mm == 0 && y_mm == 0) continue;
-    const int written = snprintf(payload + offset, sizeof(payload) - offset,
-                                 "%s[%.1f,%.1f,%d]", first ? "" : ",",
-                                 static_cast<float>(x_mm) / 10.0f,
-                                 static_cast<float>(y_mm) / 10.0f,
-                                 speed_cm_s);
+    const int16_t speed_cm_s =
+        this->decode_value_(this->rx_buffer_[target_offset + 4], this->rx_buffer_[target_offset + 5]);
+    const uint16_t resolution_mm =
+        (uint16_t(this->rx_buffer_[target_offset + 7]) << 8) | this->rx_buffer_[target_offset + 6];
+    if (resolution_mm == 0 && x_mm == 0 && y_mm == 0)
+      continue;
+    const int written = snprintf(payload + offset, sizeof(payload) - offset, "%s[%.1f,%.1f,%d]", first ? "" : ",",
+                                 static_cast<float>(x_mm) / 10.0f, static_cast<float>(y_mm) / 10.0f, speed_cm_s);
     if (written < 0 || static_cast<size_t>(written) >= sizeof(payload) - offset) {
       ESP_LOGW(TAG, "Atomic target frame exceeded payload buffer");
       return;
@@ -351,12 +350,13 @@ void LD2453Component::publish_target_frame_() {
     offset += static_cast<size_t>(written);
     first = false;
   }
-  if (offset + 3 >= sizeof(payload)) return;
+  if (offset + 3 >= sizeof(payload))
+    return;
   payload[offset++] = ']';
   payload[offset++] = '}';
   payload[offset] = '\0';
   this->target_frame_sensor_->publish_state(payload);
 }
 
-} // namespace ld2453
-} // namespace esphome
+}  // namespace ld2453
+}  // namespace esphome

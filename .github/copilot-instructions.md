@@ -469,6 +469,19 @@ Entity sub-schemas: `sensor.SENSOR_SCHEMA`, `binary_sensor.BINARY_SENSOR_SCHEMA`
 
 ## Code Standards
 
+- **Formatting is not a matter of taste here.** `.clang-format` holds ESPHome's
+  own configuration, copied verbatim, and CI rejects anything that does not
+  match. Format before committing:
+
+  ```
+  pip install "clang-format==22.1.8"
+  clang-format --style=file -i $(find components -name '*.cpp' -o -name '*.h')
+  ```
+
+  Two inherited settings surprise people: `SortIncludes: false`, because the
+  include order in these headers is load-bearing, and
+  `AlignConsecutiveAssignments: false`, which is why constant blocks are no
+  longer hand-aligned. Do not re-align them; the next run will undo it.
 - **C++14**, `#pragma once`, namespace `esphome::{radar_model}`.
 - Members: trailing underscore. Constants: `static constexpr ALL_CAPS`.
 - No dynamic allocation in hot paths.

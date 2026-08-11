@@ -6,9 +6,7 @@ namespace ld2411s {
 
 static const char *const TAG = "ld2411s";
 
-void LD2411SComponent::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up LD2411S...");
-}
+void LD2411SComponent::setup() { ESP_LOGCONFIG(TAG, "Setting up LD2411S..."); }
 
 void LD2411SComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "LD2411S:");
@@ -29,7 +27,7 @@ void LD2411SComponent::dump_config() {
 
 void LD2411SComponent::loop() {
   uint32_t now = millis();
-  
+
   // Presence watchdog - clear presence if no data for 1000ms
   if (now - this->last_rx_ms_ > 1000) {
     if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
@@ -46,11 +44,12 @@ void LD2411SComponent::loop() {
   while (this->available()) {
     uint8_t byte;
     this->read_byte(&byte);
-    
-    if (now < this->mock_active_until_) continue;
-    
+
+    if (now < this->mock_active_until_)
+      continue;
+
     this->rx_buffer_.push_back(byte);
-    
+
     if (this->data_state_ == DataState::IDLE) {
       if (this->rx_buffer_.size() == 2) {
         if (this->rx_buffer_[0] == 0xAA && this->rx_buffer_[1] == 0xAA) {
@@ -92,9 +91,12 @@ void LD2411SComponent::process_packet_() {
   // 坐标变换（1-D：沿雷达正前方投射）+ 距离门边界过滤
   const auto pos = Transform1D::transform(static_cast<float>(dist_cm), this->cal_);
 
-  if (this->room_x_ != nullptr) this->room_x_->publish_state(is_present ? pos.room_x : NAN);
-  if (this->room_y_ != nullptr) this->room_y_->publish_state(is_present ? pos.room_y : NAN);
-  if (this->room_z_ != nullptr) this->room_z_->publish_state(is_present ? pos.room_z : NAN);
+  if (this->room_x_ != nullptr)
+    this->room_x_->publish_state(is_present ? pos.room_x : NAN);
+  if (this->room_y_ != nullptr)
+    this->room_y_->publish_state(is_present ? pos.room_y : NAN);
+  if (this->room_z_ != nullptr)
+    this->room_z_->publish_state(is_present ? pos.room_z : NAN);
 
   const bool in_boundary = is_present && pos.in_boundary;
   if (this->in_boundary_sensor_ != nullptr &&
@@ -109,13 +111,16 @@ void LD2411SComponent::process_packet_() {
     is_micro = false;
   }
 
-  if (this->presence_sensor_ != nullptr && (!this->presence_sensor_->has_state() || this->presence_sensor_->state != is_present)) {
+  if (this->presence_sensor_ != nullptr &&
+      (!this->presence_sensor_->has_state() || this->presence_sensor_->state != is_present)) {
     this->presence_sensor_->publish_state(is_present);
   }
-  if (this->moving_target_sensor_ != nullptr && (!this->moving_target_sensor_->has_state() || this->moving_target_sensor_->state != is_moving)) {
+  if (this->moving_target_sensor_ != nullptr &&
+      (!this->moving_target_sensor_->has_state() || this->moving_target_sensor_->state != is_moving)) {
     this->moving_target_sensor_->publish_state(is_moving);
   }
-  if (this->micro_target_sensor_ != nullptr && (!this->micro_target_sensor_->has_state() || this->micro_target_sensor_->state != is_micro)) {
+  if (this->micro_target_sensor_ != nullptr &&
+      (!this->micro_target_sensor_->has_state() || this->micro_target_sensor_->state != is_micro)) {
     this->micro_target_sensor_->publish_state(is_micro);
   }
 
@@ -135,19 +140,19 @@ void esphome::ld2411s::LD2411SComponent::inject_mock_data(std::string data) {
     ESP_LOGI(TAG, "Mock data mode disabled");
     return;
   }
-  
+
   this->mock_active_until_ = millis() + 10000;
-  
+
   std::vector<uint8_t> mock_bytes;
   for (size_t i = 0; i < data.length(); i += 2) {
     std::string byteString = data.substr(i, 2);
     uint8_t byte = (uint8_t) strtol(byteString.c_str(), NULL, 16);
     mock_bytes.push_back(byte);
   }
-  
+
   for (uint8_t byte : mock_bytes) {
     this->rx_buffer_.push_back(byte);
-    
+
     if (this->data_state_ == DataState::IDLE) {
       if (this->rx_buffer_.size() == 2) {
         if (this->rx_buffer_[0] == 0xAA && this->rx_buffer_[1] == 0xAA) {

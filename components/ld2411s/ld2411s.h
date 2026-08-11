@@ -56,7 +56,7 @@ class LD2411SComponent : public Component, public uart::UARTDevice {
 
  protected:
   void process_packet_();
-  
+
   sensor::Sensor *distance_sensor_{nullptr};
   binary_sensor::BinarySensor *presence_sensor_{nullptr};
   binary_sensor::BinarySensor *moving_target_sensor_{nullptr};
