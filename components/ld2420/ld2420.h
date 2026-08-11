@@ -38,10 +38,10 @@ enum OpMode : uint8_t {
 
 class LD2420Listener {
  public:
-  virtual void on_presence(bool presence){};
-  virtual void on_distance(uint16_t distance){};
-  virtual void on_energy(uint16_t *sensor_energy, size_t size){};
-  virtual void on_fw_version(std::string &fw){};
+  virtual void on_presence(bool presence) {};
+  virtual void on_distance(uint16_t distance) {};
+  virtual void on_energy(uint16_t *sensor_energy, size_t size) {};
+  virtual void on_fw_version(std::string &fw) {};
 };
 
 class LD2420Component final : public Component, public uart::UARTDevice {
@@ -179,8 +179,7 @@ class LD2420Component final : public Component, public uart::UARTDevice {
       return result;
     }
 
-    if ((distance_min_ > 0 && distance < distance_min_) ||
-        (distance_max_ > 0 && distance > distance_max_)) {
+    if ((distance_min_ > 0 && distance < distance_min_) || (distance_max_ > 0 && distance > distance_max_)) {
       result.in_boundary = false;
     }
 
@@ -276,7 +275,7 @@ class LD2420Component final : public Component, public uart::UARTDevice {
   sensor::Sensor *room_y_sensor_{nullptr};
   sensor::Sensor *room_z_sensor_{nullptr};
   binary_sensor::BinarySensor *in_boundary_sensor_{nullptr};
-  
+
   uint32_t last_presence_ms_{0};
   uint32_t last_update_ms_{0};
 };

@@ -55,15 +55,15 @@ void LD6002Component::loop() {
   // Periodic frame statistics dump every 10 seconds
   if (now - this->last_stats_ms_ >= 10000) {
     this->last_stats_ms_ = now;
-    uint32_t total = this->frame_count_0F09_ + this->frame_count_0A04_ + this->frame_count_0A13_
-                   + this->frame_count_0A14_ + this->frame_count_0A15_ + this->frame_count_0A16_
-                   + this->frame_count_0A17_ + this->frame_count_other_;
-    ESP_LOGI(TAG, "=== Frame Stats (10s) === total=%u | 0x0F09(Presence)=%u | 0x0A04(3D-Pos)=%u | "
+    uint32_t total = this->frame_count_0F09_ + this->frame_count_0A04_ + this->frame_count_0A13_ +
+                     this->frame_count_0A14_ + this->frame_count_0A15_ + this->frame_count_0A16_ +
+                     this->frame_count_0A17_ + this->frame_count_other_;
+    ESP_LOGI(TAG,
+             "=== Frame Stats (10s) === total=%u | 0x0F09(Presence)=%u | 0x0A04(3D-Pos)=%u | "
              "0x0A13(Phase)=%u | 0x0A14(Breath)=%u | 0x0A15(Heart)=%u | 0x0A16(Dist)=%u | "
              "0x0A17(Track-Pos)=%u | other=%u",
-             total, this->frame_count_0F09_, this->frame_count_0A04_, this->frame_count_0A13_,
-             this->frame_count_0A14_, this->frame_count_0A15_, this->frame_count_0A16_,
-             this->frame_count_0A17_, this->frame_count_other_);
+             total, this->frame_count_0F09_, this->frame_count_0A04_, this->frame_count_0A13_, this->frame_count_0A14_,
+             this->frame_count_0A15_, this->frame_count_0A16_, this->frame_count_0A17_, this->frame_count_other_);
     // Reset counters
     this->frame_count_0F09_ = 0;
     this->frame_count_0A04_ = 0;
@@ -120,17 +120,17 @@ void LD6002Component::process_byte_(uint8_t byte) {
       break;
 
     case DataState::HEAD_CKSUM: {
-      uint8_t calc_cksum = DATA_SOF ^ (this->frame_id_ >> 8) ^ (this->frame_id_ & 0xFF)
-                           ^ (this->frame_len_ >> 8) ^ (this->frame_len_ & 0xFF)
-                           ^ (this->frame_type_ >> 8) ^ (this->frame_type_ & 0xFF);
+      uint8_t calc_cksum = DATA_SOF ^ (this->frame_id_ >> 8) ^ (this->frame_id_ & 0xFF) ^ (this->frame_len_ >> 8) ^
+                           (this->frame_len_ & 0xFF) ^ (this->frame_type_ >> 8) ^ (this->frame_type_ & 0xFF);
       calc_cksum = ~calc_cksum;
       if (byte != calc_cksum) {
-        ESP_LOGW(TAG, "Header Checksum error! Expected 0x%02X, got 0x%02X (Type 0x%04X, Len %d)", calc_cksum, byte, this->frame_type_, this->frame_len_);
+        ESP_LOGW(TAG, "Header Checksum error! Expected 0x%02X, got 0x%02X (Type 0x%04X, Len %d)", calc_cksum, byte,
+                 this->frame_type_, this->frame_len_);
         this->data_state_ = DataState::IDLE;
       } else {
         if (this->frame_len_ == 0) {
           this->process_packet_();
-          this->data_state_ = DataState::IDLE; 
+          this->data_state_ = DataState::IDLE;
         } else {
           this->payload_.clear();
           this->payload_idx_ = 0;
@@ -155,7 +155,8 @@ void LD6002Component::process_byte_(uint8_t byte) {
       }
       calc_cksum = ~calc_cksum;
       if (byte != calc_cksum) {
-        ESP_LOGW(TAG, "Data Checksum error! Expected 0x%02X, got 0x%02X for Type 0x%04X", calc_cksum, byte, this->frame_type_);
+        ESP_LOGW(TAG, "Data Checksum error! Expected 0x%02X, got 0x%02X for Type 0x%04X", calc_cksum, byte,
+                 this->frame_type_);
       } else {
         this->process_packet_();
       }
@@ -167,7 +168,7 @@ void LD6002Component::process_byte_(uint8_t byte) {
 
 void LD6002Component::process_packet_() {
   switch (this->frame_type_) {
-    case 0x0F09: { // Presence
+    case 0x0F09: {  // Presence
       this->frame_count_0F09_++;
       if (this->payload_.size() >= 2) {
         uint16_t is_human = (uint16_t(this->payload_[1]) << 8) | this->payload_[0];
@@ -181,7 +182,7 @@ void LD6002Component::process_packet_() {
       break;
     }
 
-    case 0x0A04: { // Personnel Position / 3D target
+    case 0x0A04: {  // Personnel Position / 3D target
       this->frame_count_0A04_++;
       if (this->payload_.size() >= 16) {
         int32_t target_num = 0;
@@ -201,7 +202,7 @@ void LD6002Component::process_packet_() {
       break;
     }
 
-    case 0x0A16: { // Distance
+    case 0x0A16: {  // Distance
       this->frame_count_0A16_++;
       if (this->payload_.size() >= 8) {
         uint32_t flag = 0;
@@ -213,7 +214,7 @@ void LD6002Component::process_packet_() {
           if (this->distance_ != nullptr) {
             this->distance_->publish_state(distance_cm);
           }
-          
+
           // LD6002 is a 1D radar. Synthesize target coordinates based on distance.
           this->publish_position_(0, distance_cm / 100.0f, 0);
         } else {
@@ -223,7 +224,7 @@ void LD6002Component::process_packet_() {
       break;
     }
 
-    case 0x0A14: { // Respiration Rate
+    case 0x0A14: {  // Respiration Rate
       this->frame_count_0A14_++;
       if (this->payload_.size() >= 4) {
         float rate = 0;
@@ -235,7 +236,7 @@ void LD6002Component::process_packet_() {
       break;
     }
 
-    case 0x0A15: { // Heart Rate
+    case 0x0A15: {  // Heart Rate
       this->frame_count_0A15_++;
       if (this->payload_.size() >= 4) {
         float rate = 0;
@@ -247,7 +248,7 @@ void LD6002Component::process_packet_() {
       break;
     }
 
-    case 0x0A17: { // Tracked Position
+    case 0x0A17: {  // Tracked Position
       this->frame_count_0A17_++;
       ESP_LOGI(TAG, "0x0A17 received! payload_size=%zu", this->payload_.size());
       if (this->payload_.size() >= 12) {
@@ -261,7 +262,7 @@ void LD6002Component::process_packet_() {
       break;
     }
 
-    case 0x0A13: { // Phase data
+    case 0x0A13: {  // Phase data
       this->frame_count_0A13_++;
       break;
     }
@@ -275,7 +276,8 @@ void LD6002Component::process_packet_() {
 
 void LD6002Component::publish_position_(float x_m, float y_m, float z_m) {
   uint32_t now_ms = millis();
-  if (now_ms - this->last_publish_ms_ < 1000) return;
+  if (now_ms - this->last_publish_ms_ < 1000)
+    return;
   this->last_publish_ms_ = now_ms;
 
   // Convert meters to cm for internal transformation
@@ -302,5 +304,5 @@ void LD6002Component::publish_position_(float x_m, float y_m, float z_m) {
   }
 }
 
-} // namespace ld6002
-} // namespace esphome
+}  // namespace ld6002
+}  // namespace esphome

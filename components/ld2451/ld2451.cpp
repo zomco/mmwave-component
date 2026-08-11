@@ -47,8 +47,8 @@ void LD2451Component::loop() {
 
   // Diagnostic: every 5 seconds, report byte count
   if (now - this->last_diag_ms_ >= 5000) {
-    ESP_LOGV(TAG, "DIAG: %u bytes received in last 5s, %u data frames parsed, available()=%d",
-             this->diag_bytes_, this->diag_frames_, this->available());
+    ESP_LOGV(TAG, "DIAG: %u bytes received in last 5s, %u data frames parsed, available()=%d", this->diag_bytes_,
+             this->diag_frames_, this->available());
     this->diag_bytes_ = 0;
     this->diag_frames_ = 0;
     this->last_diag_ms_ = now;
@@ -62,7 +62,7 @@ void LD2451Component::loop() {
     this->last_rx_ms_ = now;
     uint8_t b = this->read();
     this->diag_bytes_++;
-    
+
     if (now >= this->mock_active_until_) {
       this->process_byte_(b);
     }
@@ -85,10 +85,9 @@ void LD2451Component::loop() {
 }
 
 void LD2451Component::send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len) {
-  static const uint8_t ENABLE_CONFIG[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x04, 0x00,
-                                          0xFF, 0x00, 0x01, 0x00, 0x04, 0x03, 0x02, 0x01};
-  static const uint8_t END_CONFIG[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x02, 0x00,
-                                       0xFE, 0x00, 0x04, 0x03, 0x02, 0x01};
+  static const uint8_t ENABLE_CONFIG[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x04, 0x00, 0xFF,
+                                          0x00, 0x01, 0x00, 0x04, 0x03, 0x02, 0x01};
+  static const uint8_t END_CONFIG[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x02, 0x00, 0xFE, 0x00, 0x04, 0x03, 0x02, 0x01};
 
   // Build the payload frame up front.
   const uint16_t len = 2 + command_value_len;
@@ -111,9 +110,7 @@ void LD2451Component::send_command_(uint16_t command, const uint8_t *command_val
 
   this->set_timeout("ld2451_cmd", 100, [this, cmd]() {
     this->write_array(cmd.data(), cmd.size());
-    this->set_timeout("ld2451_end_config", 250, [this]() {
-      this->write_array(END_CONFIG, sizeof(END_CONFIG));
-    });
+    this->set_timeout("ld2451_end_config", 250, [this]() { this->write_array(END_CONFIG, sizeof(END_CONFIG)); });
   });
 }
 
@@ -128,10 +125,11 @@ void LD2451Component::restart_module() {
 }
 
 void LD2451Component::process_ack_() {
-  if (this->rx_buffer_.size() < 10) return;
+  if (this->rx_buffer_.size() < 10)
+    return;
   uint16_t command = (uint16_t(this->rx_buffer_[7]) << 8) | this->rx_buffer_[6];
   uint16_t status = (uint16_t(this->rx_buffer_[9]) << 8) | this->rx_buffer_[8];
-  
+
   uint8_t data_len = 0;
   const uint8_t *data = nullptr;
   uint16_t total_len = (uint16_t(this->rx_buffer_[5]) << 8) | this->rx_buffer_[4];
@@ -139,7 +137,7 @@ void LD2451Component::process_ack_() {
     data_len = total_len - 4;
     data = &this->rx_buffer_[10];
   }
-  
+
   this->handle_ack_data_(command, status, data, data_len);
 }
 
@@ -149,25 +147,25 @@ void LD2451Component::handle_ack_data_(uint16_t command, uint16_t status, const 
     ESP_LOGW(TAG, "Command 0x%04X failed!", command);
     return;
   }
-  
+
   // Protocol 1.2.7: 2B firmware type (0x2451) + 2B major + 4B minor,
   // e.g. 51 24 | 01 01 | 10 15 05 24  ->  V1.01.24051510
   if (command == 0x01A0 && data_len >= 8) {
     const uint16_t type = (uint16_t(data[1]) << 8) | data[0];
-    ESP_LOGI(TAG, "Radar firmware: V%u.%02u.%02X%02X%02X%02X (type 0x%04X)",
-             data[3], data[2], data[7], data[6], data[5], data[4], type);
+    ESP_LOGI(TAG, "Radar firmware: V%u.%02u.%02X%02X%02X%02X (type 0x%04X)", data[3], data[2], data[7], data[6],
+             data[5], data[4], type);
   }
-  
+
   // Detection params ACK: 4 bytes (MaxDist, Direction, MinSpeed, Delay)
   if (command == 0x0112 && data_len >= 4) {
     ESP_LOGI(TAG, "Detection Params: MaxDist=%dm, Dir=%d (0=away,1=approach,2=both), MinSpeed=%dkm/h, Delay=%ds",
              data[0], data[1], data[2], data[3]);
   }
-  
+
   // Sensitivity params ACK: 4 bytes (TriggerCount, SNRThreshold, ext, ext)
   if (command == 0x0113 && data_len >= 4) {
-    ESP_LOGI(TAG, "Sensitivity Params: TriggerCount=%d, SNRThreshold=%d, ext=%d, ext=%d",
-             data[0], data[1], data[2], data[3]);
+    ESP_LOGI(TAG, "Sensitivity Params: TriggerCount=%d, SNRThreshold=%d, ext=%d, ext=%d", data[0], data[1], data[2],
+             data[3]);
   }
 }
 
@@ -178,8 +176,8 @@ void LD2451Component::process_byte_(uint8_t byte) {
       this->rx_buffer_[2] == 0xFB && this->rx_buffer_[3] == 0xFA) {
     size_t tail_idx = 0;
     for (size_t i = 4; i < this->rx_buffer_.size() - 3; i++) {
-      if (this->rx_buffer_[i] == 0x04 && this->rx_buffer_[i+1] == 0x03 &&
-          this->rx_buffer_[i+2] == 0x02 && this->rx_buffer_[i+3] == 0x01) {
+      if (this->rx_buffer_[i] == 0x04 && this->rx_buffer_[i + 1] == 0x03 && this->rx_buffer_[i + 2] == 0x02 &&
+          this->rx_buffer_[i + 3] == 0x01) {
         tail_idx = i;
         break;
       }
@@ -196,20 +194,19 @@ void LD2451Component::process_byte_(uint8_t byte) {
   // Minimum frame is 10 bytes (Header 4 + Len 2 + Data 0 + Footer 4)
   if (this->rx_buffer_.size() >= 10) {
     // Check Header
-    if (this->rx_buffer_[0] == 0xF4 && this->rx_buffer_[1] == 0xF3 &&
-        this->rx_buffer_[2] == 0xF2 && this->rx_buffer_[3] == 0xF1) {
-      
+    if (this->rx_buffer_[0] == 0xF4 && this->rx_buffer_[1] == 0xF3 && this->rx_buffer_[2] == 0xF2 &&
+        this->rx_buffer_[3] == 0xF1) {
       uint16_t data_len = (uint16_t(this->rx_buffer_[5]) << 8) | this->rx_buffer_[4];
-      if (data_len > 30) { this->rx_buffer_.erase(this->rx_buffer_.begin()); return; }
+      if (data_len > 30) {
+        this->rx_buffer_.erase(this->rx_buffer_.begin());
+        return;
+      }
       uint16_t full_frame_len = 4 + 2 + data_len + 4;
-      
+
       if (this->rx_buffer_.size() >= full_frame_len) {
         // Check Footer
-        if (this->rx_buffer_[full_frame_len - 4] == 0xF8 && 
-            this->rx_buffer_[full_frame_len - 3] == 0xF7 &&
-            this->rx_buffer_[full_frame_len - 2] == 0xF6 && 
-            this->rx_buffer_[full_frame_len - 1] == 0xF5) {
-          
+        if (this->rx_buffer_[full_frame_len - 4] == 0xF8 && this->rx_buffer_[full_frame_len - 3] == 0xF7 &&
+            this->rx_buffer_[full_frame_len - 2] == 0xF6 && this->rx_buffer_[full_frame_len - 1] == 0xF5) {
           this->process_packet_();
           this->diag_frames_++;
           this->rx_buffer_.erase(this->rx_buffer_.begin(), this->rx_buffer_.begin() + full_frame_len);
@@ -232,24 +229,27 @@ void LD2451Component::process_byte_(uint8_t byte) {
  * 本组件按雷达帧率发布，若不去重，空闲槽位会持续推送 NAN。NAN → NAN 视为未变化。
  */
 void LD2451Component::publish_if_changed_(sensor::Sensor *s, float value) {
-  if (s == nullptr) return;
+  if (s == nullptr)
+    return;
   if (s->has_state()) {
     const float prev = s->state;
-    if (std::isnan(prev) && std::isnan(value)) return;
-    if (prev == value) return;
+    if (std::isnan(prev) && std::isnan(value))
+      return;
+    if (prev == value)
+      return;
   }
   s->publish_state(value);
 }
 
 void LD2451Component::process_packet_() {
   uint16_t data_len = (uint16_t(this->rx_buffer_[5]) << 8) | this->rx_buffer_[4];
-  
+
   uint8_t target_count = 0;
   uint8_t alarm_info = 0;
-  
+
   if (data_len >= 2) {
     target_count = this->rx_buffer_[6];
-    alarm_info = this->rx_buffer_[7]; // 01: approaching, 00: no approaching
+    alarm_info = this->rx_buffer_[7];  // 01: approaching, 00: no approaching
   }
 
   ESP_LOGV(TAG, "Data frame: len=%u targets=%u alarm=%u", data_len, target_count, alarm_info);
@@ -290,16 +290,16 @@ void LD2451Component::process_packet_() {
 
     if (target_valid) {
       uint16_t offset = 8 + (i * 5);
-      
+
       int16_t raw_angle = this->rx_buffer_[offset];
       int16_t angle_deg = raw_angle - 0x80;
-      
+
       float distance_m = this->rx_buffer_[offset + 1];
-      
-      uint8_t speed_dir = this->rx_buffer_[offset + 2]; // 01 approaching, 00 leaving
+
+      uint8_t speed_dir = this->rx_buffer_[offset + 2];  // 01 approaching, 00 leaving
       uint8_t speed_val = this->rx_buffer_[offset + 3];
-      float speed_kmh = (speed_dir == 0x01) ? speed_val : -(float)speed_val;
-      
+      float speed_kmh = (speed_dir == 0x01) ? speed_val : -(float) speed_val;
+
       float snr = this->rx_buffer_[offset + 4];
 
       // Convert polar to cartesian
@@ -322,14 +322,15 @@ void LD2451Component::process_packet_() {
       publish_if_changed_(this->targets_[i].room_x, pos.room_x);
       publish_if_changed_(this->targets_[i].room_y, pos.room_y);
       publish_if_changed_(this->targets_[i].room_z, pos.room_z);
-      
+
       if (this->targets_[i].in_boundary != nullptr) {
         if (this->targets_[i].in_boundary->state != pos.in_boundary || !this->targets_[i].in_boundary->has_state()) {
           this->targets_[i].in_boundary->publish_state(pos.in_boundary);
         }
       }
 
-      if (!this->boundary_gates_presence_ || pos.in_boundary) presence = true;
+      if (!this->boundary_gates_presence_ || pos.in_boundary)
+        presence = true;
     } else {
       // Clear out unused targets. Positional entities must go to NAN rather than
       // keep the last tracked value, otherwise a vanished target stays "parked"
@@ -360,13 +361,12 @@ void LD2451Component::process_packet_() {
 }
 
 void LD2451Component::publish_target_frame_(uint8_t target_count) {
-  if (this->target_frame_sensor_ == nullptr) return;
+  if (this->target_frame_sensor_ == nullptr)
+    return;
 
   char payload[176];
-  size_t offset = snprintf(payload, sizeof(payload),
-                           "{\"v\":1,\"f\":%lu,\"ts\":%lu,\"t\":[",
-                           static_cast<unsigned long>(++this->frame_id_),
-                           static_cast<unsigned long>(millis()));
+  size_t offset = snprintf(payload, sizeof(payload), "{\"v\":1,\"f\":%lu,\"ts\":%lu,\"t\":[",
+                           static_cast<unsigned long>(++this->frame_id_), static_cast<unsigned long>(millis()));
   for (uint8_t i = 0; i < target_count && offset < sizeof(payload); i++) {
     const uint16_t target_offset = 8 + (i * 5);
     const int16_t angle_deg = static_cast<int16_t>(this->rx_buffer_[target_offset]) - 0x80;
@@ -376,8 +376,7 @@ void LD2451Component::publish_target_frame_(uint8_t target_count) {
     const float y_cm = distance_cm * std::cos(angle_rad);
     const float direction = this->rx_buffer_[target_offset + 2] == 0x01 ? 1.0f : -1.0f;
     const float speed_cm_s = direction * this->rx_buffer_[target_offset + 3] * (100000.0f / 3600.0f);
-    const int written = snprintf(payload + offset, sizeof(payload) - offset,
-                                 "%s[%.1f,%.1f,%.1f]", i == 0 ? "" : ",",
+    const int written = snprintf(payload + offset, sizeof(payload) - offset, "%s[%.1f,%.1f,%.1f]", i == 0 ? "" : ",",
                                  x_cm, y_cm, speed_cm_s);
     if (written < 0 || static_cast<size_t>(written) >= sizeof(payload) - offset) {
       ESP_LOGW(TAG, "Atomic target frame exceeded payload buffer");
@@ -385,7 +384,8 @@ void LD2451Component::publish_target_frame_(uint8_t target_count) {
     }
     offset += static_cast<size_t>(written);
   }
-  if (offset + 3 >= sizeof(payload)) return;
+  if (offset + 3 >= sizeof(payload))
+    return;
   payload[offset++] = ']';
   payload[offset++] = '}';
   payload[offset] = '\0';
@@ -399,20 +399,20 @@ void LD2451Component::inject_mock_data(std::string data) {
     ESP_LOGI(TAG, "Mock data mode disabled");
     return;
   }
-  
+
   this->mock_active_until_ = millis() + 10000;
-  
+
   std::vector<uint8_t> mock_bytes;
   for (size_t i = 0; i < data.length(); i += 2) {
     std::string byteString = data.substr(i, 2);
     uint8_t byte = (uint8_t) strtol(byteString.c_str(), NULL, 16);
     mock_bytes.push_back(byte);
   }
-  
+
   for (uint8_t b : mock_bytes) {
     this->process_byte_(b);
   }
 }
 
-} // namespace ld2451
-} // namespace esphome
+}  // namespace ld2451
+}  // namespace esphome

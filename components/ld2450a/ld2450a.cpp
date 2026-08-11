@@ -5,9 +5,7 @@ namespace ld2450a {
 
 static const char *const TAG = "ld2450a";
 
-void LD2450AComponent::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up LD2450A Component...");
-}
+void LD2450AComponent::setup() { ESP_LOGCONFIG(TAG, "Setting up LD2450A Component..."); }
 
 void LD2450AComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "LD2450A:");
@@ -68,7 +66,7 @@ void LD2450AComponent::process_byte_(uint8_t byte) {
     }
 
     if (this->rx_buffer_.size() < frame_len) {
-      break; // Wait for more bytes
+      break;  // Wait for more bytes
     }
 
     if (this->rx_buffer_[frame_len - 1] != 0x55) {
@@ -97,17 +95,18 @@ void LD2450AComponent::process_packet_() {
 
   if (frame_type == 0xB0 && this->rx_buffer_.size() >= 16) {
     uint32_t now_ms = millis();
-    if (now_ms - this->last_publish_ms_ < 1000) return;
+    if (now_ms - this->last_publish_ms_ < 1000)
+      return;
     this->last_publish_ms_ = now_ms;
 
-    uint8_t presence_val       = this->rx_buffer_[3];
-    uint8_t dist_val           = this->rx_buffer_[4];
-    uint8_t gesture_val        = this->rx_buffer_[5];
-    uint8_t gesture_dist       = this->rx_buffer_[6];
+    uint8_t presence_val = this->rx_buffer_[3];
+    uint8_t dist_val = this->rx_buffer_[4];
+    uint8_t gesture_val = this->rx_buffer_[5];
+    uint8_t gesture_dist = this->rx_buffer_[6];
     // uint8_t gesture_dist_thresh = this->rx_buffer_[7];
-    uint8_t gesture_spd        = this->rx_buffer_[8];
+    uint8_t gesture_spd = this->rx_buffer_[8];
     // uint8_t gesture_spd_thresh  = this->rx_buffer_[9];
-    uint8_t gesture_ang        = this->rx_buffer_[10];
+    uint8_t gesture_ang = this->rx_buffer_[10];
     // uint8_t gesture_ang_thresh  = this->rx_buffer_[11];
 
     bool is_present = (presence_val != 0x00);
@@ -135,7 +134,8 @@ void LD2450AComponent::process_packet_() {
       gesture_str = "Wave Left";
     }
 
-    if (this->gesture_text_sensor_ != nullptr && (this->gesture_text_sensor_->state != gesture_str || !this->gesture_text_sensor_->has_state())) {
+    if (this->gesture_text_sensor_ != nullptr &&
+        (this->gesture_text_sensor_->state != gesture_str || !this->gesture_text_sensor_->has_state())) {
       this->gesture_text_sensor_->publish_state(gesture_str);
     }
 
@@ -182,25 +182,15 @@ void LD2450AComponent::send_command_(uint8_t cmd, uint16_t val) {
   ESP_LOGD(TAG, "Sent command 0x%02X with value %u", cmd, val);
 }
 
-void LD2450AComponent::set_gesture_distance_threshold(uint16_t val_cm) {
-  this->send_command_(0xC2, val_cm);
-}
+void LD2450AComponent::set_gesture_distance_threshold(uint16_t val_cm) { this->send_command_(0xC2, val_cm); }
 
-void LD2450AComponent::set_gesture_speed_threshold(uint16_t val_cms) {
-  this->send_command_(0xC3, val_cms);
-}
+void LD2450AComponent::set_gesture_speed_threshold(uint16_t val_cms) { this->send_command_(0xC3, val_cms); }
 
-void LD2450AComponent::set_gesture_angle_threshold(uint16_t val_deg) {
-  this->send_command_(0xC4, val_deg);
-}
+void LD2450AComponent::set_gesture_angle_threshold(uint16_t val_deg) { this->send_command_(0xC4, val_deg); }
 
-void LD2450AComponent::factory_reset() {
-  this->send_command_(0xC5, 0);
-}
+void LD2450AComponent::factory_reset() { this->send_command_(0xC5, 0); }
 
-void LD2450AComponent::reboot() {
-  this->send_command_(0x02, 0);
-}
+void LD2450AComponent::reboot() { this->send_command_(0x02, 0); }
 
 void LD2450AComponent::publish_position_(float range_cm) {
   auto pos = Transform1D::transform(range_cm, this->cal_);
@@ -228,20 +218,20 @@ void LD2450AComponent::inject_mock_data(std::string data) {
     ESP_LOGI(TAG, "Mock data mode disabled");
     return;
   }
-  
+
   this->mock_active_until_ = millis() + 10000;
-  
+
   std::vector<uint8_t> mock_bytes;
   for (size_t i = 0; i < data.length(); i += 2) {
     std::string byteString = data.substr(i, 2);
     uint8_t byte = (uint8_t) strtol(byteString.c_str(), NULL, 16);
     mock_bytes.push_back(byte);
   }
-  
+
   for (uint8_t b : mock_bytes) {
     this->process_byte_(b);
   }
 }
 
-} // namespace ld2450a
-} // namespace esphome
+}  // namespace ld2450a
+}  // namespace esphome

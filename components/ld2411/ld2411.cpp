@@ -5,9 +5,7 @@ namespace ld2411 {
 
 static const char *const TAG = "ld2411";
 
-void LD2411Component::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up LD2411 Component...");
-}
+void LD2411Component::setup() { ESP_LOGCONFIG(TAG, "Setting up LD2411 Component..."); }
 
 void LD2411Component::dump_config() {
   ESP_LOGCONFIG(TAG, "LD2411:");
@@ -96,7 +94,7 @@ void LD2411Component::process_byte_(uint8_t byte) {
 
 void LD2411Component::handle_data_frame_() {
   uint16_t dist_raw = (uint16_t(this->data_dist_h_) << 8) | this->data_dist_l_;
-  
+
   bool is_present = (this->data_status_ != 0);
 
   if (this->presence_sensor_ != nullptr) {
@@ -148,5 +146,5 @@ void LD2411Component::publish_position_(float range_cm) {
   }
 }
 
-} // namespace ld2411
-} // namespace esphome
+}  // namespace ld2411
+}  // namespace esphome
