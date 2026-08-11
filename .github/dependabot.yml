@@ -1,6 +1,53 @@
+# Dependency updates.
+#
+# This was deliberately left until last, because the failure mode of Dependabot
+# is not missing an update — it is fifteen pull requests nobody reads, after
+# which the ones that matter are invisible too. Everything here is shaped to
+# avoid that:
+#
+#   * Minor and patch bumps are grouped into one pull request per ecosystem.
+#     They are the ones that are almost always safe and almost never
+#     individually interesting.
+#   * Majors are left ungrouped on purpose, so each arrives alone and gets
+#     read. A major of lit or of an ESPHome action is a change, not a bump.
+#   * The open-PR limit is low. If the queue is full, that is a signal to go
+#     and merge something rather than to raise the limit.
 version: 2
 updates:
+  # Actions are the highest-value, lowest-noise ecosystem here: they release a
+  # few times a year, and a stale one is how a workflow quietly stops working.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    open-pull-requests-limit: 3
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # The web installer front-end. It was outside the previous config entirely,
+  # so its dependencies had never been looked at by anything.
+  - package-ecosystem: "npm"
+    directory: "/static"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    open-pull-requests-limit: 3
+    groups:
+      npm-development:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      npm-production:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
