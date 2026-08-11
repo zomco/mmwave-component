@@ -5,3 +5,10 @@
 /secrets.yaml
 .vscode/
 .venv/
+static/models.json
+static/*.pdf
+hardware
+
+# Python bytecode regenerated on every ESPHome config validation
+__pycache__/
+*.py[cod]

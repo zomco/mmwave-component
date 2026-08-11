@@ -1,146 +1,33 @@
-substitutions:
-  name: ld2453-factory
-  friendly_name: "LD2453 Factory Radar"
+packages:
+  # The dev config is the single source of truth for this model's hardware,
+  # entities and calibration surface. This file only adds what a *shipped*
+  # device needs on top of it.
+  core: !include ld2453-esp32c3.yaml
 
 esphome:
-  name: "${name}"
-  friendly_name: "${friendly_name}"
-  name_add_mac_suffix: true
+  # Identifies the build to ESP Web Tools and to the ESPHome dashboard.
+  project:
+    name: mmwave.ld2453
+    version: dev # replaced by .github/workflows/publish.yml on release
 
-esp32:
-  board: esp32-c3-devkitm-1
-  framework:
-    type: esp-idf
+# Lets a user adopt the flashed device into their own ESPHome dashboard.
+dashboard_import:
+  package_import_url: github://zomco/mmwave-component/tests/ld2453-esp32c3.yaml@main
+  import_full_config: true
 
-external_components:
-  - source:
-      type: local
-      path: ../components
-    components: [ld2453]
+# Wi-Fi provisioning after flashing, over BLE and over serial.
+esp32_improv:
+  authorizer: none
 
-logger:
+improv_serial:
 
-api:
+# Pulls OTA updates published to the GitHub Pages installer.
+http_request:
 
 ota:
-  platform: esphome
+  - platform: http_request
 
-wifi:
-  ap:
-    ssid: "${friendly_name} Fallback"
-
-captive_portal:
-
-uart:
-  id: uart_ld2453
-  tx_pin: GPIO21
-  rx_pin: GPIO20
-  baud_rate: 256000
-  data_bits: 8
-  parity: NONE
-  stop_bits: 1
-
-ld2453:
-  id: radar
-  uart_id: uart_ld2453
-  
-  radar_x: 0.0
-  radar_y: 0.0
-  radar_z: 240.0
-  yaw: 0.0
-  pitch: 0.0
-  roll: 0.0
-  distance_min: 30.0
-  distance_max: 600.0
-
-  presence:
-    name: "Presence"
-
-  target_1:
-    x:
-      name: "Target 1 X"
-    y:
-      name: "Target 1 Y"
-    speed:
-      name: "Target 1 Speed"
-    room_x:
-      name: "Target 1 Room X"
-    room_y:
-      name: "Target 1 Room Y"
-    room_z:
-      name: "Target 1 Room Z"
-    in_boundary:
-      name: "Target 1 In Boundary"
-
-  target_2:
-    x:
-      name: "Target 2 X"
-    y:
-      name: "Target 2 Y"
-    speed:
-      name: "Target 2 Speed"
-    room_x:
-      name: "Target 2 Room X"
-    room_y:
-      name: "Target 2 Room Y"
-    room_z:
-      name: "Target 2 Room Z"
-    in_boundary:
-      name: "Target 2 In Boundary"
-
-  target_3:
-    x:
-      name: "Target 3 X"
-    y:
-      name: "Target 3 Y"
-    speed:
-      name: "Target 3 Speed"
-    room_x:
-      name: "Target 3 Room X"
-    room_y:
-      name: "Target 3 Room Y"
-    room_z:
-      name: "Target 3 Room Z"
-    in_boundary:
-      name: "Target 3 In Boundary"
-
-number:
-  - platform: template
-    name: "yaw"
-    min_value: -180
-    max_value:  180
-    step: 0.1
-    set_action:
-      lambda: "id(radar).set_yaw(x);"
-
-  - platform: template
-    name: "pitch"
-    min_value: -90
-    max_value:  90
-    step: 0.5
-    set_action:
-      lambda: "id(radar).set_pitch(x);"
-
-  - platform: template
-    name: "roll"
-    min_value: -90
-    max_value:  90
-    step: 0.5
-    set_action:
-      lambda: "id(radar).set_roll(x);"
-
-  - platform: template
-    name: "radar_x"
-    min_value: -2000
-    max_value:  2000
-    step: 1
-    set_action:
-      lambda: "id(radar).set_radar_x(x);"
-
-  - platform: template
-    name: "radar_y"
-    min_value: -2000
-    max_value:  2000
-    step: 1
-    set_action:
-      lambda: "id(radar).set_radar_y(x);"
+update:
+  - platform: http_request
+    name: Firmware
+    source: https://zomco.github.io/mmwave-component/ld2453-ESP32-C3/manifest.json

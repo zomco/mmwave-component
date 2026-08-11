@@ -1,226 +1,139 @@
-# MMWave Radar ESPHome Component
+<div align="center">
+  <img src="./assets/mmwave_logo.svg" alt="MMWave Logo" width="200"/>
+  <h1>MMWave Radar ESPHome Component</h1>
+</div>
 
 [![CI](https://github.com/zomco/mmwave-component/actions/workflows/ci.yml/badge.svg)](https://github.com/zomco/mmwave-component/actions/workflows/ci.yml)
 [![Publish](https://github.com/zomco/mmwave-component/actions/workflows/publish.yml/badge.svg)](https://github.com/zomco/mmwave-component/actions/workflows/publish.yml)
 
 [中文文档](./README_CN.md)
 
-Custom [ESPHome](https://esphome.io/) external components for multiple millimeter-wave radar models, targeting **ESP32-C3** (with planned ESP32-S3 and other MCU support). Includes built-in **coordinate transformation** and **boundary filtering**.
+ESPHome firmware for 16 millimetre-wave radar models, targeting **ESP32-C3**
+(ESP32-S3 and other MCUs planned).
 
-> **🔌 Install firmware directly in your browser →** [**Open Installer**](https://zomco.github.io/mmwave-component/)
->
-> No software required. Requires Chrome or Edge with Web Serial support.
+## What this gives you
 
----
+Most ESPHome radar components hand Home Assistant the radar's own raw numbers.
+That works on a bench and falls apart in a house: the coordinates mean nothing
+until you know exactly how the radar is mounted, and mmWave passes straight
+through plasterboard, so the radar happily reports your neighbour.
 
-## Features
+This firmware does two things about that, on the device, before Home Assistant
+ever sees a value:
 
-### Problem: Why Are These Features Needed?
+- **Coordinate transformation** — converts radar-local readings into **room
+  coordinates**, in centimetres from a corner you pick, using the radar's
+  measured position and orientation.
+- **Boundary filtering** — rejects targets outside a polygon you draw around
+  the actual room, which is what stops through-wall ghosts driving presence.
 
-Most existing mmWave radar components for ESPHome expose only raw sensor data (distance, presence, target coordinates in the radar's local frame). This works for single-sensor, single-room setups but falls apart in real-world deployments:
+The result is a position you can write an automation against directly.
 
-```mermaid
-flowchart LR
-    subgraph "Without This Component"
-        R1["Radar Module"] -->|"raw local coords<br>(x=50, y=120)"| HA1["Home Assistant"]
-        HA1 -->|"❌ No room context<br>❌ Can't compare across radars<br>❌ Ghost targets from neighbors"| U1["User"]
-    end
-```
+### What every device exposes, whatever radar it carries
 
-| Problem | Description | Example |
-|---|---|---|
-| **Coordinate ambiguity** | Raw radar coordinates are relative to the radar's own antenna. The same physical location yields different (x, y) values depending on how the radar is mounted (rotated, tilted, off-center). | A radar mounted on the ceiling facing down reports `y = 120 cm`, but this is actually a target at the doorway — which in room coordinates would be `room_x = 350, room_y = 80`. Without transformation, automations must hard-code per-installation offsets. |
-| **No multi-radar fusion** | Two radars in the same room report independent local coordinates with no shared reference frame. It's impossible to correlate targets or deduplicate. | Radar A reports a target at (50, 120), Radar B reports one at (80, 90). Are these the same person or two people? Impossible to tell without a common coordinate system. |
-| **Cross-room false positives** | mmWave signals can penetrate thin walls, glass, and doors. A radar may detect people in adjacent rooms, hallways, or even outdoors. There is no mechanism to discard out-of-bounds targets. | A bedroom sleep radar detects someone walking in the hallway, triggering a false "in bed" state at 3 AM. |
+Beyond the radar's own entities, each build carries the same operational
+surface — WiFi signal, uptime, online status, IP/SSID/MAC, ESP die temperature,
+a restart button and a **safe-mode restart** that boots with everything but
+WiFi and OTA disabled, for recovering a device that will not otherwise take an
+update.
 
----
+There is also a **local web UI** on port 80, which is the way in when Home
+Assistant is unreachable and the radar is on a ceiling, and **USB provisioning**
+(Improv) that the web flasher above drives.
 
-### Solution 1: Coordinate Transformation
+A **Bluetooth proxy** is available but off by default: it costs 502 KB of flash
+and shares the ESP32-C3's single radio and 320 KB of RAM with WiFi, and the
+thing that degrades is the radar's own connection to Home Assistant. Turn it on
+deliberately — see `tests/common/_bluetooth.yaml`.
 
-Converts raw radar-local target positions into **room-frame coordinates**, based on the radar's physical installation parameters.
-
-```mermaid
-flowchart LR
-    subgraph "Radar Local Frame"
-        T["Target<br>(rx, ry, rz)"]
-    end
-
-    subgraph "Transform"
-        direction TB
-        R["Rotation Matrix<br>R = Rz(yaw)·Rx(pitch)·Ry(roll)"]
-        TR["Translation<br>+ (radar_x, radar_y, radar_z)"]
-        R --> TR
-    end
-
-    subgraph "Room Frame"
-        RT["Target<br>(room_x, room_y, room_z)"]
-    end
-
-    T --> R
-    TR --> RT
-```
-
-**How it works:**
-
-1. The user measures the radar's position in the room (origin at corner, X right, Y forward) and its orientation (yaw, pitch, roll).
-2. These 6 parameters are declared in YAML at compile time, or adjusted at runtime via Home Assistant `number` entities.
-3. On every target report, the component:
-   - Builds a 3×3 rotation matrix using ZYX Tait-Bryan convention: **R = Rz(yaw) · Rx(pitch) · Ry(roll)**
-   - Computes: `world = R × [rx, ry, rz]ᵀ`
-   - Translates: `room = world + [radar_x, radar_y, radar_z]ᵀ`
-4. The resulting `room_x`, `room_y`, `room_z` are published as ESPHome sensor entities.
-
-```yaml
-r60abd1:
-  radar_x: 200.0      # cm — distance from left wall
-  radar_y: 175.0      # cm — distance from back wall
-  radar_z: 220.0      # cm — mounting height
-  yaw:   0.0           # degrees — horizontal heading offset
-  pitch: 0.0           # degrees — elevation tilt
-  roll:  0.0           # degrees — bank/roll
-```
-
-**What it solves:**
-- ✅ All targets are in a unified room coordinate system, regardless of how the radar is mounted.
-- ✅ Multiple radars in the same room can share one reference frame, enabling target correlation.
-- ✅ Automations reference real room locations (e.g., "target near the bed") instead of opaque radar-local values.
-
-**Limitations:**
-- ❌ The user must manually measure and enter the 6 calibration parameters. Accuracy depends on measurement precision (±5 cm is typical for manual measurement).
-- ❌ Cannot compensate for radar hardware distortion (nonlinear range errors, multipath reflections, etc.).
-- ❌ Does not perform multi-radar target fusion — each radar still publishes independently. The shared coordinate frame only makes fusion *possible* at the HA automation layer.
-
-**Dimensionality mapping:**
-
-Different radar models output different levels of positional detail. The transform adapts accordingly:
-
-| Radar Output | Transform Input | Published Entities |
-|---|---|---|
-| 1-D (range only) | `(range, 0, 0)` | `room_x`, `room_y`, `room_z` |
-| 2-D (X, Y) | `(lx, ly, 0)` | `room_x`, `room_y` |
-| 3-D (X, Y, Z) | `(lx, ly, lz)` | `room_x`, `room_y`, `room_z` |
+<img src="https://raw.githubusercontent.com/zomco/mmwave-card/main/assets/screenshot-live.gif" alt="Live View Demo" width="600">
 
 ---
 
-### Solution 2: Boundary Filtering
+## Start here
 
-Discards targets that fall outside a user-defined polygon, operating **exclusively in room-frame coordinates** (post-transform).
+**New to this project? → [Getting Started](./GETTING-STARTED.md)**
 
-```mermaid
-flowchart TB
-    subgraph "Processing Pipeline"
-        direction LR
-        P["Parse<br>UART Frame"] --> X["Transform<br>Local → Room"]
-        X --> F{"In Boundary?"}
-        F -->|"Yes ✅"| PUB["Publish to HA"]
-        F -->|"No ❌"| DROP["Discard"]
-    end
+That guide takes you from a bare board and four jumper wires to a live room
+map, in about 45 minutes, without writing any YAML. The short version:
 
-    subgraph "Room Top View"
-        direction TB
-        POLY["Polygon Boundary<br>┌─────────┐<br>│  ✅ T1  │<br>│         │<br>└─────────┘<br>      ❌ T2 (hallway)"]
-    end
-```
+1. **Wire** the radar to an ESP32-C3 — four wires, two of them crossed.
+2. **Flash** from your browser — no software to install:
 
-**How it works:**
+   > [**Open Web Flasher →**](https://zomco.github.io/mmwave-component/)
+   >
+   > _Requires Chrome or Edge (Web Serial). Firefox and Safari will not work._
 
-1. The user defines a polygon in room coordinates (cm) representing the monitored area.
-2. After coordinate transformation, the component tests each target's `(room_x, room_y)` against the polygon using the **Ray Casting algorithm** (O(n) per point, supports both convex and concave polygons).
-3. Targets outside the polygon are silently dropped — they are never published to Home Assistant.
+3. **Install the card** so you get a picture instead of numbers:
 
-```yaml
-r60abd1:
-  polygon:
-    - { x:   0, y:   0 }     # bottom-left corner
-    - { x: 400, y:   0 }     # bottom-right
-    - { x: 400, y: 350 }     # top-right
-    - { x:   0, y: 350 }     # top-left
-```
+   [![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=zomco&repository=mmwave-card&category=plugin)
 
-**What it solves:**
-- ✅ Eliminates cross-room false positives (hallway, adjacent room, outdoor).
-- ✅ Enables sub-room zoning (e.g., monitor only the bed area, not the bathroom).
-- ✅ Works with arbitrary room shapes — not limited to rectangles.
-
-**Limitations:**
-- ❌ Filtering is 2-D only (XY projection). Cannot filter by height (Z axis). A target on a different floor directly above/below could still pass if the XY projection falls inside the polygon.
-- ❌ Requires at least 3 polygon vertices to activate. Fewer than 3 vertices disables filtering (pass-through).
-- ❌ Cannot filter "soft" false positives caused by multipath reflections that appear to originate from inside the polygon.
+4. **Calibrate** in the card's three tabs. Do not skip this — it is what makes
+   the coordinates mean anything.
 
 ---
 
-### End-to-End Processing Pipeline
+## Documentation map
 
-The complete data flow for every radar frame:
+| If you are | Read |
+| --- | --- |
+| Setting this up for the first time | [Getting Started](./GETTING-STARTED.md) |
+| Writing your own YAML, changing pins, adding sensors | [DIY guide](./DIY.md) |
+| Looking up one model's entities and options | `docs/<model>/README.md`, linked in the table below |
+| Adding a new radar model, or an AI agent working here | [AGENTS.md](./AGENTS.md) |
+| Setting up more than one radar | [mmwave-fusion](https://github.com/zomco/mmwave-fusion) |
 
-```mermaid
-flowchart LR
-    UART["UART Byte Stream"]
-    SM["State-Machine<br>Frame Parser"]
-    DEC["Decode Fields<br>(presence, coords,<br>breath, HR, sleep)"]
-    XFM["Coordinate<br>Transform"]
-    BND["Boundary<br>Filter"]
-    PUB["Publish to<br>Home Assistant"]
+## Related repositories
 
-    UART --> SM --> DEC --> XFM --> BND --> PUB
+This firmware is one of three pieces, released separately:
 
-    style SM fill:#2d3436,stroke:#00cec9,color:#dfe6e9
-    style XFM fill:#2d3436,stroke:#fdcb6e,color:#dfe6e9
-    style BND fill:#2d3436,stroke:#e17055,color:#dfe6e9
-```
-
-> **Processing order is mandatory:** Parse → Transform → Filter → Publish. The transform must happen before filtering because the polygon is defined in room coordinates.
+| Repository | What it is | Needed? |
+| --- | --- | --- |
+| **mmwave-component** (this) | ESPHome firmware | Yes — this is the device side. |
+| [mmwave-card](https://github.com/zomco/mmwave-card) | Lovelace card | Yes in practice — it is the only UI, and calibration happens in it. |
+| [mmwave-fusion](https://github.com/zomco/mmwave-fusion) | HA integration | Only for multi-radar fusion. Experimental. |
 
 ---
 
 ## Radar Model Status
 
-| Radar Model | Status | Dimension | Application | Docs |
-|---|---|---|---|---|
-| R60ABD1 | ✅ Completed | 3D (X, Y, Z) | Breathing & sleep monitoring, presence detection, heart rate | [Documentation](docs/r60abd1/README.md) |
-| LD2450 | 🔧 Developing | 2D (X, Y) | Multi-target tracking (up to 3), speed measurement, presence detection | [Documentation](docs/ld2450/) |
-| RD03E | 🔧 Developing | 1D (range) | Precise ranging, presence/motion detection (0.3–6 m) | [Documentation](docs/rd03e/) |
-| LD2411 | 🔧 Developing | 1D (range) | Presence/motion detection | [Documentation](docs/ld2411/) |
-| LD2410B | 🔧 Developing | 1D (range) | Presence/motion detection | [Documentation](docs/ld2410b/) |
-| LD2410C | 🔧 Developing | 1D (range) | Presence/motion detection | [Documentation](docs/ld2410c/) |
-| LD6002 | 🔧 Developing | 3D (X, Y, Z, Bio) | Breathing, sleep, presence, positioning | [Documentation](docs/ld6002/) |
-| LD2453 | 🔧 Developing | 2D (X, Y) | Multi-target tracking, presence detection | [Documentation](docs/ld2453/) |
-| LD2451 | 🔧 Developing | 2D (Polar) | Multi-target tracking, presence detection | [Documentation](docs/ld2451/) |
+All 16 models below have a component and firmware config. The `Docs` column
+links model-specific entity and configuration reference where it has been
+written.
+
+| Radar Model | Status | Dimension | Targets | Baud | Application | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| R60ABD1 | ✅ Completed | 3D (X, Y, Z) | 1 | 115200 | Breathing & sleep monitoring, presence, heart rate | [Docs](docs/r60abd1/README.md) |
+| LD2450 | 🔧 Developing | 2D (X, Y) | 3 | 256000 | Multi-target tracking, speed, presence | [Docs](docs/ld2450/README.md) |
+| LD2452 | 🧪 Testing | 2D (X, Y) | 3 | 9600 | Multi-target tracking, fusion testing | [Docs](docs/ld2452/README.md) |
+| LD2453 | 🔧 Developing | 2D (X, Y) | 3 | 256000 | Multi-target tracking, presence | [Docs](docs/ld2453/README.md) |
+| LD2454 | 🧪 Testing | 2D (X, Y) | 3 | 256000 | Multi-target tracking, fusion testing | — |
+| LD2451 | 🔧 Developing | 2D (polar) | 3 | 115200 | Multi-target tracking, presence | [Docs](docs/ld2451/README.md) |
+| LD6002 | 🔧 Developing | 1D (range) | 1 | 1382400 | Breathing, heart rate, presence | [Docs](docs/ld6002/README.md) |
+| LD2410 | 🔧 Developing | 1D (range) | 1 | 256000 | Presence/motion, per-gate energy | — |
+| LD2410B | 🔧 Developing | 1D (range) | 1 | 256000 | Presence/motion detection | [Docs](docs/ld2410b/README.md) |
+| LD2410C | 🔧 Developing | 1D (range) | 1 | 256000 | Presence/motion detection | [Docs](docs/ld2410c/README.md) |
+| LD2411 | 🔧 Developing | 1D (range) | 1 | 115200 | Presence/motion detection | [Docs](docs/ld2411/README.md) |
+| LD2411S | 🔧 Developing | 1D (range) | 1 | 256000 | Presence/motion + micro-motion | [Docs](docs/ld2411s/README.md) |
+| LD2412 | 🔧 Developing | 1D (range) | 1 | 115200 | Presence/motion, 14 gates, ambient light | [Docs](docs/ld2412/README.md) |
+| LD2420 | 🔧 Developing | 1D (range) | 1 | 115200 | Presence/motion, 16 gates, threshold calibration | [Docs](docs/ld2420/README.md) |
+| LD2450A | 🔧 Developing | 1D (range) | 1 | 256000 | Ranging + gesture recognition | — |
+| RD03E | 🔧 Developing | 1D (range) | 1 | 256000 | Precise ranging, presence/motion (0.3–6 m) | [Docs](docs/rd03e/README.md) |
+
+Only 2-D and 3-D models can take part in multi-radar fusion — a range-only
+radar reports distance without direction, so there is nothing to fuse.
 
 ### Status Definitions
 
 | Status | Description |
-|---|---|
+| --- | --- |
 | `Planned` | Documentation staged; component not yet generated. |
 | `Developing` | Component generated; undergoing on-hardware firmware tests. |
 | `Testing` | Firmware validated; undergoing Home Assistant integration tests. |
 | `Completed` | HA integration validated and stable. |
-| `Paused` | Blocked by an external condition (no hardware, no test environment, etc.). |
+| `Paused` | Blocked by an external condition (no hardware, no test environment). |
 
 > This table is the authoritative source of truth, updated on every status change.
-
----
-
-## Repository Structure
-
-```
-.
-├── .github/
-│   ├── copilot-instructions.md   # AI development guide & CI/CD docs
-│   └── workflows/
-│       ├── ci.yml                # PR check: compiles all tests/*.yaml
-│       ├── publish.yml           # Builds firmware, uploads artifacts
-│       └── publish-pages.yml     # Deploys GitHub Pages (separate from firmware build)
-├── components/{radar_model}/     # ESPHome external component
-├── docs/{radar_model}/           # Product docs, wiring images, usage guide (README.md)
-├── static/                       # GitHub Pages source (Jekyll)
-│   ├── _config.yml
-│   └── index.html                # ESP Web Tools install page
-├── tests/
-│   ├── {radar_model}-{platform}.yaml          # Base firmware config
-│   └── {radar_model}-{platform}.factory.yaml  # Factory firmware config
-└── README.md
-```
 
 ---
 

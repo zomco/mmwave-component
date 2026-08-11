@@ -1,0 +1,300 @@
+# RD03E radar definition, shared by every consumer.
+#
+# Included by tests/rd03e-esp32c3.yaml (standalone firmware, and via
+# that the factory build users flash) and by the workspace's
+# esphome-config/rd03e-esp32c3.yaml. Edit here once.
+#
+# Carries no board, networking or external_components block on purpose:
+# each consumer supplies its own, and two declarations of the same key
+# would collide with no way to drop just one.
+
+# Diagnostics and recovery controls are the same on every model, so they live
+# in one place rather than being copied into sixteen radar cores.
+packages:
+  device: !include _device.yaml
+
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          // 开机启动后，将保存在闪存中的 globals 恢复给底层雷达组件
+          id(radar).set_radar_x(id(g_radar_x));
+          id(radar).set_radar_y(id(g_radar_y));
+          id(radar).set_radar_z(id(g_radar_z));
+          id(radar).set_yaw(id(g_yaw));
+          id(radar).set_pitch(id(g_pitch));
+          id(radar).set_roll(id(g_roll));
+          id(radar).set_distance_min(id(g_distance_min));
+          id(radar).set_distance_max(id(g_distance_max));
+
+uart:
+  id: uart_rd03e
+  tx_pin: GPIO21   # ESP32-C3 → RD03E RX（交叉接线）
+  rx_pin: GPIO20   # ESP32-C3 ← RD03E TX
+  baud_rate: 256000
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+
+# =============================================================================
+# 校准参数（globals）持久化
+# =============================================================================
+
+globals:
+  - id: g_radar_x
+    type: float
+    restore_value: true # 掉电恢复，避免每次重启都要重新校准
+    initial_value: "0.0" # 上电默认值，首次烧录后通过 number 实体覆盖
+
+  - id: g_radar_y
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_radar_z
+    type: float
+    restore_value: true
+    initial_value: "240.0" # 默认建议安装高度 2.4m
+
+  - id: g_yaw
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 由 Lovelace 卡片校准后更新
+
+  - id: g_pitch
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 水平安装为 0；斜装时填实测值或 IMU 读数
+
+  - id: g_roll
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_distance_min
+    type: float
+    restore_value: true
+    initial_value: "30.0" # 30 cm 最小距离盲区
+
+  - id: g_distance_max
+    type: float
+    restore_value: true
+    initial_value: "600.0" # 600 cm 最大有效距离
+
+# =============================================================================
+# RD03E 组件定义
+# =============================================================================
+
+rd03e:
+  id: radar
+  uart_id: uart_rd03e
+
+  # ── 存在探测与距离 ────────────────────────────────────────────────────
+  presence:
+    name: "presence"
+    device_class: presence
+
+  motion_state:
+    name: "motion_state"
+    # 0=无目标, 1=运动目标, 2=微动目标
+
+  distance:
+    name: "distance"
+    unit_of_measurement: "cm"
+
+  # ── 坐标转换与区域过滤 ────────────────────────────────────────────────
+  room_x:
+    name: "room_x"
+    unit_of_measurement: "cm"
+  room_y:
+    name: "room_y"
+    unit_of_measurement: "cm"
+  room_z:
+    name: "room_z"
+    unit_of_measurement: "cm"
+  in_boundary:
+    name: "in_boundary"
+
+# =============================================================================
+# 运行时校准控制实体 (number)
+# =============================================================================
+
+number:
+  - platform: template
+    name: "Radar X"
+    id: num_radar_x
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(g_radar_x);"
+    set_action:
+      - lambda: |-
+          id(g_radar_x) = x;
+          id(radar).set_radar_x(x);
+          id(num_radar_x).publish_state(x);
+
+  - platform: template
+    name: "Radar Y"
+    id: num_radar_y
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(g_radar_y);"
+    set_action:
+      - lambda: |-
+          id(g_radar_y) = x;
+          id(radar).set_radar_y(x);
+          id(num_radar_y).publish_state(x);
+
+  - platform: template
+    name: "Radar Z"
+    id: num_radar_z
+    unit_of_measurement: cm
+    min_value: 50
+    max_value: 400
+    step: 1
+    mode: box
+    icon: mdi:ruler-square
+    lambda: "return id(g_radar_z);"
+    set_action:
+      - lambda: |-
+          id(g_radar_z) = x;
+          id(radar).set_radar_z(x);
+          id(num_radar_z).publish_state(x);
+
+  - platform: template
+    name: "Yaw"
+    id: num_yaw
+    unit_of_measurement: "°"
+    min_value: -180
+    max_value: 180
+    step: 0.1
+    mode: box
+    icon: mdi:rotate-3d-variant
+    lambda: "return id(g_yaw);"
+    set_action:
+      - lambda: |-
+          id(g_yaw) = x;
+          id(radar).set_yaw(x);
+          id(num_yaw).publish_state(x);
+
+  - platform: template
+    name: "Pitch"
+    id: num_pitch
+    unit_of_measurement: "°"
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(g_pitch);"
+    set_action:
+      - lambda: |-
+          id(g_pitch) = x;
+          id(radar).set_pitch(x);
+          id(num_pitch).publish_state(x);
+
+  - platform: template
+    name: "Roll"
+    id: num_roll
+    unit_of_measurement: "°"
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(g_roll);"
+    set_action:
+      - lambda: |-
+          id(g_roll) = x;
+          id(radar).set_roll(x);
+          id(num_roll).publish_state(x);
+
+  - platform: template
+    name: "Min Distance"
+    id: num_distance_min
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_min);"
+    set_action:
+      - lambda: |-
+          id(g_distance_min) = x;
+          id(radar).set_distance_min(x);
+          id(num_distance_min).publish_state(x);
+
+  - platform: template
+    name: "Max Distance"
+    id: num_distance_max
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_max);"
+    set_action:
+      - lambda: |-
+          id(g_distance_max) = x;
+          id(radar).set_distance_max(x);
+          id(num_distance_max).publish_state(x);
+
+# =============================================================================
+# 控制按钮 (button)
+# =============================================================================
+
+button:
+  - platform: template
+    name: "Read Firmware Version"
+    entity_category: config
+    icon: "mdi:chip"
+    on_press:
+      - lambda: "id(radar).send_read_firmware_version();"
+
+  - platform: template
+    name: "Read Parameters"
+    entity_category: config
+    icon: "mdi:cog-refresh"
+    on_press:
+      - lambda: "id(radar).send_read_params();"
+
+  - platform: template
+    name: "Enable Config Mode"
+    entity_category: config
+    icon: "mdi:lock-open-outline"
+    on_press:
+      - lambda: "id(radar).send_enable_config();"
+
+  - platform: template
+    name: "End Config Mode"
+    entity_category: config
+    icon: "mdi:lock-outline"
+    on_press:
+      - lambda: "id(radar).send_end_config();"
+
+# =============================================================================
+# 基础状态与诊断传感器
+# =============================================================================
+
+text:
+  - platform: template
+    name: "Mock Data"
+    id: text_mock_data
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: text
+    icon: mdi:code-json
+    set_action:
+      - lambda: |-
+          id(radar).inject_mock_data(x);

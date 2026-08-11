@@ -21,12 +21,17 @@ CONF_MOVING_ENERGY = "moving_energy"
 CONF_STATIONARY_DISTANCE = "stationary_distance"
 CONF_STATIONARY_ENERGY = "stationary_energy"
 CONF_DETECTION_DISTANCE = "detection_distance"
+CONF_MAX_DISTANCE = "max_distance"
 
 # Spatial projection entities
 CONF_ROOM_X = "room_x"
 CONF_ROOM_Y = "room_y"
 CONF_ROOM_Z = "room_z"
 CONF_IN_BOUNDARY = "in_boundary"
+
+# Gate Energy Sensors
+CONF_GATE_MOVE_ENERGY = "gate_move_energy"
+CONF_GATE_STILL_ENERGY = "gate_still_energy"
 
 # Calibration parameters
 CONF_RADAR_X = "radar_x"
@@ -80,6 +85,11 @@ CONFIG_SCHEMA = cv.All(
                 device_class=DEVICE_CLASS_DISTANCE,
                 accuracy_decimals=0,
             ),
+            cv.Optional(CONF_MAX_DISTANCE): sensor.sensor_schema(
+                unit_of_measurement=UNIT_CENTIMETER,
+                device_class=DEVICE_CLASS_DISTANCE,
+                accuracy_decimals=0,
+            ),
             
             # Spatial Projection Entities
             cv.Optional(CONF_ROOM_X): sensor.sensor_schema(
@@ -98,6 +108,21 @@ CONFIG_SCHEMA = cv.All(
                 accuracy_decimals=1,
             ),
             cv.Optional(CONF_IN_BOUNDARY): binary_sensor.binary_sensor_schema(),
+        }
+    )
+    .extend(
+        {
+            cv.Optional(f"g{x}"): cv.Schema(
+                {
+                    cv.Optional(CONF_GATE_MOVE_ENERGY): sensor.sensor_schema(
+                        accuracy_decimals=0,
+                    ),
+                    cv.Optional(CONF_GATE_STILL_ENERGY): sensor.sensor_schema(
+                        accuracy_decimals=0,
+                    ),
+                }
+            )
+            for x in range(9)
         }
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -140,6 +165,9 @@ async def to_code(config):
     if CONF_DETECTION_DISTANCE in config:
         sens = await sensor.new_sensor(config[CONF_DETECTION_DISTANCE])
         cg.add(var.set_detection_distance_sensor(sens))
+    if CONF_MAX_DISTANCE in config:
+        sens = await sensor.new_sensor(config[CONF_MAX_DISTANCE])
+        cg.add(var.set_max_distance_sensor(sens))
         
     if CONF_ROOM_X in config:
         sens = await sensor.new_sensor(config[CONF_ROOM_X])
@@ -153,3 +181,12 @@ async def to_code(config):
     if CONF_IN_BOUNDARY in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_IN_BOUNDARY])
         cg.add(var.set_in_boundary_sensor(sens))
+        
+    for x in range(9):
+        if gate_conf := config.get(f"g{x}"):
+            if move_config := gate_conf.get(CONF_GATE_MOVE_ENERGY):
+                sens = await sensor.new_sensor(move_config)
+                cg.add(var.set_gate_move_sensor(x, sens))
+            if still_config := gate_conf.get(CONF_GATE_STILL_ENERGY):
+                sens = await sensor.new_sensor(still_config)
+                cg.add(var.set_gate_still_sensor(x, sens))

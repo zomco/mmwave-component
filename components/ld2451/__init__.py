@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart, binary_sensor, sensor
+from esphome.components import uart, binary_sensor, sensor, text_sensor
 from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
@@ -11,7 +11,7 @@ from esphome.const import (
 )
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["binary_sensor", "sensor"]
+AUTO_LOAD = ["binary_sensor", "sensor", "text_sensor"]
 
 ld2451_ns = cg.esphome_ns.namespace("ld2451")
 LD2451Component = ld2451_ns.class_("LD2451Component", cg.Component, uart.UARTDevice)
@@ -19,6 +19,7 @@ LD2451Component = ld2451_ns.class_("LD2451Component", cg.Component, uart.UARTDev
 CONF_PRESENCE = "presence"
 CONF_ALARM = "alarm"
 CONF_TARGET_COUNT = "target_count"
+CONF_TARGET_FRAME = "target_frame"
 
 # Calibration parameters
 CONF_RADAR_X = "radar_x"
@@ -29,13 +30,14 @@ CONF_PITCH = "pitch"
 CONF_ROLL = "roll"
 CONF_DISTANCE_MIN = "distance_min"
 CONF_DISTANCE_MAX = "distance_max"
+CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
 
 UNIT_KM_PER_H = "km/h"
 
 def target_schema(target_id):
     return cv.Schema({
         cv.Optional("distance"): sensor.sensor_schema(
-            unit_of_measurement=UNIT_METER,
+            unit_of_measurement=UNIT_CENTIMETER,
             device_class=DEVICE_CLASS_DISTANCE,
             accuracy_decimals=2,
         ),
@@ -91,6 +93,8 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_ROLL, default=0.0): cv.float_range(min=-90.0, max=90.0),
             cv.Optional(CONF_DISTANCE_MIN, default=0.0): cv.float_,
             cv.Optional(CONF_DISTANCE_MAX, default=0.0): cv.float_,
+            # 边界外的目标默认不计入 presence
+            cv.Optional(CONF_BOUNDARY_GATES_PRESENCE, default=True): cv.boolean,
             
             # Globals
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
@@ -99,6 +103,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_ALARM): binary_sensor.binary_sensor_schema(),
             cv.Optional(CONF_TARGET_COUNT): sensor.sensor_schema(
                 accuracy_decimals=0,
+            ),
+            cv.Optional(CONF_TARGET_FRAME): text_sensor.text_sensor_schema(
+                icon="mdi:radar",
             ),
             
             # Targets
@@ -161,6 +168,7 @@ async def to_code(config):
     cg.add(var.set_roll(config[CONF_ROLL]))
     cg.add(var.set_distance_min(config[CONF_DISTANCE_MIN]))
     cg.add(var.set_distance_max(config[CONF_DISTANCE_MAX]))
+    cg.add(var.set_boundary_gates_presence(config[CONF_BOUNDARY_GATES_PRESENCE]))
 
     if CONF_PRESENCE in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_PRESENCE])
@@ -171,6 +179,9 @@ async def to_code(config):
     if CONF_TARGET_COUNT in config:
         sens = await sensor.new_sensor(config[CONF_TARGET_COUNT])
         cg.add(var.set_target_count_sensor(sens))
+    if CONF_TARGET_FRAME in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_TARGET_FRAME])
+        cg.add(var.set_target_frame_sensor(sens))
 
     await setup_target(var, config, 0, "target_1")
     await setup_target(var, config, 1, "target_2")

@@ -57,11 +57,23 @@ jobs:
           echo "Building version: $version"
 
       # Stamp the resolved version into every factory yaml before building.
-      # The placeholder string is: version: "dev"
+      #
+      # The placeholder is written unquoted (`version: dev`) inside the
+      # `project:` block. An earlier version of this step matched `version: "dev"`
+      # and therefore silently replaced nothing, so every published build —
+      # including tagged releases — reported itself as "dev". Match both forms
+      # and fail loudly if neither is present.
       - name: Stamp version into factory YAML
         run: |
-          sed -i 's/version: "dev"/version: "${{ steps.version.outputs.version }}"/' \
-            "${{ matrix.config }}"
+          config="${{ matrix.config }}"
+          if ! grep -Eq '^\s*version:\s*"?dev"?\s*(#.*)?$' "$config"; then
+            echo "::error::No 'version: dev' placeholder found in $config"
+            grep -n 'version:' "$config" || true
+            exit 1
+          fi
+          sed -i -E 's/^(\s*version:\s*)"?dev"?(\s*(#.*)?)$/\1"${{ steps.version.outputs.version }}"\2/' "$config"
+          echo "Stamped version in $config:"
+          grep -n 'version:' "$config"
 
       - name: Build ESPHome firmware
         id: build

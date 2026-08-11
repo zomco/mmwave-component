@@ -1,5 +1,5 @@
 esphome:
-  name: ld2410c-test
+  name: ld2410c
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -13,36 +13,16 @@ external_components:
 
 logger:
 
-uart:
-  id: uart_bus
-  tx_pin: GPIO4
-  rx_pin: GPIO5
-  baud_rate: 256000
+api:
 
-ld2410c:
-  id: my_radar
-  uart_id: uart_bus
-  
-  presence:
-    name: "Presence"
-  target_state:
-    name: "Target State"
-  moving_distance:
-    name: "Moving Distance"
-  moving_energy:
-    name: "Moving Energy"
-  stationary_distance:
-    name: "Stationary Distance"
-  stationary_energy:
-    name: "Stationary Energy"
-  detection_distance:
-    name: "Detection Distance"
-  
-  room_x:
-    name: "Room X"
-  room_y:
-    name: "Room Y"
-  room_z:
-    name: "Room Z"
-  in_boundary:
-    name: "In Boundary"
+ota:
+  platform: esphome
+
+wifi:
+  ap:
+    ssid: "${friendly_name} Fallback"
+
+captive_portal:
+
+packages:
+  radar: !include common/ld2410c.yaml

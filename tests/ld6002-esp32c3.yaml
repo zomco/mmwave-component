@@ -1,6 +1,6 @@
 substitutions:
   name: ld6002
-  friendly_name: "LD6002 Radar"
+  friendly_name: "Radar"
 
 esphome:
   name: "${name}"
@@ -31,22 +31,5 @@ wifi:
 
 captive_portal:
 
-uart:
-  id: uart_ld6002
-  tx_pin: GPIO21
-  rx_pin: GPIO20
-  baud_rate: 115200
-  data_bits: 8
-  parity: NONE
-  stop_bits: 1
-
-ld6002:
-  uart_id: uart_ld6002
-  presence:
-    name: "Presence"
-  distance:
-    name: "Distance"
-  respiration_rate:
-    name: "Respiration Rate"
-  heart_rate:
-    name: "Heart Rate"
+packages:
+  radar: !include common/ld6002.yaml

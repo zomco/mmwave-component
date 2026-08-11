@@ -28,14 +28,14 @@ class Transform3D {
  public:
   static Position3D transform(float local_x, float local_y, float local_z, const CalibrationParams &cal) {
     Position3D pos{};
-    
+
     // Radial distance for boundary filtering
     float range_cm = std::sqrt(local_x * local_x + local_y * local_y + local_z * local_z);
 
     // Convert angles to radians
-    float yaw_rad   = cal.yaw   * (M_PI / 180.0f);
+    float yaw_rad = cal.yaw * (M_PI / 180.0f);
     float pitch_rad = cal.pitch * (M_PI / 180.0f);
-    float roll_rad  = cal.roll  * (M_PI / 180.0f);
+    float roll_rad = cal.roll * (M_PI / 180.0f);
 
     float cy = std::cos(yaw_rad);
     float sy = std::sin(yaw_rad);
@@ -44,17 +44,20 @@ class Transform3D {
     float cr = std::cos(roll_rad);
     float sr = std::sin(roll_rad);
 
-    // 3D Rotation Matrix elements (Tait-Bryan Z-Y-X)
-    float R11 = cy * cp;
-    float R12 = cy * sp * sr - sy * cr;
-    float R13 = cy * sp * cr + sy * sr;
+    // Room-frame convention, shared with mmwave-card / HA mmwave_fusion / r60abd1:
+    //   R = Rz(yaw) * Rx(pitch) * Ry(roll)
+    // yaw = 0 aims the radar boresight along room +Y; positive yaw turns clockwise
+    // seen from above (toward +X). Roll is rotation about the boresight itself.
+    float R11 = cy * cr + sy * sp * sr;
+    float R12 = sy * cp;
+    float R13 = -cy * sr + sy * sp * cr;
 
-    float R21 = sy * cp;
-    float R22 = sy * sp * sr + cy * cr;
-    float R23 = sy * sp * cr - cy * sr;
+    float R21 = -sy * cr + cy * sp * sr;
+    float R22 = cy * cp;
+    float R23 = sy * sr + cy * sp * cr;
 
-    float R31 = -sp;
-    float R32 = cp * sr;
+    float R31 = cp * sr;
+    float R32 = -sp;
     float R33 = cp * cr;
 
     // Apply rotation to local coordinate
@@ -65,20 +68,20 @@ class Transform3D {
     // Apply translation to room coordinate
     pos.room_x = cal.radar_x + wx;
     pos.room_y = cal.radar_y + wy;
-    pos.room_z = cal.radar_z - wz; // -wz because z-axis points down from radar but room_z points up from floor
+    pos.room_z = cal.radar_z - wz;  // -wz because z-axis points down from radar but room_z points up from floor
 
     // Boundary filtering based on radial distance
     pos.in_boundary = true;
     if (cal.distance_min > 0.01f && range_cm < cal.distance_min) {
-        pos.in_boundary = false;
+      pos.in_boundary = false;
     }
     if (cal.distance_max > 0.01f && range_cm > cal.distance_max) {
-        pos.in_boundary = false;
+      pos.in_boundary = false;
     }
 
     return pos;
   }
 };
 
-} // namespace ld2410b
-} // namespace esphome
+}  // namespace ld2410b
+}  // namespace esphome

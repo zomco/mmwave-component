@@ -1,0 +1,41 @@
+substitutions:
+  name: ld2412
+  friendly_name: "LD2412 Radar"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+# ── 外部组件（本地路径） ──────────────────────────────────────────────────────
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [ld2412]
+
+# ── 基础配置 ──────────────────────────────────────────────────────────────────
+
+logger:
+
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+  ap:
+    ssid: "${friendly_name} Fallback"
+
+captive_portal:
+
+# ── UART（LD2412 默认波特率 115200，8N1） ─────────────────────────────────────
+
+packages:
+  radar: !include common/ld2412.yaml

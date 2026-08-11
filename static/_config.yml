@@ -4,9 +4,8 @@ description: >
   transformation and boundary filtering. Flash directly in your browser
   using ESP Web Tools.
 
-# The install page (index.html) is plain HTML with no front matter —
-# Jekyll passes it through unchanged. This config is here for site metadata
-# and to support future Markdown documentation pages.
+# The React application is compiled by Vite before Jekyll assembles the final
+# Pages artifact. This config supplies site metadata for that final pass.
 
 # Exclude files that are not part of the published site
 exclude:

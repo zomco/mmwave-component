@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart, binary_sensor, sensor
+from esphome.components import uart, binary_sensor, sensor, text_sensor
 from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
@@ -9,12 +9,13 @@ from esphome.const import (
 )
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["binary_sensor", "sensor"]
+AUTO_LOAD = ["binary_sensor", "sensor", "text_sensor"]
 
 ld2453_ns = cg.esphome_ns.namespace("ld2453")
 LD2453Component = ld2453_ns.class_("LD2453Component", cg.Component, uart.UARTDevice)
 
 CONF_PRESENCE = "presence"
+CONF_TARGET_FRAME = "target_frame"
 
 # Calibration parameters
 CONF_RADAR_X = "radar_x"
@@ -25,9 +26,26 @@ CONF_PITCH = "pitch"
 CONF_ROLL = "roll"
 CONF_DISTANCE_MIN = "distance_min"
 CONF_DISTANCE_MAX = "distance_max"
+CONF_POLYGON = "polygon"
+CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
 
 UNIT_CM_PER_S = "cm/s"
 UNIT_MILLIMETER = "mm"
+
+# 房间边界多边形顶点（房间坐标系，cm）
+POLYGON_POINT_SCHEMA = cv.Schema({
+    cv.Required("x"): cv.float_,
+    cv.Required("y"): cv.float_,
+})
+
+
+def _validate_polygon(value):
+    """空多边形 = 不过滤；非空则至少需要 3 个顶点才能围成区域。"""
+    if value and len(value) < 3:
+        raise cv.Invalid(
+            f"polygon needs at least 3 vertices to enclose an area, got {len(value)}"
+        )
+    return value
 
 def target_schema(target_id):
     return cv.Schema({
@@ -81,10 +99,20 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_ROLL, default=0.0): cv.float_range(min=-90.0, max=90.0),
             cv.Optional(CONF_DISTANCE_MIN, default=0.0): cv.float_,
             cv.Optional(CONF_DISTANCE_MAX, default=0.0): cv.float_,
-            
+            # 房间坐标系多边形边界（射线法），空 = 不过滤
+            cv.Optional(CONF_POLYGON, default=[]): cv.All(
+                cv.ensure_list(POLYGON_POINT_SCHEMA), _validate_polygon
+            ),
+            # 边界外的目标（隔墙鬼影）默认不计入 presence
+            cv.Optional(CONF_BOUNDARY_GATES_PRESENCE, default=True): cv.boolean,
+
+
             # Global Presence
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_PRESENCE,
+            ),
+            cv.Optional(CONF_TARGET_FRAME): text_sensor.text_sensor_schema(
+                icon="mdi:radar",
             ),
             
             # Targets
@@ -142,9 +170,17 @@ async def to_code(config):
     cg.add(var.set_distance_min(config[CONF_DISTANCE_MIN]))
     cg.add(var.set_distance_max(config[CONF_DISTANCE_MAX]))
 
+    # 多边形：逐点追加（避免传递 std::vector，与 ESPHome codegen 兼容）
+    for pt in config.get(CONF_POLYGON, []):
+        cg.add(var.add_polygon_point(pt["x"], pt["y"]))
+    cg.add(var.set_boundary_gates_presence(config[CONF_BOUNDARY_GATES_PRESENCE]))
+
     if CONF_PRESENCE in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_PRESENCE])
         cg.add(var.set_presence_sensor(sens))
+    if CONF_TARGET_FRAME in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_TARGET_FRAME])
+        cg.add(var.set_target_frame_sensor(sens))
 
     await setup_target(var, config, 0, "target_1")
     await setup_target(var, config, 1, "target_2")

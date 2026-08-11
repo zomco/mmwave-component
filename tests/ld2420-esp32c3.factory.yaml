@@ -1,92 +1,33 @@
+packages:
+  # The dev config is the single source of truth for this model's hardware,
+  # entities and calibration surface. This file only adds what a *shipped*
+  # device needs on top of it.
+  core: !include ld2420-esp32c3.yaml
+
 esphome:
-  name: ld2420-esp32c3-factory
-  friendly_name: ld2420-esp32c3-factory
+  # Identifies the build to ESP Web Tools and to the ESPHome dashboard.
+  project:
+    name: mmwave.ld2420
+    version: dev # replaced by .github/workflows/publish.yml on release
 
-esp32:
-  board: esp32-c3-devkitm-1
-  framework:
-    type: esp-idf
+# Lets a user adopt the flashed device into their own ESPHome dashboard.
+dashboard_import:
+  package_import_url: github://zomco/mmwave-component/tests/ld2420-esp32c3.yaml@main
+  import_full_config: true
 
-external_components:
-  - source:
-      type: local
-      path: ../components
-    components: [ld2420]
+# Wi-Fi provisioning after flashing, over BLE and over serial.
+esp32_improv:
+  authorizer: none
 
-logger:
+improv_serial:
 
-uart:
-  id: uart_ld2420
-  tx_pin: GPIO21
-  rx_pin: GPIO20
-  baud_rate: 115200
-  data_bits: 8
-  parity: NONE
-  stop_bits: 1
+# Pulls OTA updates published to the GitHub Pages installer.
+http_request:
 
-ld2420:
-  id: radar
-  uart_id: uart_ld2420
+ota:
+  - platform: http_request
 
-  radar_x: 0.0
-  radar_y: 0.0
-  radar_z: 240.0
-  yaw: 0.0
-  pitch: 0.0
-  roll: 0.0
-  distance_min: 30.0
-  distance_max: 600.0
-
-  presence:
-    name: "Presence"
-  distance:
-    name: "Distance"
-  room_x:
-    name: "Room X"
-  room_y:
-    name: "Room Y"
-  room_z:
-    name: "Room Z"
-  in_boundary:
-    name: "In Boundary"
-
-number:
-  - platform: template
-    name: "yaw"
-    min_value: -180
-    max_value: 180
-    step: 0.1
-    set_action:
-      lambda: "id(radar).set_yaw(x);"
-
-  - platform: template
-    name: "pitch"
-    min_value: -90
-    max_value: 90
-    step: 0.5
-    set_action:
-      lambda: "id(radar).set_pitch(x);"
-
-  - platform: template
-    name: "roll"
-    min_value: -90
-    max_value: 90
-    step: 0.5
-    set_action:
-      lambda: "id(radar).set_roll(x);"
-
-  - platform: template
-    name: "radar_x"
-    min_value: -2000
-    max_value: 2000
-    step: 1
-    set_action:
-      lambda: "id(radar).set_radar_x(x);"
-
-  - platform: template
-    name: "radar_y"
-    min_value: -2000
-    max_value: 2000
-    step: 1
-    set_action:
-      lambda: "id(radar).set_radar_y(x);"
+update:
+  - platform: http_request
+    name: Firmware
+    source: https://zomco.github.io/mmwave-component/ld2420-ESP32-C3/manifest.json

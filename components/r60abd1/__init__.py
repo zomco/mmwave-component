@@ -36,6 +36,7 @@ CONF_YAW            = "yaw"
 CONF_PITCH          = "pitch"
 CONF_ROLL           = "roll"
 CONF_POLYGON        = "polygon"
+CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
 
 # 传感器
 CONF_PRESENCE           = "presence"
@@ -51,6 +52,7 @@ CONF_ROOM_Z             = "room_z"
 CONF_IN_BOUNDARY        = "in_boundary"
 CONF_BREATH_VALUE       = "breath_value"
 CONF_BREATH_STATE       = "breath_state"
+CONF_TARGET_FRAME     = "target_frame"
 CONF_HEART_RATE         = "heart_rate"
 CONF_IN_BED             = "in_bed"
 CONF_SLEEP_STATE        = "sleep_state"
@@ -83,6 +85,8 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_ROLL,         default=0.0):   cv.float_range(-90, 90),
             cv.Optional(CONF_POLYGON,      default=[]):
                 cv.ensure_list(POLYGON_POINT_SCHEMA),
+            # 边界外的目标（隔墙鬼影）默认不计入 presence
+            cv.Optional(CONF_BOUNDARY_GATES_PRESENCE, default=True): cv.boolean,
 
             # ── 存在与运动 ─────────────────────────────────────────────────────
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
@@ -156,6 +160,11 @@ CONFIG_SCHEMA = (
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
+            # 多雷达融合入口：与 LD2450 系列同一个 v1 信封，
+            # 单目标 3D，因此用 [x, y, z, speed] 四元组。
+            cv.Optional(CONF_TARGET_FRAME): text_sensor.text_sensor_schema(
+                icon="mdi:radar",
+            ),
             cv.Optional(CONF_BREATH_STATE): text_sensor.text_sensor_schema(
                 icon="mdi:lungs",
             ),
@@ -226,6 +235,8 @@ async def to_code(config):
     for pt in config.get(CONF_POLYGON, []):
         cg.add(var.add_polygon_point(pt["x"], pt["y"]))
 
+    cg.add(var.set_boundary_gates_presence(config[CONF_BOUNDARY_GATES_PRESENCE]))
+
     # sensor 传感器
     _sensor_map = {
         CONF_MOTION_STATE:    "set_motion_sensor",
@@ -262,6 +273,7 @@ async def to_code(config):
 
     # text_sensor 传感器
     _text_map = {
+        CONF_TARGET_FRAME:  "set_target_frame_sensor",
         CONF_BREATH_STATE:  "set_breath_state_sensor",
         CONF_SLEEP_STATE:   "set_sleep_state_sensor",
         CONF_SLEEP_QUALITY: "set_sleep_quality_sensor",

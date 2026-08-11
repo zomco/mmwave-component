@@ -20,38 +20,47 @@ void R60ABD1Component::loop() {
   while (available()) {
     const uint8_t byte = read();
     last_rx_ms_ = millis();
+    if (millis() < this->mock_active_until_) {
+      continue;
+    }
     process_byte_(byte);
+  }
+
+  // Presence watchdog - clear presence if no data for 1000ms
+  uint32_t now = millis();
+  if (now - this->last_rx_ms_ > 1000) {
+    if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
+      this->presence_sensor_->publish_state(false);
+    }
   }
 }
 
 void R60ABD1Component::dump_config() {
   ESP_LOGCONFIG(TAG, "R60ABD1:");
-  ESP_LOGCONFIG(TAG, "  Radar pos:   X=%.1f cm  Y=%.1f cm  H=%.1f cm",
-                cal_.radar_x, cal_.radar_y, cal_.radar_z);
-  ESP_LOGCONFIG(TAG, "  Orientation: Yaw=%.1f°  Pitch=%.1f°  Roll=%.1f°",
-                cal_.yaw, cal_.pitch, cal_.roll);
-  ESP_LOGCONFIG(TAG, "  Polygon pts: %u", (unsigned)cal_.polygon.size());
-  LOG_BINARY_SENSOR("  ", "Presence",            presence_sensor_);
-  LOG_SENSOR       ("  ", "Motion State",         motion_sensor_);
-  LOG_SENSOR       ("  ", "Body Movement",        body_movement_);
-  LOG_SENSOR       ("  ", "Body Distance",        body_distance_);
-  LOG_SENSOR       ("  ", "Raw X",                raw_x_);
-  LOG_SENSOR       ("  ", "Raw Y",                raw_y_);
-  LOG_SENSOR       ("  ", "Raw Z",                raw_z_);
-  LOG_SENSOR       ("  ", "Room X",               room_x_);
-  LOG_SENSOR       ("  ", "Room Y",               room_y_);
-  LOG_SENSOR       ("  ", "Height Floor",         room_z_);
-  LOG_BINARY_SENSOR("  ", "In Boundary",          in_boundary_sensor_);
-  LOG_SENSOR       ("  ", "Breath Value",         breath_value_);
-  LOG_TEXT_SENSOR  ("  ", "Breath State",         breath_state_);
-  LOG_SENSOR       ("  ", "Heart Rate",           heart_rate_);
-  LOG_BINARY_SENSOR("  ", "In Bed",               in_bed_sensor_);
-  LOG_TEXT_SENSOR  ("  ", "Sleep State",          sleep_state_);
-  LOG_SENSOR       ("  ", "Awake Duration",       awake_duration_);
-  LOG_SENSOR       ("  ", "Light Sleep Duration", light_sleep_dur_);
-  LOG_SENSOR       ("  ", "Deep Sleep Duration",  deep_sleep_dur_);
-  LOG_SENSOR       ("  ", "Sleep Score",          sleep_score_);
-  LOG_TEXT_SENSOR  ("  ", "Sleep Quality",        sleep_quality_);
+  ESP_LOGCONFIG(TAG, "  Radar pos:   X=%.1f cm  Y=%.1f cm  Z=%.1f cm", cal_.radar_x, cal_.radar_y, cal_.radar_z);
+  ESP_LOGCONFIG(TAG, "  Orientation: Yaw=%.1f°  Pitch=%.1f°  Roll=%.1f°", cal_.yaw, cal_.pitch, cal_.roll);
+  ESP_LOGCONFIG(TAG, "  Polygon pts: %u", (unsigned) cal_.polygon.size());
+  LOG_BINARY_SENSOR("  ", "Presence", presence_sensor_);
+  LOG_SENSOR("  ", "Motion State", motion_sensor_);
+  LOG_SENSOR("  ", "Body Movement", body_movement_);
+  LOG_SENSOR("  ", "Body Distance", body_distance_);
+  LOG_SENSOR("  ", "Raw X", raw_x_);
+  LOG_SENSOR("  ", "Raw Y", raw_y_);
+  LOG_SENSOR("  ", "Raw Z", raw_z_);
+  LOG_SENSOR("  ", "Room X", room_x_);
+  LOG_SENSOR("  ", "Room Y", room_y_);
+  LOG_SENSOR("  ", "Height Floor", room_z_);
+  LOG_BINARY_SENSOR("  ", "In Boundary", in_boundary_sensor_);
+  LOG_SENSOR("  ", "Breath Value", breath_value_);
+  LOG_TEXT_SENSOR("  ", "Breath State", breath_state_);
+  LOG_SENSOR("  ", "Heart Rate", heart_rate_);
+  LOG_BINARY_SENSOR("  ", "In Bed", in_bed_sensor_);
+  LOG_TEXT_SENSOR("  ", "Sleep State", sleep_state_);
+  LOG_SENSOR("  ", "Awake Duration", awake_duration_);
+  LOG_SENSOR("  ", "Light Sleep Duration", light_sleep_dur_);
+  LOG_SENSOR("  ", "Deep Sleep Duration", deep_sleep_dur_);
+  LOG_SENSOR("  ", "Sleep Score", sleep_score_);
+  LOG_TEXT_SENSOR("  ", "Sleep Quality", sleep_quality_);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -62,12 +71,11 @@ void R60ABD1Component::dump_config() {
  * 帧格式: [0x53][0x59][ctrl][cmd][len_H][len_L][data...][sum][0x54][0x43]
  * 校验码: (0x53+0x59+ctrl+cmd+len_H+len_L+data[0..n-1]) & 0xFF
  */
-void R60ABD1Component::send_cmd(uint8_t ctrl, uint8_t cmd,
-                                const uint8_t *data, uint16_t len) {
-  uint8_t sum = FRAME_HDR1 + FRAME_HDR2 + ctrl + cmd
-              + static_cast<uint8_t>(len >> 8)
-              + static_cast<uint8_t>(len & 0xFF);
-  for (uint16_t i = 0; i < len; i++) sum += data[i];
+void R60ABD1Component::send_cmd(uint8_t ctrl, uint8_t cmd, const uint8_t *data, uint16_t len) {
+  uint8_t sum =
+      FRAME_HDR1 + FRAME_HDR2 + ctrl + cmd + static_cast<uint8_t>(len >> 8) + static_cast<uint8_t>(len & 0xFF);
+  for (uint16_t i = 0; i < len; i++)
+    sum += data[i];
 
   write_byte(FRAME_HDR1);
   write_byte(FRAME_HDR2);
@@ -89,11 +97,10 @@ void R60ABD1Component::send_cmd(uint8_t ctrl, uint8_t cmd,
 
 void R60ABD1Component::process_byte_(uint8_t byte) {
   switch (parse_state_) {
-
     case ParseState::IDLE:
       if (byte == FRAME_HDR1) {
         checksum_accum_ = FRAME_HDR1;
-        parse_state_    = ParseState::HDR2;
+        parse_state_ = ParseState::HDR2;
       }
       break;
 
@@ -107,40 +114,40 @@ void R60ABD1Component::process_byte_(uint8_t byte) {
       break;
 
     case ParseState::CTRL:
-      ctrl_            = byte;
+      ctrl_ = byte;
       checksum_accum_ += byte;
-      parse_state_     = ParseState::CMD;
+      parse_state_ = ParseState::CMD;
       break;
 
     case ParseState::CMD:
-      cmd_             = byte;
+      cmd_ = byte;
       checksum_accum_ += byte;
-      parse_state_     = ParseState::LEN_H;
+      parse_state_ = ParseState::LEN_H;
       break;
 
     case ParseState::LEN_H:
-      data_len_        = static_cast<uint16_t>(byte) << 8;
+      data_len_ = static_cast<uint16_t>(byte) << 8;
       checksum_accum_ += byte;
-      parse_state_     = ParseState::LEN_L;
+      parse_state_ = ParseState::LEN_L;
       break;
 
     case ParseState::LEN_L:
-      data_len_       |= byte;
+      data_len_ |= byte;
       checksum_accum_ += byte;
-      data_idx_        = 0;
+      data_idx_ = 0;
       if (data_len_ > MAX_DATA_LEN) {
         ESP_LOGW(TAG, "Frame data too long (%u bytes), discarding", data_len_);
         parse_state_ = ParseState::IDLE;
       } else {
-        parse_state_ = (data_len_ == 0) ? ParseState::CHECKSUM
-                                        : ParseState::DATA;
+        parse_state_ = (data_len_ == 0) ? ParseState::CHECKSUM : ParseState::DATA;
       }
       break;
 
     case ParseState::DATA:
       rx_buf_[data_idx_++] = byte;
-      checksum_accum_     += byte;
-      if (data_idx_ >= data_len_) parse_state_ = ParseState::CHECKSUM;
+      checksum_accum_ += byte;
+      if (data_idx_ >= data_len_)
+        parse_state_ = ParseState::CHECKSUM;
       break;
 
     case ParseState::CHECKSUM:
@@ -153,13 +160,14 @@ void R60ABD1Component::process_byte_(uint8_t byte) {
       break;
 
     case ParseState::TAIL1:
-      parse_state_ = (byte == FRAME_TAIL1) ? ParseState::TAIL2
-                                           : ParseState::IDLE;
+      parse_state_ = (byte == FRAME_TAIL1) ? ParseState::TAIL2 : ParseState::IDLE;
       break;
 
     case ParseState::TAIL2:
-      if (byte == FRAME_TAIL2) dispatch_frame_();
-      else ESP_LOGW(TAG, "Bad tail2: 0x%02X", byte);
+      if (byte == FRAME_TAIL2)
+        dispatch_frame_();
+      else
+        ESP_LOGW(TAG, "Bad tail2: 0x%02X", byte);
       parse_state_ = ParseState::IDLE;
       break;
   }
@@ -194,8 +202,7 @@ void R60ABD1Component::dispatch_frame_() {
     case CTRL_PRODUCT:
       if (data_len_ > 0 && data_len_ < MAX_DATA_LEN) {
         rx_buf_[data_len_] = '\0';
-        ESP_LOGI(TAG, "Product info (cmd=0x%02X): %s", cmd_,
-                 reinterpret_cast<const char *>(rx_buf_));
+        ESP_LOGI(TAG, "Product info (cmd=0x%02X): %s", cmd_, reinterpret_cast<const char *>(rx_buf_));
       }
       break;
     default:
@@ -211,51 +218,49 @@ void R60ABD1Component::dispatch_frame_() {
 // ── 0x05 工作状态 ──────────────────────────────────────────────────────────
 
 void R60ABD1Component::handle_work_state_frame_() {
-  if (cmd_ != 0x01 && cmd_ != 0x81) return;
+  if (cmd_ != 0x01 && cmd_ != 0x81)
+    return;
 
   // 0x05 0x01 上报：初始化完成（无数据字节，data_len_=1, data=0x0F 是占位符）
   // 0x05 0x81 回复：data[0]=0x01 已完成, 0x00 未完成
-  const bool done = (cmd_ == 0x01) ||
-                    (cmd_ == 0x81 && data_len_ >= 1 && rx_buf_[0] == 0x01);
+  const bool done = (cmd_ == 0x01) || (cmd_ == 0x81 && data_len_ >= 1 && rx_buf_[0] == 0x01);
 
   if (done && !initialized_) {
     initialized_ = true;
     ESP_LOGI(TAG, "R60ABD1 initialized, enabling all monitoring");
-    // 延迟 100ms 确保模组完全就绪
-    delay(100);
-    enable_presence();
-    enable_breath();
-    enable_heart_rate();
-    enable_sleep();
+
+    // 使用非阻塞的 set_timeout 代替 delay，避免阻塞串口接收导致丢包
+    this->set_timeout("init_1", 100, [this]() { this->enable_presence(); });
+    this->set_timeout("init_2", 150, [this]() { this->enable_breath(); });
+    this->set_timeout("init_3", 200, [this]() { this->enable_heart_rate(); });
+    this->set_timeout("init_4", 250, [this]() { this->enable_sleep(); });
   }
 }
 
 // ── 0x80 人体存在 ──────────────────────────────────────────────────────────
 
 void R60ABD1Component::handle_presence_frame_() {
-  if (data_len_ == 0) return;
+  if (data_len_ == 0)
+    return;
 
   switch (cmd_) {
-
-    case 0x01: // 存在信息: 00=无人, 01=有人
-      if (presence_sensor_) {
-        const bool present = (rx_buf_[0] == 0x01);
-        presence_sensor_->publish_state(present);
-        ESP_LOGD(TAG, "Presence: %s", present ? "YES" : "NO");
-      }
+    case 0x01:  // 存在信息: 00=无人, 01=有人
+      last_raw_presence_ = (rx_buf_[0] == 0x01);
+      ESP_LOGD(TAG, "Presence (raw): %s", last_raw_presence_ ? "YES" : "NO");
+      publish_presence_();
       break;
 
-    case 0x02: // 运动状态: 00=无, 01=静止, 02=活跃
+    case 0x02:  // 运动状态: 00=无, 01=静止, 02=活跃
       if (motion_sensor_)
         motion_sensor_->publish_state(static_cast<float>(rx_buf_[0]));
       break;
 
-    case 0x03: // 体动幅度: 0-100，1B
+    case 0x03:  // 体动幅度: 0-100，1B
       if (body_movement_ && data_len_ >= 1)
         body_movement_->publish_state(static_cast<float>(rx_buf_[0]));
       break;
 
-    case 0x04: { // 人体距离: 2B，单位 cm
+    case 0x04: {  // 人体距离: 2B，单位 cm
       if (body_distance_ && data_len_ >= 2) {
         const uint16_t dist = (static_cast<uint16_t>(rx_buf_[0]) << 8) | rx_buf_[1];
         body_distance_->publish_state(static_cast<float>(dist));
@@ -264,16 +269,20 @@ void R60ABD1Component::handle_presence_frame_() {
       break;
     }
 
-    case 0x05: { // 人体方位: 6B (2B x, 2B y, 2B z)，15位符号幅值
-      if (data_len_ < 6) break;
+    case 0x05: {  // 人体方位: 6B (2B x, 2B y, 2B z)，15位符号幅值
+      if (data_len_ < 6)
+        break;
       const int16_t rx = decode_coord(rx_buf_[0], rx_buf_[1]);
       const int16_t ry = decode_coord(rx_buf_[2], rx_buf_[3]);
       const int16_t rz = decode_coord(rx_buf_[4], rx_buf_[5]);
       ESP_LOGD(TAG, "Raw pos: x=%d y=%d z=%d cm", rx, ry, rz);
 
-      if (raw_x_) raw_x_->publish_state(static_cast<float>(rx));
-      if (raw_y_) raw_y_->publish_state(static_cast<float>(ry));
-      if (raw_z_) raw_z_->publish_state(static_cast<float>(rz));
+      if (raw_x_)
+        raw_x_->publish_state(static_cast<float>(rx));
+      if (raw_y_)
+        raw_y_->publish_state(static_cast<float>(ry));
+      if (raw_z_)
+        raw_z_->publish_state(static_cast<float>(rz));
 
       publish_position_(rx, ry, rz);
       break;
@@ -287,18 +296,26 @@ void R60ABD1Component::handle_presence_frame_() {
 // ── 0x81 呼吸检测 ──────────────────────────────────────────────────────────
 
 void R60ABD1Component::handle_breath_frame_() {
-  if (data_len_ == 0) return;
+  if (data_len_ == 0)
+    return;
 
   switch (cmd_) {
-
-    case 0x01: { // 呼吸状态: 01=正常 02=过高 03=过低 04=无
+    case 0x01: {  // 呼吸状态: 01=正常 02=过高 03=过低 04=无
       if (breath_state_) {
         const char *state;
         switch (rx_buf_[0]) {
-          case 0x01: state = "normal";  break;
-          case 0x02: state = "high";    break;
-          case 0x03: state = "low";     break;
-          default:   state = "none";    break;
+          case 0x01:
+            state = "normal";
+            break;
+          case 0x02:
+            state = "high";
+            break;
+          case 0x03:
+            state = "low";
+            break;
+          default:
+            state = "none";
+            break;
         }
         breath_state_->publish_state(state);
         ESP_LOGD(TAG, "Breath state: %s", state);
@@ -306,17 +323,16 @@ void R60ABD1Component::handle_breath_frame_() {
       break;
     }
 
-    case 0x02: // 呼吸数值: 0-35 次/min，3s 一次
+    case 0x02:  // 呼吸数值: 0-35 次/min，3s 一次
       if (breath_value_ && data_len_ >= 1) {
         breath_value_->publish_state(static_cast<float>(rx_buf_[0]));
         ESP_LOGD(TAG, "Breath rate: %u /min", rx_buf_[0]);
       }
       break;
 
-    case 0x05: // 呼吸波形: 5B（真实值+128），1s 一次
-      ESP_LOGV(TAG, "Breath waveform: %d %d %d %d %d",
-               rx_buf_[0]-128, rx_buf_[1]-128, rx_buf_[2]-128,
-               rx_buf_[3]-128, rx_buf_[4]-128);
+    case 0x05:  // 呼吸波形: 5B（真实值+128），1s 一次
+      ESP_LOGV(TAG, "Breath waveform: %d %d %d %d %d", rx_buf_[0] - 128, rx_buf_[1] - 128, rx_buf_[2] - 128,
+               rx_buf_[3] - 128, rx_buf_[4] - 128);
       break;
 
     default:
@@ -327,21 +343,20 @@ void R60ABD1Component::handle_breath_frame_() {
 // ── 0x85 心率监测 ──────────────────────────────────────────────────────────
 
 void R60ABD1Component::handle_heart_frame_() {
-  if (data_len_ == 0) return;
+  if (data_len_ == 0)
+    return;
 
   switch (cmd_) {
-
-    case 0x02: // 心率数值: 60-120 bpm，3s 一次
+    case 0x02:  // 心率数值: 60-120 bpm，3s 一次
       if (heart_rate_ && data_len_ >= 1) {
         heart_rate_->publish_state(static_cast<float>(rx_buf_[0]));
         ESP_LOGD(TAG, "Heart rate: %u bpm", rx_buf_[0]);
       }
       break;
 
-    case 0x05: // 心率波形: 5B（中轴线 128），1s 一次
-      ESP_LOGV(TAG, "Heart waveform: %d %d %d %d %d",
-               rx_buf_[0]-128, rx_buf_[1]-128, rx_buf_[2]-128,
-               rx_buf_[3]-128, rx_buf_[4]-128);
+    case 0x05:  // 心率波形: 5B（中轴线 128），1s 一次
+      ESP_LOGV(TAG, "Heart waveform: %d %d %d %d %d", rx_buf_[0] - 128, rx_buf_[1] - 128, rx_buf_[2] - 128,
+               rx_buf_[3] - 128, rx_buf_[4] - 128);
       break;
 
     default:
@@ -352,11 +367,11 @@ void R60ABD1Component::handle_heart_frame_() {
 // ── 0x84 睡眠监测 ──────────────────────────────────────────────────────────
 
 void R60ABD1Component::handle_sleep_frame_() {
-  if (data_len_ == 0) return;
+  if (data_len_ == 0)
+    return;
 
   switch (cmd_) {
-
-    case 0x01: { // 入床/离床: 0x00=离床, 0x01=入床, 0x02=无
+    case 0x01: {  // 入床/离床: 0x00=离床, 0x01=入床, 0x02=无
       if (in_bed_sensor_) {
         const bool in_bed = (rx_buf_[0] == 0x01);
         in_bed_sensor_->publish_state(in_bed);
@@ -365,15 +380,23 @@ void R60ABD1Component::handle_sleep_frame_() {
       break;
     }
 
-    case 0x02: { // 睡眠状态: 0x00=深睡, 0x01=浅睡, 0x02=清醒, 0x03=无
+    case 0x02: {  // 睡眠状态: 0x00=深睡, 0x01=浅睡, 0x02=清醒, 0x03=无
       // 每 10min 上报一次
       if (sleep_state_) {
         const char *s;
         switch (rx_buf_[0]) {
-          case 0x00: s = "deep";   break;
-          case 0x01: s = "light";  break;
-          case 0x02: s = "awake";  break;
-          default:   s = "none";   break;
+          case 0x00:
+            s = "deep";
+            break;
+          case 0x01:
+            s = "light";
+            break;
+          case 0x02:
+            s = "awake";
+            break;
+          default:
+            s = "none";
+            break;
         }
         sleep_state_->publish_state(s);
         ESP_LOGD(TAG, "Sleep state: %s", s);
@@ -381,42 +404,44 @@ void R60ABD1Component::handle_sleep_frame_() {
       break;
     }
 
-    case 0x03: // 清醒时长: 2B，单位分钟
+    case 0x03:  // 清醒时长: 2B，单位分钟
       if (awake_duration_ && data_len_ >= 2) {
         const uint16_t min = (static_cast<uint16_t>(rx_buf_[0]) << 8) | rx_buf_[1];
         awake_duration_->publish_state(static_cast<float>(min));
       }
       break;
 
-    case 0x04: // 浅睡时长: 2B
+    case 0x04:  // 浅睡时长: 2B
       if (light_sleep_dur_ && data_len_ >= 2) {
         const uint16_t min = (static_cast<uint16_t>(rx_buf_[0]) << 8) | rx_buf_[1];
         light_sleep_dur_->publish_state(static_cast<float>(min));
       }
       break;
 
-    case 0x05: // 深睡时长: 2B
+    case 0x05:  // 深睡时长: 2B
       if (deep_sleep_dur_ && data_len_ >= 2) {
         const uint16_t min = (static_cast<uint16_t>(rx_buf_[0]) << 8) | rx_buf_[1];
         deep_sleep_dur_->publish_state(static_cast<float>(min));
       }
       break;
 
-    case 0x06: // 睡眠质量评分: 0-100，睡眠结束时上报
+    case 0x06:  // 睡眠质量评分: 0-100，睡眠结束时上报
       if (sleep_score_ && data_len_ >= 1) {
         sleep_score_->publish_state(static_cast<float>(rx_buf_[0]));
         ESP_LOGD(TAG, "Sleep score: %u", rx_buf_[0]);
       }
       break;
 
-    case 0x0C: { // 睡眠综合状态: 8B，每 10min 上报一次
+    case 0x0C: {  // 睡眠综合状态: 8B，每 10min 上报一次
       // byte0: 存在(1=有人,0=无人)
       // byte1: 睡眠状态(3=离床,2=清醒,1=浅睡,0=深睡)
       // byte2: 10min 平均呼吸  byte3: 10min 平均心跳
       // byte4: 翻身次数       byte5: 大幅体动占比
       // byte6: 小幅体动占比   byte7: 呼吸暂停(暂无)
-      if (data_len_ < 8) break;
-      ESP_LOGD(TAG, "Sleep summary: present=%u state=%u "
+      if (data_len_ < 8)
+        break;
+      ESP_LOGD(TAG,
+               "Sleep summary: present=%u state=%u "
                "avg_br=%u avg_hr=%u turns=%u",
                rx_buf_[0], rx_buf_[1], rx_buf_[2], rx_buf_[3], rx_buf_[4]);
       // 注意：不更新 breath_value_ / heart_rate_，避免用 10min 平均值覆盖实时值。
@@ -424,41 +449,59 @@ void R60ABD1Component::handle_sleep_frame_() {
       break;
     }
 
-    case 0x0D: { // 睡眠质量分析: 12B，睡眠过程结束时上报
-      if (data_len_ < 12) break;
+    case 0x0D: {  // 睡眠质量分析: 12B，睡眠过程结束时上报
+      if (data_len_ < 12)
+        break;
       // byte0: 评分  byte1-2: 总时长(min)
       // byte3: 清醒%  byte4: 浅睡%  byte5: 深睡%
       // byte6: 离床时长  byte7: 离床次数  byte8: 翻身次数
       // byte9: 平均呼吸  byte10: 平均心率  byte11: 呼吸暂停(暂无)
-      if (sleep_score_) sleep_score_->publish_state(static_cast<float>(rx_buf_[0]));
-      const uint16_t total_min =
-          (static_cast<uint16_t>(rx_buf_[1]) << 8) | rx_buf_[2];
-      ESP_LOGI(TAG, "Sleep analysis: score=%u total=%u min "
+      if (sleep_score_)
+        sleep_score_->publish_state(static_cast<float>(rx_buf_[0]));
+      const uint16_t total_min = (static_cast<uint16_t>(rx_buf_[1]) << 8) | rx_buf_[2];
+      ESP_LOGI(TAG,
+               "Sleep analysis: score=%u total=%u min "
                "awake=%u%% light=%u%% deep=%u%%",
                rx_buf_[0], total_min, rx_buf_[3], rx_buf_[4], rx_buf_[5]);
       break;
     }
 
-    case 0x0E: { // 睡眠异常
+    case 0x0E: {  // 睡眠异常
       const char *abnormal;
       switch (rx_buf_[0]) {
-        case 0x00: abnormal = "sleep_too_short";    break;
-        case 0x01: abnormal = "sleep_too_long";     break;
-        case 0x02: abnormal = "absent_during_sleep";break;
-        default:   abnormal = "none";               break;
+        case 0x00:
+          abnormal = "sleep_too_short";
+          break;
+        case 0x01:
+          abnormal = "sleep_too_long";
+          break;
+        case 0x02:
+          abnormal = "absent_during_sleep";
+          break;
+        default:
+          abnormal = "none";
+          break;
       }
       ESP_LOGW(TAG, "Sleep anomaly: %s", abnormal);
       break;
     }
 
-    case 0x10: { // 睡眠质量评级: 00=无, 01=良好, 02=一般, 03=较差
+    case 0x10: {  // 睡眠质量评级: 00=无, 01=良好, 02=一般, 03=较差
       if (sleep_quality_) {
         const char *q;
         switch (rx_buf_[0]) {
-          case 0x01: q = "good";  break;
-          case 0x02: q = "fair";  break;
-          case 0x03: q = "poor";  break;
-          default:   q = "none";  break;
+          case 0x01:
+            q = "good";
+            break;
+          case 0x02:
+            q = "fair";
+            break;
+          case 0x03:
+            q = "poor";
+            break;
+          default:
+            q = "none";
+            break;
         }
         sleep_quality_->publish_state(q);
         ESP_LOGD(TAG, "Sleep quality: %s", q);
@@ -466,11 +509,11 @@ void R60ABD1Component::handle_sleep_frame_() {
       break;
     }
 
-    case 0x11: // 异常挣扎: 00=无, 01=正常, 02=异常
+    case 0x11:  // 异常挣扎: 00=无, 01=正常, 02=异常
       ESP_LOGD(TAG, "Struggle state: 0x%02X", rx_buf_[0]);
       break;
 
-    case 0x12: // 无人计时: 00=无, 01=正常, 02=异常
+    case 0x12:  // 无人计时: 00=无, 01=正常, 02=异常
       ESP_LOGD(TAG, "Absence timer: 0x%02X", rx_buf_[0]);
       break;
 
@@ -483,22 +526,115 @@ void R60ABD1Component::handle_sleep_frame_() {
 // 坐标变换 & 发布
 // ═══════════════════════════════════════════════════════════════════════════
 
+void R60ABD1Component::publish_presence_() {
+  if (presence_sensor_ == nullptr)
+    return;
+
+  // 雷达报告有人，且（未启用边界门控 或 最近一次坐标落在多边形内）
+  const bool present = last_raw_presence_ && (!boundary_gates_presence_ || last_in_boundary_);
+
+  if (!presence_sensor_->has_state() || presence_sensor_->state != present) {
+    presence_sensor_->publish_state(present);
+    ESP_LOGD(TAG, "Presence: %s%s", present ? "YES" : "NO",
+             (last_raw_presence_ && !present) ? " (gated by boundary)" : "");
+  }
+}
+
 void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
-  const auto res = apply(
-      static_cast<float>(rx),
-      static_cast<float>(ry),
-      static_cast<float>(rz),
-      cal_);
+  uint32_t now_ms = millis();
+  if (now_ms - this->last_publish_ms_ < 1000)
+    return;
+  this->last_publish_ms_ = now_ms;
 
-  if (room_x_)       room_x_->publish_state(res.room.x);
-  if (room_y_)       room_y_->publish_state(res.room.y);
-  if (room_z_)       room_z_->publish_state(res.room_z);
-  if (in_boundary_sensor_) in_boundary_sensor_->publish_state(res.in_boundary);
+  const auto res = apply(static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz), cal_);
 
-  ESP_LOGD(TAG, "Room: x=%.1f y=%.1f h=%.1f cm  [%s]",
-           res.room.x, res.room.y, res.room_z,
+  if (room_x_)
+    room_x_->publish_state(res.room.x);
+  if (room_y_)
+    room_y_->publish_state(res.room.y);
+  if (room_z_)
+    room_z_->publish_state(res.room_z);
+  if (in_boundary_sensor_)
+    in_boundary_sensor_->publish_state(res.in_boundary);
+
+  // 原子帧发布的是雷达局部坐标，不是变换后的房间坐标：融合后端持有每台
+  // 雷达自己的标定，会各自做变换。
+  publish_target_frame_(rx, ry, rz);
+
+  // 坐标帧更新了边界判定，重新计算 presence（隔墙鬼影不应算有人）
+  last_in_boundary_ = res.in_boundary;
+  publish_presence_();
+
+  ESP_LOGD(TAG, "Room: x=%.1f y=%.1f z=%.1f cm  [%s]", res.room.x, res.room.y, res.room_z,
            res.in_boundary ? "inside" : "OUTSIDE");
 }
 
-} // namespace r60abd1
-} // namespace esphome
+/**
+ * 发布 v1 原子目标帧（多雷达融合入口）
+ *
+ * 与 LD2450 系列共用同一个信封：
+ *   {"v":1,"f":<帧序号>,"ts":<开机毫秒>,"t":[[x,y,z,speed], ...]}
+ *
+ * R60ABD1 是单目标三维雷达且不上报速度，因此固定一个四元组、speed 记 0。
+ * 必须用四元组而不是三元组：解析端把三元组读作 [x, y, speed]，
+ * 那样 z 会被当成速度。
+ *
+ * 单位为 cm，与 apply() 接收的局部坐标一致。
+ */
+void R60ABD1Component::publish_target_frame_(int16_t rx, int16_t ry, int16_t rz) {
+  if (target_frame_ == nullptr)
+    return;
+
+  char payload[96];
+  const int written =
+      snprintf(payload, sizeof(payload), "{\"v\":1,\"f\":%lu,\"ts\":%lu,\"t\":[[%d,%d,%d,0]]}",
+               static_cast<unsigned long>(++frame_id_), static_cast<unsigned long>(millis()), rx, ry, rz);
+  if (written < 0 || static_cast<size_t>(written) >= sizeof(payload)) {
+    ESP_LOGW(TAG, "Atomic target frame exceeded payload buffer");
+    return;
+  }
+  target_frame_->publish_state(payload);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 测试数据注入
+// ═══════════════════════════════════════════════════════════════════════════
+
+void R60ABD1Component::inject_mock_data(const std::string &hex_str) {
+  if (hex_str == "0" || hex_str == "reset" || hex_str == "clear" || hex_str.empty()) {
+    ESP_LOGI(TAG, "Clearing mock mode, resuming live hardware UART input");
+    this->mock_active_until_ = 0;
+    return;
+  }
+  this->mock_active_until_ = millis() + 10000;
+  ESP_LOGI(TAG, "Injecting mock data: %s", hex_str.c_str());
+  std::string hex_chars;
+  for (char c : hex_str) {
+    if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+      hex_chars += c;
+    }
+  }
+
+  if (hex_chars.length() % 2 != 0) {
+    ESP_LOGE(TAG, "Mock data length must be even");
+    return;
+  }
+
+  auto char_to_val = [](char c) -> uint8_t {
+    if (c >= '0' && c <= '9')
+      return c - '0';
+    if (c >= 'A' && c <= 'F')
+      return c - 'A' + 10;
+    if (c >= 'a' && c <= 'f')
+      return c - 'a' + 10;
+    return 0;
+  };
+
+  for (size_t i = 0; i < hex_chars.length(); i += 2) {
+    uint8_t byte = (char_to_val(hex_chars[i]) << 4) | char_to_val(hex_chars[i + 1]);
+    process_byte_(byte);
+  }
+}
+
+}  // namespace r60abd1
+}  // namespace esphome

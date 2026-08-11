@@ -5,6 +5,9 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/button/button.h"
+#include "esphome/components/switch/switch.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 #include "ld2450_transform.h"
 
 #include <vector>
@@ -16,81 +19,126 @@ namespace ld2450 {
 
 // ─── 常量 ─────────────────────────────────────────────────────────────────────
 
-static constexpr uint8_t MAX_TARGETS     = 3;
-static constexpr uint8_t TARGET_BYTES    = 8;    // 每个目标 8 字节
-static constexpr uint8_t DATA_BODY_LEN   = 24;   // 3 目标 × 8 字节
-static constexpr uint8_t MAX_CMD_DATA    = 64;   // 命令 ACK 最大数据长度
+static constexpr uint8_t MAX_TARGETS = 3;
+static constexpr uint8_t TARGET_BYTES = 8;    // 每个目标 8 字节
+static constexpr uint8_t DATA_BODY_LEN = 24;  // 3 目标 × 8 字节
+static constexpr uint8_t MAX_CMD_DATA = 64;   // 命令 ACK 最大数据长度
+
+// ── 区域过滤（协议 2.2.12 / 2.2.13）────────────────────────────────────────
+static constexpr uint8_t MAX_ZONES = 3;      // 雷达原生支持 3 个矩形区域
+static constexpr uint8_t ZONE_CFG_LEN = 26;  // 2B 区域类型 + 3 区 × 4 坐标 × 2B
+
+/// 区域过滤类型（协议表 8）
+enum ZoneType : uint16_t {
+  ZONE_DISABLED = 0,  // 关闭区域过滤
+  ZONE_INCLUDE = 1,   // 仅检测设置的区域
+  ZONE_EXCLUDE = 2,   // 不检测设置的区域
+};
+
+/// 单个矩形区域：对角两顶点，单位 mm（协议原生单位）
+struct ZoneRect {
+  int16_t x1{0};
+  int16_t y1{0};
+  int16_t x2{0};
+  int16_t y2{0};
+};
 
 // ── 数据帧标记 ────────────────────────────────────────────────────────────────
-static constexpr uint8_t DATA_HDR1  = 0xAA;
-static constexpr uint8_t DATA_HDR2  = 0xFF;
-static constexpr uint8_t DATA_HDR3  = 0x03;
-static constexpr uint8_t DATA_HDR4  = 0x00;
+static constexpr uint8_t DATA_HDR1 = 0xAA;
+static constexpr uint8_t DATA_HDR2 = 0xFF;
+static constexpr uint8_t DATA_HDR3 = 0x03;
+static constexpr uint8_t DATA_HDR4 = 0x00;
 static constexpr uint8_t DATA_TAIL1 = 0x55;
 static constexpr uint8_t DATA_TAIL2 = 0xCC;
 
 // ── 命令帧标记 ────────────────────────────────────────────────────────────────
-static constexpr uint8_t CMD_HDR1  = 0xFD;
-static constexpr uint8_t CMD_HDR2  = 0xFC;
-static constexpr uint8_t CMD_HDR3  = 0xFB;
-static constexpr uint8_t CMD_HDR4  = 0xFA;
+static constexpr uint8_t CMD_HDR1 = 0xFD;
+static constexpr uint8_t CMD_HDR2 = 0xFC;
+static constexpr uint8_t CMD_HDR3 = 0xFB;
+static constexpr uint8_t CMD_HDR4 = 0xFA;
 static constexpr uint8_t CMD_TAIL1 = 0x04;
 static constexpr uint8_t CMD_TAIL2 = 0x03;
 static constexpr uint8_t CMD_TAIL3 = 0x02;
 static constexpr uint8_t CMD_TAIL4 = 0x01;
 
 // ── 命令字 ────────────────────────────────────────────────────────────────────
-static constexpr uint16_t CMD_ENABLE_CONFIG   = 0x00FF;
-static constexpr uint16_t CMD_END_CONFIG      = 0x00FE;
-static constexpr uint16_t CMD_SINGLE_TARGET   = 0x0080;
-static constexpr uint16_t CMD_MULTI_TARGET    = 0x0090;
-static constexpr uint16_t CMD_QUERY_MODE      = 0x0091;
-static constexpr uint16_t CMD_FW_VERSION      = 0x00A0;
-static constexpr uint16_t CMD_SET_BAUD_RATE   = 0x00A1;
-static constexpr uint16_t CMD_FACTORY_RESET   = 0x00A2;
-static constexpr uint16_t CMD_RESTART         = 0x00A3;
-static constexpr uint16_t CMD_BT_SETTING      = 0x00A4;
-static constexpr uint16_t CMD_GET_MAC         = 0x00A5;
-static constexpr uint16_t CMD_QUERY_ZONE      = 0x00C1;
-static constexpr uint16_t CMD_SET_ZONE        = 0x00C2;
+static constexpr uint16_t CMD_ENABLE_CONFIG = 0x00FF;
+static constexpr uint16_t CMD_END_CONFIG = 0x00FE;
+static constexpr uint16_t CMD_SINGLE_TARGET = 0x0080;
+static constexpr uint16_t CMD_MULTI_TARGET = 0x0090;
+static constexpr uint16_t CMD_QUERY_MODE = 0x0091;
+static constexpr uint16_t CMD_FW_VERSION = 0x00A0;
+static constexpr uint16_t CMD_SET_BAUD_RATE = 0x00A1;
+static constexpr uint16_t CMD_FACTORY_RESET = 0x00A2;
+static constexpr uint16_t CMD_RESTART = 0x00A3;
+static constexpr uint16_t CMD_BT_SETTING = 0x00A4;
+static constexpr uint16_t CMD_GET_MAC = 0x00A5;
+static constexpr uint16_t CMD_QUERY_ZONE = 0x00C1;
+static constexpr uint16_t CMD_SET_ZONE = 0x00C2;
 
 // ─── 帧解析状态机 ─────────────────────────────────────────────────────────────
 
 enum class ParseState : uint8_t {
   IDLE,
   // 数据帧路径: AA FF 03 00 [24B] 55 CC
-  D_HDR2,       // 等待 0xFF
-  D_HDR3,       // 等待 0x03
-  D_HDR4,       // 等待 0x00
-  D_BODY,       // 收集 24 字节目标数据
-  D_TAIL1,      // 等待 0x55
-  D_TAIL2,      // 等待 0xCC
+  D_HDR2,   // 等待 0xFF
+  D_HDR3,   // 等待 0x03
+  D_HDR4,   // 等待 0x00
+  D_BODY,   // 收集 24 字节目标数据
+  D_TAIL1,  // 等待 0x55
+  D_TAIL2,  // 等待 0xCC
   // 命令 ACK 路径: FD FC FB FA [len_L][len_H][data...] 04 03 02 01
-  C_HDR2,       // 等待 0xFC
-  C_HDR3,       // 等待 0xFB
-  C_HDR4,       // 等待 0xFA
-  C_LEN_L,      // 长度低字节
-  C_LEN_H,      // 长度高字节
-  C_DATA,       // 收集 N 字节数据
-  C_TAIL1,      // 等待 0x04
-  C_TAIL2,      // 等待 0x03
-  C_TAIL3,      // 等待 0x02
-  C_TAIL4,      // 等待 0x01
+  C_HDR2,   // 等待 0xFC
+  C_HDR3,   // 等待 0xFB
+  C_HDR4,   // 等待 0xFA
+  C_LEN_L,  // 长度低字节
+  C_LEN_H,  // 长度高字节
+  C_DATA,   // 收集 N 字节数据
+  C_TAIL1,  // 等待 0x04
+  C_TAIL2,  // 等待 0x03
+  C_TAIL3,  // 等待 0x02
+  C_TAIL4,  // 等待 0x01
 };
 
 // ─── 每目标传感器指针 ─────────────────────────────────────────────────────────
 
 struct TargetSensors {
-  sensor::Sensor              *x{nullptr};
-  sensor::Sensor              *y{nullptr};
-  sensor::Sensor              *speed{nullptr};
-  sensor::Sensor              *resolution{nullptr};
-  sensor::Sensor              *distance{nullptr};
-  sensor::Sensor              *angle{nullptr};
-  sensor::Sensor              *room_x{nullptr};
-  sensor::Sensor              *room_y{nullptr};
+  sensor::Sensor *x{nullptr};
+  sensor::Sensor *y{nullptr};
+  sensor::Sensor *speed{nullptr};
+  sensor::Sensor *resolution{nullptr};
+  sensor::Sensor *distance{nullptr};
+  sensor::Sensor *angle{nullptr};
+  sensor::Sensor *room_x{nullptr};
+  sensor::Sensor *room_y{nullptr};
   binary_sensor::BinarySensor *active{nullptr};
   binary_sensor::BinarySensor *in_boundary{nullptr};
+};
+
+class LD2450Component;
+
+class LD2450Button : public button::Button {
+ public:
+  enum ButtonType { RESTART, FACTORY_RESET };
+  void set_parent(LD2450Component *parent) { parent_ = parent; }
+  void set_button_type(ButtonType type) { type_ = type; }
+  void press_action() override;
+
+ protected:
+  LD2450Component *parent_;
+  ButtonType type_;
+};
+
+class LD2450Switch : public switch_::Switch {
+ public:
+  enum SwitchType { MULTI_TARGET, BLUETOOTH };
+  void set_parent(LD2450Component *parent) { parent_ = parent; }
+  void set_switch_type(SwitchType type) { type_ = type; }
+  void write_state(bool state) override;
+
+ protected:
+  LD2450Component *parent_;
+  SwitchType type_;
 };
 
 // ─── 组件类 ───────────────────────────────────────────────────────────────────
@@ -98,106 +146,162 @@ struct TargetSensors {
 class LD2450Component : public Component, public uart::UARTDevice {
  public:
   // ── 生命周期 ────────────────────────────────────────────────────────────
-  void setup()       override;
-  void loop()        override;
+  void setup() override;
+  void loop() override;
   void dump_config() override;
   float get_setup_priority() const override { return setup_priority::DATA; }
 
   // ── 校准参数 setters ───────────────────────────────────────────────────
   /// 设置雷达在房间中的 X 坐标（cm）
-  void set_radar_x(float v)      { cal_.radar_x = v; }
+  void set_radar_x(float v) { cal_.radar_x = v; }
   /// 设置雷达在房间中的 Y 坐标（cm）
-  void set_radar_y(float v)      { cal_.radar_y = v; }
+  void set_radar_y(float v) { cal_.radar_y = v; }
   /// 设置雷达安装高度（cm）
-  void set_radar_z(float v)      { cal_.radar_z = v; }
+  void set_radar_z(float v) { cal_.radar_z = v; }
   /// 设置偏航角（°），触发旋转矩阵重算
-  void set_yaw(float v)          { cal_.yaw   = v; recompute_rotation_(); }
+  void set_yaw(float v) {
+    cal_.yaw = v;
+    recompute_rotation_();
+  }
   /// 设置俯仰角（°），触发旋转矩阵重算
-  void set_pitch(float v)        { cal_.pitch = v; recompute_rotation_(); }
+  void set_pitch(float v) {
+    cal_.pitch = v;
+    recompute_rotation_();
+  }
   /// 设置横滚角（°），触发旋转矩阵重算
-  void set_roll(float v)         { cal_.roll  = v; recompute_rotation_(); }
+  void set_roll(float v) {
+    cal_.roll = v;
+    recompute_rotation_();
+  }
 
   /// 追加一个多边形顶点（房间坐标系，cm）
-  void add_polygon_point(float x, float y) {
-    cal_.polygon.push_back(Vec2{x, y});
-  }
+  void add_polygon_point(float x, float y) { cal_.polygon.push_back(Vec2{x, y}); }
   /// 清空多边形
   void clear_polygon() { cal_.polygon.clear(); }
 
   // ── 全局传感器 setters ─────────────────────────────────────────────────
   /// 设置存在检测传感器（任一目标存在即为 true）
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
+  /// Set the optional atomic target-frame text sensor.
+  void set_target_frame_sensor(text_sensor::TextSensor *s) { target_frame_sensor_ = s; }
+  /// 设置存在检测保持时间（ms，由 codegen 直接传入毫秒值）
+  void set_presence_timeout(uint32_t ms) { presence_timeout_ = ms; }
+  /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
+  void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
 
   // ── 目标 1 传感器 setters ──────────────────────────────────────────────
-  void set_target_1_x_sensor(sensor::Sensor *s)                    { targets_[0].x = s; }
-  void set_target_1_y_sensor(sensor::Sensor *s)                    { targets_[0].y = s; }
-  void set_target_1_speed_sensor(sensor::Sensor *s)                { targets_[0].speed = s; }
-  void set_target_1_resolution_sensor(sensor::Sensor *s)           { targets_[0].resolution = s; }
-  void set_target_1_distance_sensor(sensor::Sensor *s)             { targets_[0].distance = s; }
-  void set_target_1_angle_sensor(sensor::Sensor *s)                { targets_[0].angle = s; }
-  void set_target_1_room_x_sensor(sensor::Sensor *s)               { targets_[0].room_x = s; }
-  void set_target_1_room_y_sensor(sensor::Sensor *s)               { targets_[0].room_y = s; }
-  void set_target_1_active_sensor(binary_sensor::BinarySensor *s)  { targets_[0].active = s; }
+  void set_target_1_x_sensor(sensor::Sensor *s) { targets_[0].x = s; }
+  void set_target_1_y_sensor(sensor::Sensor *s) { targets_[0].y = s; }
+  void set_target_1_speed_sensor(sensor::Sensor *s) { targets_[0].speed = s; }
+  void set_target_1_resolution_sensor(sensor::Sensor *s) { targets_[0].resolution = s; }
+  void set_target_1_distance_sensor(sensor::Sensor *s) { targets_[0].distance = s; }
+  void set_target_1_angle_sensor(sensor::Sensor *s) { targets_[0].angle = s; }
+  void set_target_1_room_x_sensor(sensor::Sensor *s) { targets_[0].room_x = s; }
+  void set_target_1_room_y_sensor(sensor::Sensor *s) { targets_[0].room_y = s; }
+  void set_target_1_active_sensor(binary_sensor::BinarySensor *s) { targets_[0].active = s; }
   void set_target_1_in_boundary_sensor(binary_sensor::BinarySensor *s) { targets_[0].in_boundary = s; }
 
   // ── 目标 2 传感器 setters ──────────────────────────────────────────────
-  void set_target_2_x_sensor(sensor::Sensor *s)                    { targets_[1].x = s; }
-  void set_target_2_y_sensor(sensor::Sensor *s)                    { targets_[1].y = s; }
-  void set_target_2_speed_sensor(sensor::Sensor *s)                { targets_[1].speed = s; }
-  void set_target_2_resolution_sensor(sensor::Sensor *s)           { targets_[1].resolution = s; }
-  void set_target_2_distance_sensor(sensor::Sensor *s)             { targets_[1].distance = s; }
-  void set_target_2_angle_sensor(sensor::Sensor *s)                { targets_[1].angle = s; }
-  void set_target_2_room_x_sensor(sensor::Sensor *s)               { targets_[1].room_x = s; }
-  void set_target_2_room_y_sensor(sensor::Sensor *s)               { targets_[1].room_y = s; }
-  void set_target_2_active_sensor(binary_sensor::BinarySensor *s)  { targets_[1].active = s; }
+  void set_target_2_x_sensor(sensor::Sensor *s) { targets_[1].x = s; }
+  void set_target_2_y_sensor(sensor::Sensor *s) { targets_[1].y = s; }
+  void set_target_2_speed_sensor(sensor::Sensor *s) { targets_[1].speed = s; }
+  void set_target_2_resolution_sensor(sensor::Sensor *s) { targets_[1].resolution = s; }
+  void set_target_2_distance_sensor(sensor::Sensor *s) { targets_[1].distance = s; }
+  void set_target_2_angle_sensor(sensor::Sensor *s) { targets_[1].angle = s; }
+  void set_target_2_room_x_sensor(sensor::Sensor *s) { targets_[1].room_x = s; }
+  void set_target_2_room_y_sensor(sensor::Sensor *s) { targets_[1].room_y = s; }
+  void set_target_2_active_sensor(binary_sensor::BinarySensor *s) { targets_[1].active = s; }
   void set_target_2_in_boundary_sensor(binary_sensor::BinarySensor *s) { targets_[1].in_boundary = s; }
 
   // ── 目标 3 传感器 setters ──────────────────────────────────────────────
-  void set_target_3_x_sensor(sensor::Sensor *s)                    { targets_[2].x = s; }
-  void set_target_3_y_sensor(sensor::Sensor *s)                    { targets_[2].y = s; }
-  void set_target_3_speed_sensor(sensor::Sensor *s)                { targets_[2].speed = s; }
-  void set_target_3_resolution_sensor(sensor::Sensor *s)           { targets_[2].resolution = s; }
-  void set_target_3_distance_sensor(sensor::Sensor *s)             { targets_[2].distance = s; }
-  void set_target_3_angle_sensor(sensor::Sensor *s)                { targets_[2].angle = s; }
-  void set_target_3_room_x_sensor(sensor::Sensor *s)               { targets_[2].room_x = s; }
-  void set_target_3_room_y_sensor(sensor::Sensor *s)               { targets_[2].room_y = s; }
-  void set_target_3_active_sensor(binary_sensor::BinarySensor *s)  { targets_[2].active = s; }
+  void set_target_3_x_sensor(sensor::Sensor *s) { targets_[2].x = s; }
+  void set_target_3_y_sensor(sensor::Sensor *s) { targets_[2].y = s; }
+  void set_target_3_speed_sensor(sensor::Sensor *s) { targets_[2].speed = s; }
+  void set_target_3_resolution_sensor(sensor::Sensor *s) { targets_[2].resolution = s; }
+  void set_target_3_distance_sensor(sensor::Sensor *s) { targets_[2].distance = s; }
+  void set_target_3_angle_sensor(sensor::Sensor *s) { targets_[2].angle = s; }
+  void set_target_3_room_x_sensor(sensor::Sensor *s) { targets_[2].room_x = s; }
+  void set_target_3_room_y_sensor(sensor::Sensor *s) { targets_[2].room_y = s; }
+  void set_target_3_active_sensor(binary_sensor::BinarySensor *s) { targets_[2].active = s; }
   void set_target_3_in_boundary_sensor(binary_sensor::BinarySensor *s) { targets_[2].in_boundary = s; }
 
   // ── 命令发送（公开，供 button/lambda 直接调用）────────────────────────
   /// 发送命令帧（自动包裹 enable/end config）
   void send_config_cmd(uint16_t cmd_word, const uint8_t *data, uint16_t len);
   /// 设置多目标追踪模式
-  void set_multi_target_mode()   { send_config_cmd(CMD_MULTI_TARGET, nullptr, 0); }
-  /// 设置单目标追踪模式
-  void set_single_target_mode()  { send_config_cmd(CMD_SINGLE_TARGET, nullptr, 0); }
+  void set_multi_target_mode(bool enable) {
+    if (enable)
+      send_config_cmd(CMD_MULTI_TARGET, nullptr, 0);
+    else
+      send_config_cmd(CMD_SINGLE_TARGET, nullptr, 0);
+  }
+  /// 设置蓝牙广播（协议 2.2.10：命令值小端，开=01 00，关=00 00）
+  void set_bluetooth(bool enable) {
+    uint8_t data[] = {static_cast<uint8_t>(enable ? 0x01 : 0x00), 0x00};
+    send_config_cmd(CMD_BT_SETTING, data, 2);
+  }
   /// 重启模块
-  void restart_module()          { send_config_cmd(CMD_RESTART, nullptr, 0); }
+  void restart_module() { send_config_cmd(CMD_RESTART, nullptr, 0); }
   /// 恢复出厂设置
-  void factory_reset()           { send_config_cmd(CMD_FACTORY_RESET, nullptr, 0); }
-  /// 查询固件版本
-  void query_firmware_version()  { send_config_cmd(CMD_FW_VERSION, nullptr, 0); }
+  void factory_reset() { send_config_cmd(CMD_FACTORY_RESET, nullptr, 0); }
+  /// 查询雷达状态
+  void query_state() {
+    send_config_cmd(CMD_FW_VERSION, nullptr, 0);
+    // 协议 2.2.11：获取 MAC 地址必须带 2 字节命令值 0x0001
+    const uint8_t mac_query_val[] = {0x01, 0x00};
+    send_config_cmd(CMD_GET_MAC, mac_query_val, 2);
+    send_config_cmd(CMD_QUERY_MODE, nullptr, 0);
+  }
+  // ── 雷达原生区域过滤（协议 2.2.12 / 2.2.13）──────────────────────────
+  /// 设置区域过滤类型（0 关闭 / 1 仅检测区域内 / 2 不检测区域内）
+  void set_zone_type(uint16_t t) { zone_type_ = t; }
+  /// 设置第 idx 个矩形区域的对角顶点（mm）
+  void set_zone(uint8_t idx, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+    if (idx >= MAX_ZONES)
+      return;
+    zones_[idx] = ZoneRect{x1, y1, x2, y2};
+  }
+  /// 标记 YAML 配置了区域过滤，setup() 时自动下发一次
+  void set_zone_config_pending(bool v) { zone_config_pending_ = v; }
+  /// 下发当前区域过滤配置（0x00C2，掉电不丢失，立即生效）
+  void apply_zone_config();
+  /// 查询雷达当前的区域过滤配置（0x00C1）
+  void query_zone_config() { send_config_cmd(CMD_QUERY_ZONE, nullptr, 0); }
+
+  /// 注入测试数据
+  void inject_mock_data(const std::string &hex_str);
+
+  // 控制实体指针
+  /// 绑定多目标追踪开关实体（用于 ACK 状态回读）
+  void set_multi_target_switch(switch_::Switch *s) { multi_target_switch_ = s; }
+  /// 绑定蓝牙开关实体（用于 ACK 状态回读）
+  void set_bluetooth_switch(switch_::Switch *s) { bluetooth_switch_ = s; }
+
+  switch_::Switch *multi_target_switch_{nullptr};
+  switch_::Switch *bluetooth_switch_{nullptr};
 
  protected:
   void process_byte_(uint8_t byte);
   void dispatch_data_frame_();
+  void publish_target_frame_();
   void dispatch_cmd_frame_();
   void recompute_rotation_();
-  void publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm,
-                       int16_t speed_cm_s, uint16_t resolution_mm, bool active);
+  /// 发布单个目标；返回该目标是否应计入全局 presence
+  bool publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm, int16_t speed_cm_s, uint16_t resolution_mm,
+                       bool active);
   void send_raw_cmd_(uint16_t cmd_word, const uint8_t *data, uint16_t len);
 
   // ── 帧解析状态 ─────────────────────────────────────────────────────────
   ParseState parse_state_{ParseState::IDLE};
 
   // 数据帧缓冲
-  uint8_t  data_buf_[DATA_BODY_LEN]{};
-  uint8_t  data_idx_{0};
+  uint8_t data_buf_[DATA_BODY_LEN]{};
+  uint8_t data_idx_{0};
 
   // 命令帧缓冲
   uint16_t cmd_len_{0};
   uint16_t cmd_idx_{0};
-  uint8_t  cmd_buf_[MAX_CMD_DATA]{};
+  uint8_t cmd_buf_[MAX_CMD_DATA]{};
 
   // ── 校准 & 变换 ────────────────────────────────────────────────────────
   CalibrationParams cal_;
@@ -206,7 +310,24 @@ class LD2450Component : public Component, public uart::UARTDevice {
   // ── 传感器指针 ─────────────────────────────────────────────────────────
   TargetSensors targets_[MAX_TARGETS];
   binary_sensor::BinarySensor *presence_sensor_{nullptr};
+  // UART 静默看门狗：记录最后一次收到串口字节的时刻。
+  uint32_t last_rx_ms_{0};
+  void check_uart_stale_(uint32_t now);
+
+  text_sensor::TextSensor *target_frame_sensor_{nullptr};
+  uint32_t frame_id_{0};
+  uint32_t presence_timeout_{5000};
+  uint32_t last_presence_ms_{0};
+  bool boundary_gates_presence_{true};
+
+  // ── 雷达原生区域过滤配置 ───────────────────────────────────────────────
+  uint16_t zone_type_{ZONE_DISABLED};
+  ZoneRect zones_[MAX_ZONES]{};
+  bool zone_config_pending_{false};
+
+  // ── 测试模拟数据状态 ───────────────────────────────────────────────────
+  uint32_t mock_active_until_{0};
 };
 
-} // namespace ld2450
-} // namespace esphome
+}  // namespace ld2450
+}  // namespace esphome

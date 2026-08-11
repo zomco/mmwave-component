@@ -1,188 +1,108 @@
-# 毫米波雷达 ESPHome 组件
+<div align="center">
+  <img src="./assets/mmwave_logo.svg" alt="MMWave Logo" width="200"/>
+  <h1>毫米波雷达 ESPHome 组件</h1>
+</div>
 
 [![CI](https://github.com/zomco/mmwave-component/actions/workflows/ci.yml/badge.svg)](https://github.com/zomco/mmwave-component/actions/workflows/ci.yml)
 [![Publish](https://github.com/zomco/mmwave-component/actions/workflows/publish.yml/badge.svg)](https://github.com/zomco/mmwave-component/actions/workflows/publish.yml)
 
 [English](./README.md)
 
-适用于多款毫米波雷达型号的自定义 [ESPHome](https://esphome.io/) 外部组件，目标平台 **ESP32-C3**（计划支持 ESP32-S3 及其他 MCU）。内置**坐标变换**和**边界过滤**功能。
+支持 16 款毫米波雷达型号的 [ESPHome](https://esphome.io/) 固件，目标平台 **ESP32-C3**
+（ESP32-S3 及其他 MCU 在计划中）。
 
-> **🔌 在浏览器中直接安装固件 →** [**打开安装页**](https://zomco.github.io/mmwave-component/)
->
-> 无需安装任何软件。需要 Chrome 或 Edge 浏览器（支持 Web Serial）。
+## 它解决什么问题
 
----
+大多数 ESPHome 雷达组件把雷达的原始读数直接丢给 Home Assistant。这在实验台上没问题，
+放进真实住宅就不行了：你不知道雷达具体怎么装的，那些坐标就毫无意义；而且毫米波能直接
+穿透石膏板，雷达会兴高采烈地把隔壁邻居报给你。
 
-## 功能特性
+本固件在数据到达 Home Assistant 之前，就在设备端做了两件事：
 
-### 问题：为什么需要这些功能？
+- **坐标变换** —— 根据实测的雷达安装位置和朝向，把雷达本地读数换算成**房间坐标**：
+  以你指定的墙角为原点，单位厘米。
+- **边界过滤** —— 丢弃你所画房间多边形之外的目标，这正是"穿墙幽灵不再触发存在检测"
+  的实现方式。
 
-现有的大多数 ESPHome 毫米波雷达组件仅暴露原始传感器数据（距离、存在状态、雷达局部坐标系下的目标坐标）。这在单传感器、单房间的简单场景下可以使用，但在实际部署中会遇到以下问题：
+得到的位置可以直接拿去写自动化。
 
-```mermaid
-flowchart LR
-    subgraph "没有本组件"
-        R1["雷达模组"] -->|"原始局部坐标<br>(x=50, y=120)"| HA1["Home Assistant"]
-        HA1 -->|"❌ 无房间上下文<br>❌ 无法跨雷达比较<br>❌ 邻室幽灵目标"| U1["用户"]
-    end
-```
-
-| 问题 | 描述 | 示例 |
-|---|---|---|
-| **坐标歧义** | 原始雷达坐标相对于雷达天线自身。同一物理位置会因雷达的安装方式（旋转、倾斜、偏心）产生不同的 (x, y) 值。 | 安装在天花板朝下的雷达报告 `y = 120 cm`，实际目标在门口——对应房间坐标为 `room_x = 350, room_y = 80`。没有坐标变换，自动化必须为每个安装位置硬编码偏移量。 |
-| **无法多雷达融合** | 同一房间的两个雷达各自报告独立的局部坐标，没有共享参考系。无法关联目标或去重。 | 雷达 A 报告目标在 (50, 120)，雷达 B 报告在 (80, 90)。这是同一个人还是两个人？没有统一坐标系无法判断。 |
-| **跨房间误报** | 毫米波信号可以穿透薄墙、玻璃和门。雷达可能检测到相邻房间、走廊甚至室外的人。没有机制丢弃越界目标。 | 卧室睡眠雷达检测到走廊中走动的人，在凌晨 3 点触发了错误的"在床"状态。 |
+<img src="https://raw.githubusercontent.com/zomco/mmwave-card/main/assets/screenshot-live.gif" alt="Live View Demo" width="600">
 
 ---
 
-### 方案一：坐标变换
+## 从这里开始
 
-基于雷达的物理安装参数，将原始雷达局部坐标转换为**房间坐标系**。
+**第一次接触本项目？→ [新手上手指南](./GETTING-STARTED_CN.md)**
 
-```mermaid
-flowchart LR
-    subgraph "雷达局部坐标系"
-        T["目标<br>(rx, ry, rz)"]
-    end
+那份指南带你从一块光板加四根杜邦线，到一张实时房间图，大约 45 分钟，全程不用写 YAML。
+简版流程：
 
-    subgraph "变换"
-        direction TB
-        R["旋转矩阵<br>R = Rz(yaw)·Rx(pitch)·Ry(roll)"]
-        TR["平移<br>+ (radar_x, radar_y, radar_z)"]
-        R --> TR
-    end
+1. **接线**：雷达接到 ESP32-C3，四根线，其中两根要交叉。
+2. **烧录**：浏览器直接刷，不用装软件：
 
-    subgraph "房间坐标系"
-        RT["目标<br>(room_x, room_y, room_z)"]
-    end
+   > [**打开在线烧录页 →**](https://zomco.github.io/mmwave-component/)
+   >
+   > _需要 Chrome 或 Edge（Web Serial）。Firefox 和 Safari 用不了。_
 
-    T --> R
-    TR --> RT
-```
+3. **安装卡片**：这样看到的是图，而不是一堆数字：
 
-**工作原理：**
+   [![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=zomco&repository=mmwave-card&category=plugin)
 
-1. 用户测量雷达在房间中的位置（以房间角落为原点，X 向右，Y 向前）和姿态（偏航角、俯仰角、横滚角）。
-2. 这 6 个参数在 YAML 中编译时声明，也可在运行时通过 Home Assistant `number` 实体调整。
-3. 每次收到目标上报时，组件执行：
-   - 使用 ZYX Tait-Bryan 约定构建 3×3 旋转矩阵：**R = Rz(yaw) · Rx(pitch) · Ry(roll)**
-   - 计算：`world = R × [rx, ry, rz]ᵀ`
-   - 平移：`room = world + [radar_x, radar_y, radar_z]ᵀ`
-4. 变换后的 `room_x`、`room_y`、`room_z` 作为 ESPHome sensor 实体发布。
-
-```yaml
-r60abd1:
-  radar_x: 200.0      # cm — 距左墙距离
-  radar_y: 175.0      # cm — 距后墙距离
-  radar_z: 220.0      # cm — 安装高度
-  yaw:   0.0           # 度 — 水平朝向偏差
-  pitch: 0.0           # 度 — 俯仰角
-  roll:  0.0           # 度 — 横滚角
-```
-
-**解决了什么：**
-- ✅ 所有目标都在统一的房间坐标系中，与雷达的安装方式无关。
-- ✅ 同一房间的多个雷达可以共享同一参考系，实现目标关联。
-- ✅ 自动化引用真实房间位置（如"目标在床附近"），而不是不透明的雷达局部坐标值。
-
-**局限性：**
-- ❌ 用户必须手动测量并输入 6 个校准参数。精度取决于测量精度（手动测量典型误差 ±5 cm）。
-- ❌ 无法补偿雷达硬件失真（非线性距离误差、多径反射等）。
-- ❌ 不执行多雷达目标融合——每个雷达仍独立发布。共享坐标系仅使融合在 HA 自动化层面*成为可能*。
-
-**维度映射：**
-
-不同雷达型号输出不同层级的位置信息。变换相应适配：
-
-| 雷达输出 | 变换输入 | 发布的实体 |
-|---|---|---|
-| 1D（仅距离） | `(range, 0, 0)` | `room_x`, `room_y`, `room_z` |
-| 2D（X, Y） | `(lx, ly, 0)` | `room_x`, `room_y` |
-| 3D（X, Y, Z） | `(lx, ly, lz)` | `room_x`, `room_y`, `room_z` |
+4. **校准**：在卡片的三个标签页里完成。别跳过 —— 坐标有没有意义全看这一步。
 
 ---
 
-### 方案二：边界过滤
+## 文档导航
 
-丢弃落在用户定义多边形外的目标，**完全在房间坐标系中运作**（变换之后）。
+| 你的身份 | 该看 |
+| --- | --- |
+| 第一次安装 | [新手上手指南](./GETTING-STARTED_CN.md) |
+| 想自己写 YAML、改引脚、加传感器 | [DIY 指南](./DIY_CN.md) |
+| 查某个型号的实体和配置项 | `docs/<型号>/README_CN.md`，见下方型号表 |
+| 想新增雷达型号，或者你是 AI 助手 | [AGENTS.md](./AGENTS.md) |
+| 要装多台雷达 | [mmwave-fusion](https://github.com/zomco/mmwave-fusion) |
 
-```mermaid
-flowchart TB
-    subgraph "处理流水线"
-        direction LR
-        P["解析<br>UART 帧"] --> X["变换<br>局部 → 房间"]
-        X --> F{"在边界内?"}
-        F -->|"是 ✅"| PUB["发布到 HA"]
-        F -->|"否 ❌"| DROP["丢弃"]
-    end
+## 相关仓库
 
-    subgraph "房间俯视图"
-        direction TB
-        POLY["多边形边界<br>┌─────────┐<br>│  ✅ T1  │<br>│         │<br>└─────────┘<br>      ❌ T2 (走廊)"]
-    end
-```
+本固件是三个独立发版的组成部分之一：
 
-**工作原理：**
-
-1. 用户用房间坐标（cm）定义一个多边形，表示监测区域。
-2. 坐标变换后，组件使用**射线法（Ray Casting）**（每点 O(n)，支持凸多边形和凹多边形）检测每个目标的 `(room_x, room_y)` 是否在多边形内。
-3. 多边形外的目标被静默丢弃——不会发布到 Home Assistant。
-
-```yaml
-r60abd1:
-  polygon:
-    - { x:   0, y:   0 }     # 左下角
-    - { x: 400, y:   0 }     # 右下角
-    - { x: 400, y: 350 }     # 右上角
-    - { x:   0, y: 350 }     # 左上角
-```
-
-**解决了什么：**
-- ✅ 消除跨房间误报（走廊、相邻房间、室外）。
-- ✅ 支持房间内分区（如仅监测床区域，不包含卫生间）。
-- ✅ 支持任意房间形状——不限于矩形。
-
-**局限性：**
-- ❌ 过滤仅基于 2D（XY 投影）。无法按高度（Z 轴）过滤。不同楼层正上方/正下方的目标如果 XY 投影落在多边形内，仍会通过。
-- ❌ 至少需要 3 个多边形顶点才能激活。少于 3 个顶点时过滤功能禁用（直通）。
-- ❌ 无法过滤由多径反射引起的"软"误报，即看起来来源于多边形内部的虚假目标。
-
----
-
-### 端到端处理流水线
-
-每个雷达帧的完整数据流：
-
-```mermaid
-flowchart LR
-    UART["UART 字节流"]
-    SM["状态机<br>帧解析"]
-    DEC["解码字段<br>(存在, 坐标,<br>呼吸, 心率, 睡眠)"]
-    XFM["坐标<br>变换"]
-    BND["边界<br>过滤"]
-    PUB["发布到<br>Home Assistant"]
-
-    UART --> SM --> DEC --> XFM --> BND --> PUB
-
-    style SM fill:#2d3436,stroke:#00cec9,color:#dfe6e9
-    style XFM fill:#2d3436,stroke:#fdcb6e,color:#dfe6e9
-    style BND fill:#2d3436,stroke:#e17055,color:#dfe6e9
-```
-
-> **处理顺序是强制的：** 解析 → 变换 → 过滤 → 发布。变换必须在过滤之前，因为多边形是在房间坐标系中定义的。
+| 仓库 | 是什么 | 要装吗 |
+| --- | --- | --- |
+| **mmwave-component**（本仓库） | ESPHome 固件 | 要 —— 这是设备端。 |
+| [mmwave-card](https://github.com/zomco/mmwave-card) | Lovelace 卡片 | 实际上要 —— 它是唯一的界面，校准也在它里面做。 |
+| [mmwave-fusion](https://github.com/zomco/mmwave-fusion) | HA 集成 | 只有多雷达融合才需要，实验性。 |
 
 ---
 
 ## 雷达型号状态
 
-| 雷达型号 | 状态 | 维度 | 应用场景 | 文档 |
-|---|---|---|---|---|
-| R60ABD1 | ✅ 已完成 | 3D (X, Y, Z) | 呼吸与睡眠监测、存在检测、心率 | [使用文档](docs/r60abd1/README.md) |
+下面 16 款型号都已具备组件和固件配置。`文档` 一列指向已经写好的型号专属实体与配置说明。
+
+| 雷达型号 | 状态 | 维度 | 目标数 | 波特率 | 应用场景 | 文档 |
+| --- | --- | --- | --- | --- | --- | --- |
+| R60ABD1 | ✅ 已完成 | 3D (X, Y, Z) | 1 | 115200 | 呼吸与睡眠监测、存在检测、心率 | [文档](docs/r60abd1/README_CN.md) |
+| LD2450 | 🔧 开发中 | 2D (X, Y) | 3 | 256000 | 多目标追踪、速度、存在检测 | [文档](docs/ld2450/README_CN.md) |
+| LD2452 | 🧪 测试中 | 2D (X, Y) | 3 | 9600 | 多目标追踪、融合测试 | [文档](docs/ld2452/README_CN.md) |
+| LD2453 | 🔧 开发中 | 2D (X, Y) | 3 | 256000 | 多目标追踪、存在检测 | [文档](docs/ld2453/README_CN.md) |
+| LD2454 | 🧪 测试中 | 2D (X, Y) | 3 | 256000 | 多目标追踪、融合测试 | — |
+| LD2451 | 🔧 开发中 | 2D（极坐标） | 3 | 115200 | 多目标追踪、存在检测 | [文档](docs/ld2451/README_CN.md) |
+| LD6002 | 🔧 开发中 | 1D（距离） | 1 | 1382400 | 呼吸、心率、存在检测 | [文档](docs/ld6002/README_CN.md) |
+| LD2410 | 🔧 开发中 | 1D（距离） | 1 | 256000 | 存在/运动检测、分距离门能量 | — |
+| LD2410B | 🔧 开发中 | 1D（距离） | 1 | 256000 | 存在/运动检测 | [文档](docs/ld2410b/README_CN.md) |
+| LD2410C | 🔧 开发中 | 1D（距离） | 1 | 256000 | 存在/运动检测 | [文档](docs/ld2410c/README_CN.md) |
+| LD2411 | 🔧 开发中 | 1D（距离） | 1 | 115200 | 存在/运动检测 | [文档](docs/ld2411/README_CN.md) |
+| LD2411S | 🔧 开发中 | 1D（距离） | 1 | 256000 | 存在/运动 + 微动检测 | [文档](docs/ld2411s/README_CN.md) |
+| LD2412 | 🔧 开发中 | 1D（距离） | 1 | 115200 | 存在/运动检测、14 距离门、环境光 | [文档](docs/ld2412/README_CN.md) |
+| LD2420 | 🔧 开发中 | 1D（距离） | 1 | 115200 | 存在/运动检测、16 距离门、阈值校准 | [文档](docs/ld2420/README_CN.md) |
+| LD2450A | 🔧 开发中 | 1D（距离） | 1 | 256000 | 测距 + 手势识别 | — |
+| RD03E | 🔧 开发中 | 1D（距离） | 1 | 256000 | 精确测距、存在/运动检测（0.3–6 m） | [文档](docs/rd03e/README_CN.md) |
+
+只有 2D 和 3D 型号能参与多雷达融合 —— 只测距的雷达只有距离没有方向，没有可融合的信息。
 
 ### 状态定义
 
 | 状态 | 描述 |
-|---|---|
+| --- | --- |
 | `Planned` | 文档已准备；组件尚未生成。 |
 | `Developing` | 组件已生成；正在进行硬件固件测试。 |
 | `Testing` | 固件已验证；正在进行 Home Assistant 集成测试。 |
@@ -190,29 +110,6 @@ flowchart LR
 | `Paused` | 受外部条件阻塞（无硬件、无测试环境等）。 |
 
 > 此表为权威信息来源，每次状态变更时更新。
-
----
-
-## 仓库结构
-
-```
-.
-├── .github/
-│   ├── copilot-instructions.md   # AI 开发指南 & CI/CD 文档
-│   └── workflows/
-│       ├── ci.yml                # PR 检查：编译所有 tests/*.yaml
-│       ├── publish.yml           # 构建固件，上传产物
-│       └── publish-pages.yml     # 部署 GitHub Pages（与固件构建分离）
-├── components/{radar_model}/     # ESPHome 外部组件
-├── docs/{radar_model}/           # 产品文档、接线图、使用说明 (README.md)
-├── static/                       # GitHub Pages 源文件 (Jekyll)
-│   ├── _config.yml
-│   └── index.html                # ESP Web Tools 安装页
-├── tests/
-│   ├── {radar_model}-{platform}.yaml          # 基础固件配置
-│   └── {radar_model}-{platform}.factory.yaml  # 出厂固件配置
-└── README.md
-```
 
 ---
 

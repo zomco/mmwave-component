@@ -10,6 +10,9 @@ Ai-Thinker RD03E 24 GHz FMCW 高精度测距雷达 ESPHome 组件。
 > 本表基于协议说明文档和 ESPHome 组件实现代码交叉校验。
 > AI 工具生成 Home Assistant Card 时应参考本表确定实体类型、数值范围和更新频率。
 
+> [!IMPORTANT]
+> **探测角度说明**：根据官方手册与规格书（§5.4 / §6），RD03E 的水平方位角探测范围为 **±20°**（总水平视场角 **40°**），俯仰角探测范围为 **±45°**。在绘制前端卡片扇形或配置视角参数时，应使用 `fovDegrees: 40`。
+
 ### Entity 类型说明
 
 | ESPHome 类型 | Home Assistant 类型 | 说明 |

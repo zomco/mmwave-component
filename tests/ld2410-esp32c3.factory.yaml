@@ -1,0 +1,33 @@
+packages:
+  # The dev config is the single source of truth for this model's hardware,
+  # entities and calibration surface. This file only adds what a *shipped*
+  # device needs on top of it.
+  core: !include ld2410-esp32c3.yaml
+
+esphome:
+  # Identifies the build to ESP Web Tools and to the ESPHome dashboard.
+  project:
+    name: mmwave.ld2410
+    version: dev # replaced by .github/workflows/publish.yml on release
+
+# Lets a user adopt the flashed device into their own ESPHome dashboard.
+dashboard_import:
+  package_import_url: github://zomco/mmwave-component/tests/ld2410-esp32c3.yaml@main
+  import_full_config: true
+
+# Wi-Fi provisioning after flashing, over BLE and over serial.
+esp32_improv:
+  authorizer: none
+
+improv_serial:
+
+# Pulls OTA updates published to the GitHub Pages installer.
+http_request:
+
+ota:
+  - platform: http_request
+
+update:
+  - platform: http_request
+    name: Firmware
+    source: https://zomco.github.io/mmwave-component/ld2410-ESP32-C3/manifest.json

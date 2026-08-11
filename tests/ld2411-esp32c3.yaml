@@ -1,6 +1,6 @@
 substitutions:
   name: ld2411
-  friendly_name: "LD2411 Radar"
+  friendly_name: "Radar"
 
 esphome:
   name: "${name}"
@@ -31,20 +31,5 @@ wifi:
 
 captive_portal:
 
-uart:
-  id: uart_ld2411
-  tx_pin: GPIO21
-  rx_pin: GPIO20
-  baud_rate: 115200
-  data_bits: 8
-  parity: NONE
-  stop_bits: 1
-
-ld2411:
-  uart_id: uart_ld2411
-  presence:
-    name: "Presence"
-  distance:
-    name: "Distance"
-  motion_state:
-    name: "Motion State"
+packages:
+  radar: !include common/ld2411.yaml

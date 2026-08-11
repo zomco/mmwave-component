@@ -1,6 +1,6 @@
 substitutions:
   name: ld2453
-  friendly_name: "LD2453 Radar"
+  friendly_name: "Radar"
 
 esphome:
   name: "${name}"
@@ -31,26 +31,5 @@ wifi:
 
 captive_portal:
 
-uart:
-  id: uart_ld2453
-  tx_pin: GPIO21
-  rx_pin: GPIO20
-  baud_rate: 256000
-  data_bits: 8
-  parity: NONE
-  stop_bits: 1
-
-ld2453:
-  uart_id: uart_ld2453
-  presence:
-    name: "Presence"
-  
-  target_1:
-    x:
-      name: "Target 1 X"
-    y:
-      name: "Target 1 Y"
-    speed:
-      name: "Target 1 Speed"
-    resolution:
-      name: "Target 1 Resolution"
+packages:
+  radar: !include common/ld2453.yaml

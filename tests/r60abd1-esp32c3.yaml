@@ -13,13 +13,13 @@ esp32:
     type: esp-idf
 
 # ── 外部组件（本地路径） ──────────────────────────────────────────────────────
+
 external_components:
   - source:
       type: local
       path: ../components
     components: [r60abd1]
 
-# ── 基础配置 ──────────────────────────────────────────────────────────────────
 logger:
 
 api:
@@ -33,155 +33,9 @@ wifi:
 
 captive_portal:
 
-# ── UART（R60ABD1 波特率固定 115200，8N1） ────────────────────────────────────
-uart:
-  id: uart_r60abd1
-  tx_pin: GPIO21   # ESP32-C3 → R60ABD1 TXD（交叉接线）
-  rx_pin: GPIO20   # ESP32-C3 ← R60ABD1 RXD
-  baud_rate: 115200
-  data_bits: 8
-  parity: NONE
-  stop_bits: 1
+# =============================================================================
+# 脚本与 UART
+# =============================================================================
 
-# ── R60ABD1 组件 ──────────────────────────────────────────────────────────────
-r60abd1:
-  id: radar
-  uart_id: uart_r60abd1
-
-  # ── 校准参数 ────────────────────────────────────────────────────────────────
-  # 安装位置：以房间左下角为原点，X 向右，Y 向前（cm）
-  radar_x: 200.0        # 雷达距左墙 200cm
-  radar_y: 175.0        # 雷达距后墙 175cm（房间中线）
-  radar_z: 220.0   # 距地面安装高度（cm）
-
-  # 安装姿态（度）
-  # yaw:   水平朝向偏差（雷达正前方相对房间 Y 轴，顺时针为正）
-  # pitch: 俯仰（向前倾为正，水平安装=0）
-  # roll:  横滚（向右倾为正，水平安装=0）
-  yaw:   0.0    # 由校准卡片自动计算后填写
-  pitch: 0.0    # 有 IMU 时从传感器读取；无 IMU 时手动填写
-  roll:  0.0
-
-  # 房间边界多边形（房间坐标系 cm，< 3 点时不过滤）
-  # 由校准卡片绘制后导出填写
-  polygon:
-    - { x:   0, y:   0 }
-    - { x: 400, y:   0 }
-    - { x: 400, y: 350 }
-    - { x:   0, y: 350 }
-
-  # ── 存在与运动传感器 ────────────────────────────────────────────────────────
-  presence:
-    name: "presence"
-    device_class: presence
-
-  motion_state:
-    name: "motion_state"
-    # 0=无人, 1=静止, 2=活跃
-
-  body_movement:
-    name: "body_movement"
-
-  body_distance:
-    name: "body_distance"
-    unit_of_measurement: cm
-
-  # ── 原始坐标（调试用，生产可注释掉） ─────────────────────────────────────
-  raw_x:
-    name: "raw_x"
-    internal: true
-  raw_y:
-    name: "raw_y"
-    internal: true
-  raw_z:
-    name: "raw_z"
-    internal: true
-
-  # ── 变换后的房间坐标（供校准卡片 & 自动化使用） ──────────────────────────
-  room_x:
-    name: "room_x"
-  room_y:
-    name: "room_y"
-  room_z:
-    name: "room_z"
-
-  in_boundary:
-    name: "in_boundary"
-
-  # ── 呼吸 ────────────────────────────────────────────────────────────────────
-  breath_value:
-    name: "breath_value"
-  breath_state:
-    name: "breath_state"
-    # normal / high / low / none
-
-  # ── 心率 ────────────────────────────────────────────────────────────────────
-  heart_rate:
-    name: "heart_rate"
-
-  # ── 睡眠 ────────────────────────────────────────────────────────────────────
-  in_bed:
-    name: "in_bed"
-  sleep_state:
-    name: "sleep_state"
-    # deep / light / awake / none
-  awake_duration:
-    name: "awake_duration"
-  light_sleep_duration:
-    name: "light_sleep_duration"
-  deep_sleep_duration:
-    name: "deep_sleep_duration"
-  sleep_score:
-    name: "sleep_score"
-  sleep_quality:
-    name: "sleep_quality"
-    # good / fair / poor / none
-
-# ── 可选：通过 number 实体在 HA 中实时更新校准参数 ──────────────────────────
-# 校准卡片保存后会调用这些服务
-number:
-  - platform: template
-    name: "yaw"
-    min_value: -180
-    max_value:  180
-    step: 0.1
-    set_action:
-      lambda: "id(radar).set_yaw(x);"
-
-  - platform: template
-    name: "pitch"
-    min_value: -90
-    max_value:  90
-    step: 0.5
-    set_action:
-      lambda: "id(radar).set_pitch(x);"
-
-  - platform: template
-    name: "roll"
-    min_value: -90
-    max_value:  90
-    step: 0.5
-    set_action:
-      lambda: "id(radar).set_roll(x);"
-
-  - platform: template
-    name: "radar_x"
-    min_value: -2000
-    max_value:  2000
-    step: 1
-    set_action:
-      lambda: "id(radar).set_radar_x(x);"
-
-  - platform: template
-    name: "radar_y"
-    min_value: -2000
-    max_value:  2000
-    step: 1
-    set_action:
-      lambda: "id(radar).set_radar_y(x);"
-
-# ── 可选：WiFi 信号强度 ───────────────────────────────────────────────────────
-sensor:
-  - platform: wifi_signal
-    name: "WiFi Signal"
-    update_interval: 60s
+packages:
+  radar: !include common/r60abd1.yaml

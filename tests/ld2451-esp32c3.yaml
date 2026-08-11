@@ -1,6 +1,6 @@
 substitutions:
   name: ld2451
-  friendly_name: "LD2451 Radar"
+  friendly_name: "Radar"
 
 esphome:
   name: "${name}"
@@ -31,34 +31,5 @@ wifi:
 
 captive_portal:
 
-uart:
-  id: uart_ld2451
-  tx_pin: GPIO21
-  rx_pin: GPIO20
-  baud_rate: 115200
-  data_bits: 8
-  parity: NONE
-  stop_bits: 1
-
-ld2451:
-  uart_id: uart_ld2451
-  presence:
-    name: "Presence"
-  target_count:
-    name: "Target Count"
-  alarm:
-    name: "Alarm"
-  
-  target_1:
-    distance:
-      name: "Target 1 Distance"
-    angle:
-      name: "Target 1 Angle"
-    speed:
-      name: "Target 1 Speed"
-    snr:
-      name: "Target 1 SNR"
-    x:
-      name: "Target 1 X"
-    y:
-      name: "Target 1 Y"
+packages:
+  radar: !include common/ld2451.yaml

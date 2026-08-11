@@ -3,7 +3,7 @@ name: CI
 # Validates that every firmware configuration in tests/ compiles on every PR.
 on:
   push:
-    branches-ignore:
+    branches:
       - main
   pull_request:
 
@@ -12,6 +12,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Formatting ──────────────────────────────────────────────────────────────
+  # Runs before the builds and is the cheapest job here, so a pull request that
+  # is only mis-formatted says so in seconds rather than after sixteen firmware
+  # compiles.
+  #
+  # The style is ESPHome's own, copied verbatim into .clang-format. These
+  # components are read alongside ESPHome's and compiled by its toolchain, so
+  # matching upstream is worth more than any local preference.
+  format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Pinned rather than floating: a new clang-format release changes its mind
+      # about some wrapping every so often, and a formatting job that fails
+      # because the runner image moved teaches people to ignore it.
+      - name: Install clang-format
+        run: pip install "clang-format==22.1.8"
+
+      - name: Check formatting
+        run: |
+          files=$(find components -name '*.cpp' -o -name '*.h')
+          if ! clang-format --style=file --dry-run -Werror $files; then
+            echo "::error::Run: clang-format --style=file -i \$(find components -name '*.cpp' -o -name '*.h')"
+            exit 1
+          fi
+
   discover:
     name: Discover test configurations
     runs-on: ubuntu-latest
@@ -21,8 +49,13 @@ jobs:
       - uses: actions/checkout@v7
       - name: List test YAML files
         id: list
+        # -maxdepth 1 on purpose. Firmware configs live directly in tests/;
+        # tests/common/ holds packages — radar cores and the shared device
+        # package — which carry no board, no networking and no esphome: name,
+        # and cannot build on their own. Recursing into it queued one doomed
+        # job per package and is why this workflow had never been green.
         run: |
-          configs=$(find tests -name "*.yaml" | sort \
+          configs=$(find tests -maxdepth 1 -name "*.yaml" | sort \
             | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "configs=$configs" >> "$GITHUB_OUTPUT"
           echo "Found: $configs"

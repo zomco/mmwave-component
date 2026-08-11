@@ -2,7 +2,7 @@
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart, sensor, binary_sensor
+from esphome.components import uart, sensor, binary_sensor, button, switch, text_sensor
 from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
@@ -11,13 +11,14 @@ from esphome.const import (
     STATE_CLASS_MEASUREMENT,
     UNIT_CENTIMETER,
     ICON_EMPTY,
+    CONF_FACTORY_RESET,
 )
 
 # ── HACS / ESPHome 元数据 ─────────────────────────────────────────────────────
 
 CODEOWNERS    = ["@zomco"]
 DEPENDENCIES  = ["uart"]
-AUTO_LOAD     = ["sensor", "binary_sensor"]
+AUTO_LOAD     = ["sensor", "binary_sensor", "button", "switch", "text_sensor"]
 
 # ── C++ 命名空间 ──────────────────────────────────────────────────────────────
 
@@ -37,11 +38,44 @@ CONF_PITCH          = "pitch"
 CONF_ROLL           = "roll"
 CONF_POLYGON        = "polygon"
 
+# 雷达原生区域过滤（协议 2.2.12 / 2.2.13）
+CONF_ZONE_FILTER    = "zone_filter"
+CONF_ZONE_TYPE      = "type"
+CONF_ZONES          = "zones"
+
+ZONE_TYPES = {
+    "disabled": 0,  # 关闭区域过滤
+    "include": 1,   # 仅检测设置的区域
+    "exclude": 2,   # 不检测设置的区域
+}
+
+# 矩形区域：对角两顶点，YAML 使用 cm（与其它坐标一致），下发时转 mm
+ZONE_SCHEMA = cv.Schema({
+    cv.Required("x1"): cv.float_,
+    cv.Required("y1"): cv.float_,
+    cv.Required("x2"): cv.float_,
+    cv.Required("y2"): cv.float_,
+})
+
+ZONE_FILTER_SCHEMA = cv.Schema({
+    cv.Required(CONF_ZONE_TYPE): cv.enum(ZONE_TYPES, lower=True),
+    cv.Optional(CONF_ZONES, default=[]): cv.All(
+        cv.ensure_list(ZONE_SCHEMA), cv.Length(max=3)
+    ),
+})
+
 # 全局传感器
 CONF_PRESENCE       = "presence"
+CONF_PRESENCE_TIMEOUT = "presence_timeout"
+CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
+CONF_TARGET_FRAME    = "target_frame"
+
+# 控制实体
+CONF_MULTI_TARGET   = "multi_target"
+CONF_BLUETOOTH      = "bluetooth"
+CONF_RESTART        = "restart"
 
 # 自定义单位
-UNIT_MILLIMETER     = "mm"
 UNIT_CM_PER_S       = "cm/s"
 UNIT_DEGREES        = "°"
 
@@ -56,10 +90,10 @@ POLYGON_POINT_SCHEMA = cv.Schema({
 # (配置后缀, C++ setter 后缀, icon, unit, accuracy, device_class)
 
 _TARGET_SENSOR_DEFS = [
-    ("x",          "x",          "mdi:axis-x-arrow",         UNIT_MILLIMETER, 0, None),
-    ("y",          "y",          "mdi:axis-y-arrow",         UNIT_MILLIMETER, 0, None),
+    ("x",          "x",          "mdi:axis-x-arrow",         UNIT_CENTIMETER, 1, None),
+    ("y",          "y",          "mdi:axis-y-arrow",         UNIT_CENTIMETER, 1, None),
     ("speed",      "speed",      "mdi:speedometer",          UNIT_CM_PER_S,   0, DEVICE_CLASS_SPEED),
-    ("resolution", "resolution", "mdi:ruler",                UNIT_MILLIMETER, 0, None),
+    ("resolution", "resolution", "mdi:ruler",                UNIT_CENTIMETER, 1, None),
     ("distance",   "distance",   "mdi:map-marker-distance",  UNIT_CENTIMETER, 1, DEVICE_CLASS_DISTANCE),
     ("angle",      "angle",      "mdi:angle-acute",          UNIT_DEGREES,    1, None),
     ("room_x",     "room_x",     "mdi:map-marker-radius",    UNIT_CENTIMETER, 1, None),
@@ -122,9 +156,36 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_POLYGON,  default=[]):
                 cv.ensure_list(POLYGON_POINT_SCHEMA),
 
+            # 雷达原生区域过滤（在雷达侧丢弃目标，与软件多边形过滤互补）
+            cv.Optional(CONF_ZONE_FILTER): ZONE_FILTER_SCHEMA,
+
             # ── 全局存在检测 ──────────────────────────────────────────────
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_PRESENCE,
+            ),
+            cv.Optional(CONF_TARGET_FRAME): text_sensor.text_sensor_schema(
+                icon="mdi:radar",
+            ),
+            cv.Optional(CONF_PRESENCE_TIMEOUT, default="5s"): cv.positive_time_period_milliseconds,
+            # 边界外的目标（隔墙鬼影）默认不计入 presence
+            cv.Optional(CONF_BOUNDARY_GATES_PRESENCE, default=True): cv.boolean,
+
+            # ── 控制实体 ──────────────────────────────────────────────────
+            cv.Optional(CONF_MULTI_TARGET): switch.switch_schema(
+                ld2450_ns.class_("LD2450Switch", switch.Switch),
+                icon="mdi:target-account",
+            ),
+            cv.Optional(CONF_BLUETOOTH): switch.switch_schema(
+                ld2450_ns.class_("LD2450Switch", switch.Switch),
+                icon="mdi:bluetooth",
+            ),
+            cv.Optional(CONF_FACTORY_RESET): button.button_schema(
+                ld2450_ns.class_("LD2450Button", button.Button),
+                icon="mdi:restart-alert",
+            ),
+            cv.Optional(CONF_RESTART): button.button_schema(
+                ld2450_ns.class_("LD2450Button", button.Button),
+                icon="mdi:restart",
             ),
 
             # ── 每目标传感器（动态生成） ──────────────────────────────────
@@ -154,10 +215,30 @@ async def to_code(config):
     for pt in config.get(CONF_POLYGON, []):
         cg.add(var.add_polygon_point(pt["x"], pt["y"]))
 
+    # 雷达原生区域过滤：YAML 用 cm，协议用 mm
+    if CONF_ZONE_FILTER in config:
+        zf = config[CONF_ZONE_FILTER]
+        cg.add(var.set_zone_type(zf[CONF_ZONE_TYPE]))
+        for i, z in enumerate(zf[CONF_ZONES]):
+            cg.add(
+                var.set_zone(
+                    i,
+                    int(round(z["x1"] * 10)),
+                    int(round(z["y1"] * 10)),
+                    int(round(z["x2"] * 10)),
+                    int(round(z["y2"] * 10)),
+                )
+            )
+        cg.add(var.set_zone_config_pending(True))
+
     # 全局 binary_sensor
     if CONF_PRESENCE in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_PRESENCE])
         cg.add(var.set_presence_sensor(sens))
+
+    if CONF_TARGET_FRAME in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_TARGET_FRAME])
+        cg.add(var.set_target_frame_sensor(sens))
 
     # 每目标 sensor
     for n in range(1, 4):
@@ -174,3 +255,34 @@ async def to_code(config):
                 sens = await binary_sensor.new_binary_sensor(config[key])
                 setter = f"set_target_{n}_{setter_suffix}_sensor"
                 cg.add(getattr(var, setter)(sens))
+
+    # 全局超时设置
+    cg.add(var.set_presence_timeout(config[CONF_PRESENCE_TIMEOUT]))
+    cg.add(var.set_boundary_gates_presence(config[CONF_BOUNDARY_GATES_PRESENCE]))
+
+    # 控制实体
+    if CONF_MULTI_TARGET in config:
+        sw = cg.new_Pvariable(config[CONF_MULTI_TARGET][CONF_ID])
+        await switch.register_switch(sw, config[CONF_MULTI_TARGET])
+        cg.add(sw.set_parent(var))
+        cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2450::LD2450Switch::MULTI_TARGET")))
+        cg.add(var.set_multi_target_switch(sw))
+
+    if CONF_BLUETOOTH in config:
+        sw = cg.new_Pvariable(config[CONF_BLUETOOTH][CONF_ID])
+        await switch.register_switch(sw, config[CONF_BLUETOOTH])
+        cg.add(sw.set_parent(var))
+        cg.add(sw.set_switch_type(cg.RawExpression("esphome::ld2450::LD2450Switch::BLUETOOTH")))
+        cg.add(var.set_bluetooth_switch(sw))
+
+    if CONF_FACTORY_RESET in config:
+        btn = cg.new_Pvariable(config[CONF_FACTORY_RESET][CONF_ID])
+        await button.register_button(btn, config[CONF_FACTORY_RESET])
+        cg.add(btn.set_parent(var))
+        cg.add(btn.set_button_type(cg.RawExpression("esphome::ld2450::LD2450Button::FACTORY_RESET")))
+
+    if CONF_RESTART in config:
+        btn = cg.new_Pvariable(config[CONF_RESTART][CONF_ID])
+        await button.register_button(btn, config[CONF_RESTART])
+        cg.add(btn.set_parent(var))
+        cg.add(btn.set_button_type(cg.RawExpression("esphome::ld2450::LD2450Button::RESTART")))
