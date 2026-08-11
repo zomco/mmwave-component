@@ -23,7 +23,7 @@ jobs:
     outputs:
       configs: ${{ steps.list.outputs.configs }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: List factory YAML files
         id: list
@@ -43,7 +43,7 @@ jobs:
       matrix:
         config: ${{ fromJson(needs.discover.outputs.configs) }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Resolve the version string:
       #   - On a GitHub release: use the tag name (e.g. "1.2.0")
