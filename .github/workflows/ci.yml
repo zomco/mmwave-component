@@ -24,7 +24,7 @@ jobs:
     name: clang-format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Pinned rather than floating: a new clang-format release changes its mind
       # about some wrapping every so often, and a formatting job that fails
