@@ -1,15 +1,17 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart, binary_sensor, sensor
+from esphome.components import uart, binary_sensor, sensor, text_sensor
 from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
     DEVICE_CLASS_PRESENCE,
+    ENTITY_CATEGORY_DIAGNOSTIC,
     UNIT_CENTIMETER,
+    UNIT_SECOND,
 )
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["binary_sensor", "sensor"]
+AUTO_LOAD = ["binary_sensor", "sensor", "text_sensor"]
 
 ld2410b_ns = cg.esphome_ns.namespace("ld2410b")
 LD2410BComponent = ld2410b_ns.class_("LD2410BComponent", cg.Component, uart.UARTDevice)
@@ -23,6 +25,11 @@ CONF_STATIONARY_ENERGY = "stationary_energy"
 CONF_DETECTION_DISTANCE = "detection_distance"
 CONF_MAX_DISTANCE = "max_distance"
 
+# Engineering-mode extras the module appends after the gate energies
+# (protocol table 15): the on-board photodiode and the OUT pin's own state.
+CONF_LIGHT = "light"
+CONF_OUT_PIN = "out_pin"
+
 # Spatial projection entities
 CONF_ROOM_X = "room_x"
 CONF_ROOM_Y = "room_y"
@@ -33,6 +40,17 @@ CONF_IN_BOUNDARY = "in_boundary"
 CONF_GATE_MOVE_ENERGY = "gate_move_energy"
 CONF_GATE_STILL_ENERGY = "gate_still_energy"
 
+# Configuration read-back. These publish what the radar answered to the
+# queries the component issues, so a setting that did not take is visible
+# rather than assumed.
+CONF_FIRMWARE_VERSION = "firmware_version"
+CONF_GATE_SENSITIVITY = "gate_sensitivity"
+CONF_NOISE_FLOOR_STATUS = "noise_floor_status"
+CONF_MAX_MOVING_GATE = "max_moving_gate"
+CONF_MAX_STILL_GATE = "max_still_gate"
+CONF_UNMANNED_DURATION = "unmanned_duration"
+CONF_DISTANCE_RESOLUTION = "distance_resolution"
+
 # Calibration parameters
 CONF_RADAR_X = "radar_x"
 CONF_RADAR_Y = "radar_y"
@@ -42,6 +60,9 @@ CONF_PITCH = "pitch"
 CONF_ROLL = "roll"
 CONF_DISTANCE_MIN = "distance_min"
 CONF_DISTANCE_MAX = "distance_max"
+CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
+
+UNIT_METER_PER_GATE = "m"
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
@@ -56,7 +77,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_ROLL, default=0.0): cv.float_range(min=-90.0, max=90.0),
             cv.Optional(CONF_DISTANCE_MIN, default=0.0): cv.float_,
             cv.Optional(CONF_DISTANCE_MAX, default=0.0): cv.float_,
-            
+            # 距离门外的目标默认不计入 presence，与其他型号一致
+            cv.Optional(CONF_BOUNDARY_GATES_PRESENCE, default=True): cv.boolean,
+
             # Entities
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_PRESENCE,
@@ -90,7 +113,18 @@ CONFIG_SCHEMA = cv.All(
                 device_class=DEVICE_CLASS_DISTANCE,
                 accuracy_decimals=0,
             ),
-            
+            # 0–255 from the module's own photodiode. Not lux: the datasheet
+            # gives no conversion, so it is published as the raw count.
+            cv.Optional(CONF_LIGHT): sensor.sensor_schema(
+                accuracy_decimals=0,
+                icon="mdi:brightness-5",
+            ),
+            # What the module is driving on its OUT pin. Differs from
+            # `presence` once the light-assisted control mode is enabled.
+            cv.Optional(CONF_OUT_PIN): binary_sensor.binary_sensor_schema(
+                icon="mdi:electric-switch",
+            ),
+
             # Spatial Projection Entities
             cv.Optional(CONF_ROOM_X): sensor.sensor_schema(
                 unit_of_measurement=UNIT_CENTIMETER,
@@ -108,6 +142,38 @@ CONFIG_SCHEMA = cv.All(
                 accuracy_decimals=1,
             ),
             cv.Optional(CONF_IN_BOUNDARY): binary_sensor.binary_sensor_schema(),
+
+            # Configuration read-back
+            cv.Optional(CONF_FIRMWARE_VERSION): text_sensor.text_sensor_schema(
+                icon="mdi:chip",
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_GATE_SENSITIVITY): text_sensor.text_sensor_schema(
+                icon="mdi:tune-variant",
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_NOISE_FLOOR_STATUS): text_sensor.text_sensor_schema(
+                icon="mdi:waveform",
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_MAX_MOVING_GATE): sensor.sensor_schema(
+                accuracy_decimals=0,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_MAX_STILL_GATE): sensor.sensor_schema(
+                accuracy_decimals=0,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_UNMANNED_DURATION): sensor.sensor_schema(
+                unit_of_measurement=UNIT_SECOND,
+                accuracy_decimals=0,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_DISTANCE_RESOLUTION): sensor.sensor_schema(
+                unit_of_measurement=UNIT_METER_PER_GATE,
+                accuracy_decimals=2,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
         }
     )
     .extend(
@@ -143,6 +209,7 @@ async def to_code(config):
     cg.add(var.set_roll(config[CONF_ROLL]))
     cg.add(var.set_distance_min(config[CONF_DISTANCE_MIN]))
     cg.add(var.set_distance_max(config[CONF_DISTANCE_MAX]))
+    cg.add(var.set_boundary_gates_presence(config[CONF_BOUNDARY_GATES_PRESENCE]))
 
     if CONF_PRESENCE in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_PRESENCE])
@@ -168,7 +235,13 @@ async def to_code(config):
     if CONF_MAX_DISTANCE in config:
         sens = await sensor.new_sensor(config[CONF_MAX_DISTANCE])
         cg.add(var.set_max_distance_sensor(sens))
-        
+    if CONF_LIGHT in config:
+        sens = await sensor.new_sensor(config[CONF_LIGHT])
+        cg.add(var.set_light_sensor(sens))
+    if CONF_OUT_PIN in config:
+        sens = await binary_sensor.new_binary_sensor(config[CONF_OUT_PIN])
+        cg.add(var.set_out_pin_sensor(sens))
+
     if CONF_ROOM_X in config:
         sens = await sensor.new_sensor(config[CONF_ROOM_X])
         cg.add(var.set_room_x_sensor(sens))
@@ -181,7 +254,29 @@ async def to_code(config):
     if CONF_IN_BOUNDARY in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_IN_BOUNDARY])
         cg.add(var.set_in_boundary_sensor(sens))
-        
+
+    if CONF_FIRMWARE_VERSION in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_FIRMWARE_VERSION])
+        cg.add(var.set_firmware_version_sensor(sens))
+    if CONF_GATE_SENSITIVITY in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_GATE_SENSITIVITY])
+        cg.add(var.set_gate_sensitivity_sensor(sens))
+    if CONF_NOISE_FLOOR_STATUS in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_NOISE_FLOOR_STATUS])
+        cg.add(var.set_noise_floor_status_sensor(sens))
+    if CONF_MAX_MOVING_GATE in config:
+        sens = await sensor.new_sensor(config[CONF_MAX_MOVING_GATE])
+        cg.add(var.set_max_moving_gate_sensor(sens))
+    if CONF_MAX_STILL_GATE in config:
+        sens = await sensor.new_sensor(config[CONF_MAX_STILL_GATE])
+        cg.add(var.set_max_still_gate_sensor(sens))
+    if CONF_UNMANNED_DURATION in config:
+        sens = await sensor.new_sensor(config[CONF_UNMANNED_DURATION])
+        cg.add(var.set_unmanned_duration_sensor(sens))
+    if CONF_DISTANCE_RESOLUTION in config:
+        sens = await sensor.new_sensor(config[CONF_DISTANCE_RESOLUTION])
+        cg.add(var.set_distance_resolution_sensor(sens))
+
     for x in range(9):
         if gate_conf := config.get(f"g{x}"):
             if move_config := gate_conf.get(CONF_GATE_MOVE_ENERGY):

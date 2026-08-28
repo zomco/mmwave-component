@@ -27,7 +27,6 @@ esphome:
           id(radar).set_roll(id(g_roll));
           id(radar).set_distance_min(id(g_distance_min));
           id(radar).set_distance_max(id(g_distance_max));
-          id(radar).set_distance_resolution(id(g_distance_resolution));
 
 uart:
   id: uart_ld2410b
@@ -41,6 +40,11 @@ uart:
 # =============================================================================
 # 校准参数（globals）持久化
 # =============================================================================
+#
+# 只保存 ESP 侧的坐标变换参数。雷达自身的配置（最大距离门、无人持续时间、
+# 灵敏度、距离分辨率、光感辅助控制）掉电不丢失，由雷达自己保存，组件在
+# setup() 时读回，因此不需要在这里再存一份 —— 两份配置一旦不一致，
+# 就再也说不清哪一份是真的。
 
 globals:
   - id: g_radar_x
@@ -83,11 +87,6 @@ globals:
     restore_value: true
     initial_value: "600.0" # 600 cm 最大有效距离
 
-  - id: g_distance_resolution
-    type: float
-    restore_value: true
-    initial_value: "0.75" # 默认 0.75m 分辨率
-
 # =============================================================================
 # LD2410B 组件定义
 # =============================================================================
@@ -119,6 +118,13 @@ ld2410b:
     name: "max_distance"
     unit_of_measurement: "cm"
 
+  # ── 工程模式附加数据（协议表 15）────────────────────────────────────────────
+  # 模块自带光敏二极管；OUT 引脚状态在开启光感辅助控制后会与 presence 不同。
+  light:
+    name: "light"
+  out_pin:
+    name: "out_pin"
+
   # ── 坐标转换与区域过滤 ────────────────────────────────────────────────
   room_x:
     name: "room_x"
@@ -132,27 +138,75 @@ ld2410b:
   in_boundary:
     name: "in_boundary"
 
+  # ── 雷达自身配置回读（协议 2.2.4 / 2.2.8 / 2.2.17 / 2.2.21）──────────────
+  # 发布的是雷达答复的值，而不是写进去的值：写失败时看得见。
+  firmware_version:
+    name: "firmware_version"
+  max_moving_gate:
+    name: "max_moving_gate"
+  max_still_gate:
+    name: "max_still_gate"
+  unmanned_duration:
+    name: "unmanned_duration"
+  distance_resolution:
+    name: "distance_resolution"
+  gate_sensitivity:
+    name: "gate_sensitivity"
+  noise_floor_status:
+    name: "noise_floor_status"
+
+  # ── 各距离门能量值（工程模式）──────────────────────────────────────────────
+  # 9 个距离门，每门运动/静止各一个。组件一直在解析它们，之前没有实体承接，
+  # 于是这半个协议在 Home Assistant 里根本不存在。
+  g0:
+    gate_move_energy:
+      name: "g0_move_energy"
+    gate_still_energy:
+      name: "g0_still_energy"
+  g1:
+    gate_move_energy:
+      name: "g1_move_energy"
+    gate_still_energy:
+      name: "g1_still_energy"
+  g2:
+    gate_move_energy:
+      name: "g2_move_energy"
+    gate_still_energy:
+      name: "g2_still_energy"
+  g3:
+    gate_move_energy:
+      name: "g3_move_energy"
+    gate_still_energy:
+      name: "g3_still_energy"
+  g4:
+    gate_move_energy:
+      name: "g4_move_energy"
+    gate_still_energy:
+      name: "g4_still_energy"
+  g5:
+    gate_move_energy:
+      name: "g5_move_energy"
+    gate_still_energy:
+      name: "g5_still_energy"
+  g6:
+    gate_move_energy:
+      name: "g6_move_energy"
+    gate_still_energy:
+      name: "g6_still_energy"
+  g7:
+    gate_move_energy:
+      name: "g7_move_energy"
+    gate_still_energy:
+      name: "g7_still_energy"
+  g8:
+    gate_move_energy:
+      name: "g8_move_energy"
+    gate_still_energy:
+      name: "g8_still_energy"
+
 # =============================================================================
 # 运行时校准控制实体 (number)
 # =============================================================================
-
-  # carried over from the component config
-  radar_x: 0.0
-  # carried over from the component config
-  radar_y: 0.0
-  # carried over from the component config
-  radar_z: 240.0
-  # carried over from the component config
-  yaw: 0.0
-  # carried over from the component config
-  pitch: 0.0
-  # carried over from the component config
-  roll: 0.0
-  
-  # carried over from the component config
-  distance_min: 0.0
-  # carried over from the component config
-  distance_max: 300.0
 
 number:
   - platform: template
@@ -284,26 +338,215 @@ number:
           id(num_distance_max).publish_state(x);
 
 # =============================================================================
+# 雷达自身参数写入实体 (number / select)
+# =============================================================================
+#
+# 这些实体写的是雷达模块的配置，掉电不丢失，由雷达保存。它们的读数来自组件
+# 缓存的「雷达答复值」，所以写失败时数值会退回原样，而不是停在你输入的值上。
+
+  - platform: template
+    name: "Max Moving Gate"
+    id: num_max_moving_gate
+    update_interval: 10s
+    entity_category: config
+    min_value: 2
+    max_value: 8
+    step: 1
+    mode: box
+    icon: mdi:signal-distance-variant
+    lambda: "return id(radar).get_max_moving_gate();"
+    set_action:
+      - lambda: "id(radar).set_max_moving_gate((uint8_t) x);"
+
+  - platform: template
+    name: "Max Still Gate"
+    id: num_max_still_gate
+    update_interval: 10s
+    entity_category: config
+    min_value: 2
+    max_value: 8
+    step: 1
+    mode: box
+    icon: mdi:signal-distance-variant
+    lambda: "return id(radar).get_max_still_gate();"
+    set_action:
+      - lambda: "id(radar).set_max_still_gate((uint8_t) x);"
+
+  - platform: template
+    name: "Unmanned Duration"
+    id: num_unmanned_duration
+    update_interval: 10s
+    entity_category: config
+    unit_of_measurement: s
+    min_value: 0
+    max_value: 65535
+    step: 1
+    mode: box
+    icon: mdi:timer-sand
+    lambda: "return id(radar).get_unmanned_duration();"
+    set_action:
+      - lambda: "id(radar).set_unmanned_duration((uint16_t) x);"
+
+  # 统一设置全部距离门的灵敏度（协议 2.2.7 的 0xFFFF 门号）。逐门配置的
+  # 雷达没有单一数值可显示，此时读数为空，实际值见 gate_sensitivity 文本传感器。
+  - platform: template
+    name: "Move Sensitivity (All Gates)"
+    id: num_move_sensitivity
+    update_interval: 10s
+    entity_category: config
+    min_value: 0
+    max_value: 100
+    step: 1
+    mode: box
+    icon: mdi:tune
+    lambda: |-
+      float v = id(radar).get_uniform_move_sensitivity();
+      if (std::isnan(v)) return {};
+      return v;
+    set_action:
+      - lambda: |-
+          float still = id(radar).get_uniform_still_sensitivity();
+          if (std::isnan(still)) still = x;
+          id(radar).set_gate_sensitivity(0xFFFF, (uint8_t) x, (uint8_t) still);
+
+  - platform: template
+    name: "Still Sensitivity (All Gates)"
+    id: num_still_sensitivity
+    update_interval: 10s
+    entity_category: config
+    min_value: 0
+    max_value: 100
+    step: 1
+    mode: box
+    icon: mdi:tune
+    lambda: |-
+      float v = id(radar).get_uniform_still_sensitivity();
+      if (std::isnan(v)) return {};
+      return v;
+    set_action:
+      - lambda: |-
+          float move = id(radar).get_uniform_move_sensitivity();
+          if (std::isnan(move)) move = x;
+          id(radar).set_gate_sensitivity(0xFFFF, (uint8_t) move, (uint8_t) x);
+
+  - platform: template
+    name: "Light Threshold"
+    id: num_light_threshold
+    update_interval: 10s
+    entity_category: config
+    min_value: 0
+    max_value: 255
+    step: 1
+    mode: box
+    icon: mdi:brightness-percent
+    lambda: "return id(radar).get_light_threshold();"
+    set_action:
+      - lambda: "id(radar).set_light_threshold((uint8_t) x);"
+
+# =============================================================================
 # 运行时配置实体 (select)
 # =============================================================================
 
 select:
+  # 协议 2.2.16：距离分辨率决定每个距离门代表多远，配置值重启模块后才生效。
+  # 因此这里只下发命令，不改本地换算：在模块重启前，下拉框会退回雷达当前
+  # 真正在用的分辨率，而不是假装已经切过去了。
   - platform: template
     name: "Distance Resolution"
     id: select_distance_resolution
+    update_interval: 10s
+    entity_category: config
     icon: mdi:ruler
     options:
       - "0.75m"
       - "0.20m"
     lambda: |-
-      if (id(g_distance_resolution) > 0.5) return {"0.75m"};
-      else return {"0.20m"};
+      if (id(radar).get_distance_resolution() < 0.5f) return {"0.20m"};
+      return {"0.75m"};
+    set_action:
+      - lambda: "id(radar).request_distance_resolution(x == \"0.20m\" ? 1 : 0);"
+
+  # 协议 2.2.18：光感辅助控制。开启后 OUT 引脚同时受雷达检测结果与光感条件
+  # 约束，presence 与 out_pin 会出现差异。
+  - platform: template
+    name: "Light Control Mode"
+    id: select_light_control
+    update_interval: 10s
+    entity_category: config
+    icon: mdi:brightness-auto
+    options:
+      - "Off"
+      - "Below threshold"
+      - "Above threshold"
+    lambda: |-
+      switch (id(radar).get_light_control_mode()) {
+        case 1: return {"Below threshold"};
+        case 2: return {"Above threshold"};
+        default: return {"Off"};
+      }
     set_action:
       - lambda: |-
-          float res = (x == "0.75m") ? 0.75 : 0.20;
-          id(g_distance_resolution) = res;
-          id(radar).set_distance_resolution(res);
-          id(select_distance_resolution).publish_state(x);
+          uint8_t mode = 0;
+          if (x == "Below threshold") mode = 1;
+          else if (x == "Above threshold") mode = 2;
+          id(radar).set_light_control_mode(mode);
+
+  - platform: template
+    name: "OUT Pin Idle Level"
+    id: select_out_pin_level
+    update_interval: 10s
+    entity_category: config
+    icon: mdi:electric-switch
+    options:
+      - "Low"
+      - "High"
+    lambda: |-
+      if (id(radar).get_out_pin_level() != 0) return {"High"};
+      return {"Low"};
+    set_action:
+      - lambda: "id(radar).set_out_pin_level(x == \"High\" ? 1 : 0);"
+
+# =============================================================================
+# 雷达命令按钮
+# =============================================================================
+
+button:
+  - platform: template
+    name: "Query Radar Config"
+    entity_category: diagnostic
+    icon: mdi:help-network
+    on_press:
+      - lambda: |-
+          id(radar).query_parameters();
+          id(radar).query_distance_resolution();
+          id(radar).query_light_control();
+          id(radar).query_firmware_version();
+          id(radar).query_noise_floor_status();
+
+  # 协议 2.2.20：下发后模块等 10 秒再开始统计底噪，期间探测范围内必须无人，
+  # 完成后自动为每个距离门配置灵敏度。执行状态见 noise_floor_status。
+  - platform: template
+    name: "Calibrate Noise Floor"
+    entity_category: config
+    icon: mdi:waveform
+    on_press:
+      - lambda: "id(radar).start_noise_floor_calibration(10);"
+
+  - platform: template
+    name: "Factory Reset"
+    id: btn_factory_reset
+    icon: mdi:factory
+    entity_category: config
+    on_press:
+      - lambda: "id(radar).factory_reset();"
+
+  - platform: template
+    name: "Restart Module"
+    id: btn_restart_module
+    icon: mdi:restart
+    entity_category: config
+    on_press:
+      - lambda: "id(radar).restart_module();"
 
 # =============================================================================
 # 基础状态与诊断传感器
