@@ -54,6 +54,24 @@ class LD2451Component : public Component, public uart::UARTDevice {
   /// Set the optional 10 Hz atomic target-frame text sensor.
   void set_target_frame_sensor(text_sensor::TextSensor *s) { target_frame_sensor_ = s; }
 
+  // ── Configuration read-back entities ──
+  // These publish what the radar answered to a query, not what was written to
+  // it, so a rejected command is visible instead of silently assumed.
+  /// Firmware version reported by protocol 1.2.7.
+  void set_firmware_version_sensor(text_sensor::TextSensor *s) { firmware_version_sensor_ = s; }
+  /// Direction filter as a word ("away" / "approaching" / "both").
+  void set_direction_filter_sensor(text_sensor::TextSensor *s) { direction_filter_sensor_ = s; }
+  /// Furthest range the radar itself reports targets from, in metres.
+  void set_max_detection_distance_sensor(sensor::Sensor *s) { max_detection_distance_sensor_ = s; }
+  /// Slowest radial speed the radar will report, in km/h.
+  void set_min_speed_sensor(sensor::Sensor *s) { min_speed_sensor_ = s; }
+  /// How long the radar keeps reporting after the last target, in seconds.
+  void set_no_target_delay_sensor(sensor::Sensor *s) { no_target_delay_sensor_ = s; }
+  /// Consecutive detections required before the radar raises an alarm.
+  void set_trigger_count_sensor(sensor::Sensor *s) { trigger_count_sensor_ = s; }
+  /// Signal-to-noise threshold level; higher means less sensitive.
+  void set_snr_threshold_sensor(sensor::Sensor *s) { snr_threshold_sensor_ = s; }
+
   void set_target_distance_sensor(uint8_t idx, sensor::Sensor *s) {
     if (idx < 3)
       targets_[idx].distance = s;
@@ -96,8 +114,37 @@ class LD2451Component : public Component, public uart::UARTDevice {
   }
 
   // ── Configuration Commands ──
+  /// Protocol 1.2.9. Values apply after the module restarts.
   void factory_reset();
+  /// Protocol 1.2.10.
   void restart_module();
+  /// Protocol 1.2.7. The answer lands on the firmware_version text sensor.
+  void query_firmware_version();
+
+  /// Protocol 1.2.4 — max distance, direction, min speed and no-target delay.
+  void query_detection_params();
+  /// Protocol 1.2.3. All four travel in one command, so each setter re-sends
+  /// the other three from the values the last query returned.
+  void set_max_detection_distance(uint8_t metres);
+  /// 0 = away only, 1 = approaching only, 2 = both.
+  void set_direction_filter(uint8_t direction);
+  void set_min_speed(uint8_t kmh);
+  void set_no_target_delay(uint8_t seconds);
+  uint8_t get_max_detection_distance() const { return max_detection_distance_; }
+  uint8_t get_direction_filter() const { return direction_filter_; }
+  uint8_t get_min_speed() const { return min_speed_; }
+  uint8_t get_no_target_delay() const { return no_target_delay_; }
+
+  /// Protocol 1.2.6 — accumulated trigger count and SNR threshold level.
+  void query_sensitivity_params();
+  /// Protocol 1.2.5, same paired-write rule as the detection parameters.
+  void set_trigger_count(uint8_t count);
+  /// 0 keeps the radar's own default (4); 3–8 otherwise, higher being less
+  /// sensitive.
+  void set_snr_threshold(uint8_t level);
+  uint8_t get_trigger_count() const { return trigger_count_; }
+  uint8_t get_snr_threshold() const { return snr_threshold_; }
+
   void inject_mock_data(std::string data);
 
  protected:
@@ -107,7 +154,11 @@ class LD2451Component : public Component, public uart::UARTDevice {
   /// 仅在数值变化时发布（ESPHome 不会对数值 sensor 去重）
   void publish_if_changed_(sensor::Sensor *s, float value);
   void process_ack_();
-  void send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
+  void write_command_frame_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
+  void enqueue_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
+  void service_command_queue_(uint32_t now);
+  void send_detection_params_();
+  void send_sensitivity_params_();
   void handle_ack_data_(uint16_t command, uint16_t status, const uint8_t *data, uint8_t data_len);
 
   std::vector<uint8_t> rx_buffer_;
@@ -131,6 +182,41 @@ class LD2451Component : public Component, public uart::UARTDevice {
   binary_sensor::BinarySensor *alarm_sensor_ = nullptr;
   sensor::Sensor *target_count_sensor_ = nullptr;
   text_sensor::TextSensor *target_frame_sensor_ = nullptr;
+
+  text_sensor::TextSensor *firmware_version_sensor_ = nullptr;
+  text_sensor::TextSensor *direction_filter_sensor_ = nullptr;
+  sensor::Sensor *max_detection_distance_sensor_ = nullptr;
+  sensor::Sensor *min_speed_sensor_ = nullptr;
+  sensor::Sensor *no_target_delay_sensor_ = nullptr;
+  sensor::Sensor *trigger_count_sensor_ = nullptr;
+  sensor::Sensor *snr_threshold_sensor_ = nullptr;
+
+  // Cached radar-side configuration, seeded by the queries setup() issues and
+  // refreshed by every later read. A setter that carries only one of four
+  // fields needs the others from somewhere, and a guessed factory default
+  // would quietly undo whatever the user had configured.
+  uint8_t max_detection_distance_{100};
+  uint8_t direction_filter_{2};
+  uint8_t min_speed_{5};
+  uint8_t no_target_delay_{1};
+  uint8_t trigger_count_{1};
+  uint8_t snr_threshold_{0};
+
+  // Protocol 1.4.1 wraps every command in an enable-config / end-config pair.
+  // Queueing them lets one session carry a batch — the three reads setup()
+  // issues, say — and keeps loop() free of blocking waits. The previous nested
+  // set_timeout pair shared one timer name, so a second command issued while
+  // the first was in flight cancelled it.
+  struct PendingCommand {
+    uint16_t command;
+    std::vector<uint8_t> value;
+  };
+  enum class CommandPhase : uint8_t { IDLE, CONFIG_OPEN, COMMAND_SENT };
+
+  std::vector<PendingCommand> command_queue_;
+  CommandPhase command_phase_{CommandPhase::IDLE};
+  uint32_t command_next_ms_{0};
+  uint32_t config_session_until_{0};
 
   TargetSensors targets_[3];
 };

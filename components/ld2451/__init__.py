@@ -5,9 +5,11 @@ from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
     DEVICE_CLASS_PRESENCE,
+    ENTITY_CATEGORY_DIAGNOSTIC,
     UNIT_CENTIMETER,
     UNIT_METER,
     UNIT_DEGREES,
+    UNIT_SECOND,
 )
 
 DEPENDENCIES = ["uart"]
@@ -31,6 +33,17 @@ CONF_ROLL = "roll"
 CONF_DISTANCE_MIN = "distance_min"
 CONF_DISTANCE_MAX = "distance_max"
 CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
+
+# Radar-side configuration read-back (protocol 1.2.4 / 1.2.6 / 1.2.7). These
+# publish what the radar answered to a query, not what was written to it, so a
+# rejected command is visible instead of silently assumed.
+CONF_FIRMWARE_VERSION = "firmware_version"
+CONF_DIRECTION_FILTER = "direction_filter"
+CONF_MAX_DETECTION_DISTANCE = "max_detection_distance"
+CONF_MIN_SPEED = "min_speed"
+CONF_NO_TARGET_DELAY = "no_target_delay"
+CONF_TRIGGER_COUNT = "trigger_count"
+CONF_SNR_THRESHOLD = "snr_threshold"
 
 UNIT_KM_PER_H = "km/h"
 
@@ -107,6 +120,40 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_TARGET_FRAME): text_sensor.text_sensor_schema(
                 icon="mdi:radar",
             ),
+
+            # Configuration read-back
+            cv.Optional(CONF_FIRMWARE_VERSION): text_sensor.text_sensor_schema(
+                icon="mdi:chip",
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_DIRECTION_FILTER): text_sensor.text_sensor_schema(
+                icon="mdi:swap-horizontal",
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_MAX_DETECTION_DISTANCE): sensor.sensor_schema(
+                unit_of_measurement=UNIT_METER,
+                device_class=DEVICE_CLASS_DISTANCE,
+                accuracy_decimals=0,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_MIN_SPEED): sensor.sensor_schema(
+                unit_of_measurement=UNIT_KM_PER_H,
+                accuracy_decimals=0,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_NO_TARGET_DELAY): sensor.sensor_schema(
+                unit_of_measurement=UNIT_SECOND,
+                accuracy_decimals=0,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_TRIGGER_COUNT): sensor.sensor_schema(
+                accuracy_decimals=0,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
+            cv.Optional(CONF_SNR_THRESHOLD): sensor.sensor_schema(
+                accuracy_decimals=0,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            ),
             
             # Targets
             cv.Optional("target_1"): target_schema("target_1"),
@@ -182,6 +229,28 @@ async def to_code(config):
     if CONF_TARGET_FRAME in config:
         sens = await text_sensor.new_text_sensor(config[CONF_TARGET_FRAME])
         cg.add(var.set_target_frame_sensor(sens))
+
+    if CONF_FIRMWARE_VERSION in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_FIRMWARE_VERSION])
+        cg.add(var.set_firmware_version_sensor(sens))
+    if CONF_DIRECTION_FILTER in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_DIRECTION_FILTER])
+        cg.add(var.set_direction_filter_sensor(sens))
+    if CONF_MAX_DETECTION_DISTANCE in config:
+        sens = await sensor.new_sensor(config[CONF_MAX_DETECTION_DISTANCE])
+        cg.add(var.set_max_detection_distance_sensor(sens))
+    if CONF_MIN_SPEED in config:
+        sens = await sensor.new_sensor(config[CONF_MIN_SPEED])
+        cg.add(var.set_min_speed_sensor(sens))
+    if CONF_NO_TARGET_DELAY in config:
+        sens = await sensor.new_sensor(config[CONF_NO_TARGET_DELAY])
+        cg.add(var.set_no_target_delay_sensor(sens))
+    if CONF_TRIGGER_COUNT in config:
+        sens = await sensor.new_sensor(config[CONF_TRIGGER_COUNT])
+        cg.add(var.set_trigger_count_sensor(sens))
+    if CONF_SNR_THRESHOLD in config:
+        sens = await sensor.new_sensor(config[CONF_SNR_THRESHOLD])
+        cg.add(var.set_snr_threshold_sensor(sens))
 
     await setup_target(var, config, 0, "target_1")
     await setup_target(var, config, 1, "target_2")

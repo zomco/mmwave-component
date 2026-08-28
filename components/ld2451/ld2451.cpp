@@ -1,5 +1,7 @@
 #include "ld2451.h"
 
+#include <cstdio>
+
 namespace esphome {
 namespace ld2451 {
 
@@ -8,6 +10,14 @@ static const char *const TAG = "ld2451";
 void LD2451Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up LD2451...");
   this->rx_buffer_.reserve(64);
+
+  // Read back what the module is actually configured with. These settings
+  // survive a power cycle, so the ESP has no business assuming them - and the
+  // write commands carry all four fields at once, which means a setter needs
+  // the other three from a real answer rather than a guessed default.
+  this->enqueue_command_(0x0012, nullptr, 0);
+  this->enqueue_command_(0x0013, nullptr, 0);
+  this->enqueue_command_(0x00A0, nullptr, 0);
 }
 
 void LD2451Component::dump_config() {
@@ -15,6 +25,13 @@ void LD2451Component::dump_config() {
   LOG_BINARY_SENSOR("  ", "Presence", this->presence_sensor_);
   LOG_BINARY_SENSOR("  ", "Alarm", this->alarm_sensor_);
   LOG_SENSOR("  ", "Target Count", this->target_count_sensor_);
+  LOG_TEXT_SENSOR("  ", "Firmware Version", this->firmware_version_sensor_);
+  LOG_TEXT_SENSOR("  ", "Direction Filter", this->direction_filter_sensor_);
+  LOG_SENSOR("  ", "Max Detection Distance", this->max_detection_distance_sensor_);
+  LOG_SENSOR("  ", "Min Speed", this->min_speed_sensor_);
+  LOG_SENSOR("  ", "No Target Delay", this->no_target_delay_sensor_);
+  LOG_SENSOR("  ", "Trigger Count", this->trigger_count_sensor_);
+  LOG_SENSOR("  ", "SNR Threshold", this->snr_threshold_sensor_);
   for (uint8_t i = 0; i < 3; i++) {
     ESP_LOGCONFIG(TAG, "  Target %d:", i + 1);
     LOG_SENSOR("    ", "Distance", this->targets_[i].distance);
@@ -43,6 +60,8 @@ void LD2451Component::dump_config() {
 void LD2451Component::loop() {
   const uint32_t now = millis();
 
+  this->service_command_queue_(now);
+
   // Removed boot_phase_ configuration override to allow the radar to use its internal EEPROM settings.
 
   // Diagnostic: every 5 seconds, report byte count
@@ -68,8 +87,9 @@ void LD2451Component::loop() {
     }
   }
 
-  // Presence watchdog
-  if (now - this->last_rx_ms_ > 1000) {
+  // Presence watchdog. A configuration session silences the data stream by
+  // design, so a parameter read must not read as the radar having gone away.
+  if (now - this->last_rx_ms_ > 1000 && now >= this->config_session_until_) {
     if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
       this->presence_sensor_->publish_state(false);
     }
@@ -84,12 +104,16 @@ void LD2451Component::loop() {
   }
 }
 
-void LD2451Component::send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len) {
-  static const uint8_t ENABLE_CONFIG[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x04, 0x00, 0xFF,
-                                          0x00, 0x01, 0x00, 0x04, 0x03, 0x02, 0x01};
-  static const uint8_t END_CONFIG[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x02, 0x00, 0xFE, 0x00, 0x04, 0x03, 0x02, 0x01};
+// Timings for one configuration session. Protocol 1.4.1 requires
+// enable-config -> command -> end-config with time for the radar to answer
+// (and to finish its flash write) in between. Staging the writes through
+// loop() keeps the component non-blocking; the previous inline delay() chain
+// stalled it for 450 ms, well over ESPHome's 30 ms budget.
+static const uint32_t CONFIG_OPEN_MS = 100;
+static const uint32_t COMMAND_SETTLE_MS = 250;
+static const uint32_t CONFIG_CLOSE_MS = 100;
 
-  // Build the payload frame up front.
+void LD2451Component::write_command_frame_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len) {
   const uint16_t len = 2 + command_value_len;
   std::vector<uint8_t> cmd;
   cmd.reserve(12 + command_value_len);
@@ -98,29 +122,119 @@ void LD2451Component::send_command_(uint16_t command, const uint8_t *command_val
   cmd.push_back((len >> 8) & 0xFF);
   cmd.push_back(command & 0xFF);
   cmd.push_back((command >> 8) & 0xFF);
-  cmd.insert(cmd.end(), command_value, command_value + command_value_len);
+  if (command_value != nullptr && command_value_len > 0) {
+    cmd.insert(cmd.end(), command_value, command_value + command_value_len);
+  }
   cmd.insert(cmd.end(), {0x04, 0x03, 0x02, 0x01});
+  this->write_array(cmd.data(), cmd.size());
+}
 
-  // Protocol 1.4.1 requires enable-config -> command -> end-config with time for
-  // the radar to answer (and to finish its flash write) in between. Staging the
-  // writes with set_timeout keeps loop() non-blocking; the previous inline
-  // delay() chain stalled the component for 450 ms, well over ESPHome's 30 ms
-  // budget.
-  this->write_array(ENABLE_CONFIG, sizeof(ENABLE_CONFIG));
+void LD2451Component::enqueue_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len) {
+  PendingCommand pending;
+  pending.command = command;
+  if (command_value != nullptr && command_value_len > 0) {
+    pending.value.assign(command_value, command_value + command_value_len);
+  }
+  this->command_queue_.push_back(std::move(pending));
+}
 
-  this->set_timeout("ld2451_cmd", 100, [this, cmd]() {
-    this->write_array(cmd.data(), cmd.size());
-    this->set_timeout("ld2451_end_config", 250, [this]() { this->write_array(END_CONFIG, sizeof(END_CONFIG)); });
-  });
+void LD2451Component::service_command_queue_(uint32_t now) {
+  if (this->command_phase_ == CommandPhase::IDLE && this->command_queue_.empty())
+    return;
+  if (now < this->command_next_ms_)
+    return;
+
+  // Hold the watchdog off for the whole session, not just the current step.
+  this->config_session_until_ = now + CONFIG_OPEN_MS + COMMAND_SETTLE_MS + CONFIG_CLOSE_MS + 1000;
+
+  switch (this->command_phase_) {
+    case CommandPhase::IDLE: {
+      const uint8_t enable_value[2] = {0x01, 0x00};
+      this->write_command_frame_(0x00FF, enable_value, sizeof(enable_value));
+      this->command_phase_ = CommandPhase::CONFIG_OPEN;
+      this->command_next_ms_ = now + CONFIG_OPEN_MS;
+      break;
+    }
+    case CommandPhase::CONFIG_OPEN: {
+      const PendingCommand &pending = this->command_queue_.front();
+      this->write_command_frame_(pending.command, pending.value.empty() ? nullptr : pending.value.data(),
+                                 static_cast<uint8_t>(pending.value.size()));
+      this->command_phase_ = CommandPhase::COMMAND_SENT;
+      this->command_next_ms_ = now + COMMAND_SETTLE_MS;
+      break;
+    }
+    case CommandPhase::COMMAND_SENT: {
+      this->command_queue_.erase(this->command_queue_.begin());
+      if (this->command_queue_.empty()) {
+        this->write_command_frame_(0x00FE, nullptr, 0);
+        this->command_phase_ = CommandPhase::IDLE;
+        this->command_next_ms_ = now + CONFIG_CLOSE_MS;
+      } else {
+        this->command_phase_ = CommandPhase::CONFIG_OPEN;
+        this->command_next_ms_ = now;
+      }
+      break;
+    }
+  }
+}
+
+void LD2451Component::query_firmware_version() { this->enqueue_command_(0x00A0, nullptr, 0); }
+void LD2451Component::query_detection_params() { this->enqueue_command_(0x0012, nullptr, 0); }
+void LD2451Component::query_sensitivity_params() { this->enqueue_command_(0x0013, nullptr, 0); }
+
+void LD2451Component::send_detection_params_() {
+  const uint8_t value[4] = {this->max_detection_distance_, this->direction_filter_, this->min_speed_,
+                            this->no_target_delay_};
+  this->enqueue_command_(0x0002, value, sizeof(value));
+  this->enqueue_command_(0x0012, nullptr, 0);
+}
+
+void LD2451Component::set_max_detection_distance(uint8_t metres) {
+  // Protocol 1.2.3 accepts 0x0A to 0xFF metres; anything below reads as a
+  // configuration error rather than a very short range.
+  this->max_detection_distance_ = std::max<uint8_t>(metres, 10);
+  this->send_detection_params_();
+}
+
+void LD2451Component::set_direction_filter(uint8_t direction) {
+  this->direction_filter_ = std::min<uint8_t>(direction, 2);
+  this->send_detection_params_();
+}
+
+void LD2451Component::set_min_speed(uint8_t kmh) {
+  this->min_speed_ = std::min<uint8_t>(kmh, 120);
+  this->send_detection_params_();
+}
+
+void LD2451Component::set_no_target_delay(uint8_t seconds) {
+  this->no_target_delay_ = seconds;
+  this->send_detection_params_();
+}
+
+void LD2451Component::send_sensitivity_params_() {
+  const uint8_t value[4] = {this->trigger_count_, this->snr_threshold_, 0x00, 0x00};
+  this->enqueue_command_(0x0003, value, sizeof(value));
+  this->enqueue_command_(0x0013, nullptr, 0);
+}
+
+void LD2451Component::set_trigger_count(uint8_t count) {
+  this->trigger_count_ = std::min<uint8_t>(std::max<uint8_t>(count, 1), 10);
+  this->send_sensitivity_params_();
+}
+
+void LD2451Component::set_snr_threshold(uint8_t level) {
+  // 0 means "keep the radar's own default"; the configurable band is 3 to 8.
+  this->snr_threshold_ = (level == 0) ? 0 : std::min<uint8_t>(std::max<uint8_t>(level, 3), 8);
+  this->send_sensitivity_params_();
 }
 
 void LD2451Component::factory_reset() {
-  this->send_command_(0x00A2, nullptr, 0);
+  this->enqueue_command_(0x00A2, nullptr, 0);
   ESP_LOGI(TAG, "Factory reset sent");
 }
 
 void LD2451Component::restart_module() {
-  this->send_command_(0x00A3, nullptr, 0);
+  this->enqueue_command_(0x00A3, nullptr, 0);
   ESP_LOGI(TAG, "Restart sent");
 }
 
@@ -152,20 +266,43 @@ void LD2451Component::handle_ack_data_(uint16_t command, uint16_t status, const 
   // e.g. 51 24 | 01 01 | 10 15 05 24  ->  V1.01.24051510
   if (command == 0x01A0 && data_len >= 8) {
     const uint16_t type = (uint16_t(data[1]) << 8) | data[0];
-    ESP_LOGI(TAG, "Radar firmware: V%u.%02u.%02X%02X%02X%02X (type 0x%04X)", data[3], data[2], data[7], data[6],
-             data[5], data[4], type);
+    char version[32];
+    snprintf(version, sizeof(version), "V%u.%02u.%02X%02X%02X%02X", data[3], data[2], data[7], data[6], data[5],
+             data[4]);
+    ESP_LOGI(TAG, "Radar firmware: %s (type 0x%04X)", version, type);
+    if (this->firmware_version_sensor_ != nullptr)
+      this->firmware_version_sensor_->publish_state(version);
   }
 
   // Detection params ACK: 4 bytes (MaxDist, Direction, MinSpeed, Delay)
   if (command == 0x0112 && data_len >= 4) {
+    this->max_detection_distance_ = data[0];
+    this->direction_filter_ = data[1];
+    this->min_speed_ = data[2];
+    this->no_target_delay_ = data[3];
     ESP_LOGI(TAG, "Detection Params: MaxDist=%dm, Dir=%d (0=away,1=approach,2=both), MinSpeed=%dkm/h, Delay=%ds",
              data[0], data[1], data[2], data[3]);
+
+    this->publish_if_changed_(this->max_detection_distance_sensor_, this->max_detection_distance_);
+    this->publish_if_changed_(this->min_speed_sensor_, this->min_speed_);
+    this->publish_if_changed_(this->no_target_delay_sensor_, this->no_target_delay_);
+    if (this->direction_filter_sensor_ != nullptr) {
+      const char *label =
+          this->direction_filter_ == 0 ? "away" : (this->direction_filter_ == 1 ? "approaching" : "both");
+      if (this->direction_filter_sensor_->state != label)
+        this->direction_filter_sensor_->publish_state(label);
+    }
   }
 
   // Sensitivity params ACK: 4 bytes (TriggerCount, SNRThreshold, ext, ext)
   if (command == 0x0113 && data_len >= 4) {
+    this->trigger_count_ = data[0];
+    this->snr_threshold_ = data[1];
     ESP_LOGI(TAG, "Sensitivity Params: TriggerCount=%d, SNRThreshold=%d, ext=%d, ext=%d", data[0], data[1], data[2],
              data[3]);
+
+    this->publish_if_changed_(this->trigger_count_sensor_, this->trigger_count_);
+    this->publish_if_changed_(this->snr_threshold_sensor_, this->snr_threshold_);
   }
 }
 

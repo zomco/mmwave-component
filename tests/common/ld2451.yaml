@@ -94,6 +94,23 @@ ld2451:
   target_frame:
     name: "target_frame"
 
+  # ── 雷达自身配置回读（协议 1.2.4 / 1.2.6 / 1.2.7）────────────────────────
+  # 发布的是雷达答复的值，而不是写进去的值：写失败时看得见。
+  firmware_version:
+    name: "firmware_version"
+  max_detection_distance:
+    name: "max_detection_distance"
+  direction_filter:
+    name: "direction_filter"
+  min_speed:
+    name: "min_speed"
+  no_target_delay:
+    name: "no_target_delay"
+  trigger_count:
+    name: "trigger_count"
+  snr_threshold:
+    name: "snr_threshold"
+
   target_1:
     distance:
       name: "target_1_distance"
@@ -289,7 +306,137 @@ number:
           id(radar).set_distance_max(x);
           id(num_distance_max).publish_state(x);
 
+# =============================================================================
+# 雷达自身参数写入实体（协议 1.2.3 / 1.2.5）
+# =============================================================================
+#
+# 这些实体写的是雷达模块的配置，掉电不丢失，由雷达保存。读数来自组件缓存的
+# 「雷达答复值」，所以写失败时数值会退回原样，而不是停在你输入的值上。
+#
+# 四个检测参数在协议里是一条命令的四个字节，灵敏度参数同理，因此改任意一个
+# 都会把该组参数整体重发一次 —— 组件用上一次查询的结果补齐其余字段。
+
+  - platform: template
+    name: "Max Detection Distance"
+    id: num_max_detection_distance
+    update_interval: 10s
+    entity_category: config
+    unit_of_measurement: m
+    min_value: 10
+    max_value: 255
+    step: 1
+    mode: box
+    icon: mdi:signal-distance-variant
+    lambda: "return id(radar).get_max_detection_distance();"
+    set_action:
+      - lambda: "id(radar).set_max_detection_distance((uint8_t) x);"
+
+  - platform: template
+    name: "Min Speed"
+    id: num_min_speed
+    update_interval: 10s
+    entity_category: config
+    unit_of_measurement: "km/h"
+    min_value: 0
+    max_value: 120
+    step: 1
+    mode: box
+    icon: mdi:speedometer-slow
+    lambda: "return id(radar).get_min_speed();"
+    set_action:
+      - lambda: "id(radar).set_min_speed((uint8_t) x);"
+
+  - platform: template
+    name: "No Target Delay"
+    id: num_no_target_delay
+    update_interval: 10s
+    entity_category: config
+    unit_of_measurement: s
+    min_value: 0
+    max_value: 255
+    step: 1
+    mode: box
+    icon: mdi:timer-sand
+    lambda: "return id(radar).get_no_target_delay();"
+    set_action:
+      - lambda: "id(radar).set_no_target_delay((uint8_t) x);"
+
+  - platform: template
+    name: "Trigger Count"
+    id: num_trigger_count
+    update_interval: 10s
+    entity_category: config
+    min_value: 1
+    max_value: 10
+    step: 1
+    mode: box
+    icon: mdi:counter
+    lambda: "return id(radar).get_trigger_count();"
+    set_action:
+      - lambda: "id(radar).set_trigger_count((uint8_t) x);"
+
+select:
+  # 协议 1.2.3：只检测远离 / 只检测靠近 / 均检测。
+  - platform: template
+    name: "Direction Filter"
+    id: select_direction_filter
+    update_interval: 10s
+    entity_category: config
+    icon: mdi:swap-horizontal
+    options:
+      - "Away only"
+      - "Approaching only"
+      - "Both"
+    lambda: |-
+      switch (id(radar).get_direction_filter()) {
+        case 0: return {"Away only"};
+        case 1: return {"Approaching only"};
+        default: return {"Both"};
+      }
+    set_action:
+      - lambda: |-
+          uint8_t dir = 2;
+          if (x == "Away only") dir = 0;
+          else if (x == "Approaching only") dir = 1;
+          id(radar).set_direction_filter(dir);
+
+  # 协议 1.2.5：0 表示沿用雷达自带默认值（4），3~8 可配，越大越不灵敏。
+  # 用 select 而不是 number，是因为 1 和 2 不是合法取值。
+  - platform: template
+    name: "SNR Threshold"
+    id: select_snr_threshold
+    update_interval: 10s
+    entity_category: config
+    icon: mdi:tune
+    options:
+      - "Radar default"
+      - "3"
+      - "4"
+      - "5"
+      - "6"
+      - "7"
+      - "8"
+    lambda: |-
+      uint8_t level = id(radar).get_snr_threshold();
+      if (level < 3 || level > 8) return {"Radar default"};
+      return {esphome::to_string(level)};
+    set_action:
+      - lambda: |-
+          uint8_t level = 0;
+          if (x != "Radar default") level = (uint8_t) atoi(x.c_str());
+          id(radar).set_snr_threshold(level);
+
 button:
+  - platform: template
+    name: "Query Radar Config"
+    entity_category: diagnostic
+    icon: mdi:help-network
+    on_press:
+      - lambda: |-
+          id(radar).query_detection_params();
+          id(radar).query_sensitivity_params();
+          id(radar).query_firmware_version();
+
   - platform: template
     name: "Factory Reset"
     id: btn_factory_reset
