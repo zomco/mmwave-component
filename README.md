@@ -108,11 +108,11 @@ written.
 | LD2452 | 🧪 Testing | 2D (X, Y) | 3 | 9600 | Multi-target tracking, fusion testing | [Docs](docs/ld2452/README.md) |
 | LD2453 | 🔧 Developing | 2D (X, Y) | 3 | 256000 | Multi-target tracking, presence | [Docs](docs/ld2453/README.md) |
 | LD2454 | 🧪 Testing | 2D (X, Y) | 3 | 256000 | Multi-target tracking, fusion testing | — |
-| LD2451 | 🔧 Developing | 2D (polar) | 3 | 115200 | Multi-target tracking, presence | [Docs](docs/ld2451/README.md) |
+| LD2451 | 🧪 Testing | 2D (polar) | 3 | 115200 | Multi-target tracking, presence | [Docs](docs/ld2451/README.md) |
 | LD6002 | 🔧 Developing | 1D (range) | 1 | 1382400 | Breathing, heart rate, presence | [Docs](docs/ld6002/README.md) |
 | LD2410 | 🔧 Developing | 1D (range) | 1 | 256000 | Presence/motion, per-gate energy | — |
-| LD2410B | 🔧 Developing | 1D (range) | 1 | 256000 | Presence/motion detection | [Docs](docs/ld2410b/README.md) |
-| LD2410C | 🔧 Developing | 1D (range) | 1 | 256000 | Presence/motion detection | [Docs](docs/ld2410c/README.md) |
+| LD2410B | 🧪 Testing | 1D (range) | 1 | 256000 | Presence/motion detection | [Docs](docs/ld2410b/README.md) |
+| LD2410C | 🧪 Testing | 1D (range) | 1 | 256000 | Presence/motion detection | [Docs](docs/ld2410c/README.md) |
 | LD2411 | 🔧 Developing | 1D (range) | 1 | 115200 | Presence/motion detection | [Docs](docs/ld2411/README.md) |
 | LD2411S | 🔧 Developing | 1D (range) | 1 | 256000 | Presence/motion + micro-motion | [Docs](docs/ld2411s/README.md) |
 | LD2412 | 🔧 Developing | 1D (range) | 1 | 115200 | Presence/motion, 14 gates, ambient light | [Docs](docs/ld2412/README.md) |
