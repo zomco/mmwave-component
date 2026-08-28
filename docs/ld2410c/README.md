@@ -174,6 +174,15 @@ duration, which the UART watchdog is told to expect.
 ## Not implemented
 
 The protocol also defines serial baud rate (2.2.9), Bluetooth on/off, MAC
-address and Bluetooth password (2.2.12–2.2.15). Changing the baud rate or
-turning off Bluetooth would strand the module relative to the firmware's own
-UART configuration, so neither is exposed.
+address and Bluetooth password (2.2.12–2.2.15).
+
+The baud rate is left alone because the module keeps the new rate across a
+power cycle while the firmware's `uart:` block does not follow it: one write
+and the ESP is talking to a radar it can no longer hear, with no way back over
+the air.
+
+Bluetooth is left alone for a different reason. Turning it off does not affect
+the UART, but it does remove the vendor app — the path the manual documents for
+tuning and OTA — and the only ways back are the serial command or power-cycling
+the module five times inside two to three seconds. That is a poor thing to put
+behind a switch in a dashboard.
