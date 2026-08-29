@@ -28,6 +28,7 @@ CONF_DISTANCE_MIN = "distance_min"
 CONF_DISTANCE_MAX = "distance_max"
 CONF_POLYGON = "polygon"
 CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
+CONF_PRESENCE_TIMEOUT = "presence_timeout"
 
 UNIT_CM_PER_S = "cm/s"
 UNIT_MILLIMETER = "mm"
@@ -105,6 +106,12 @@ CONFIG_SCHEMA = cv.All(
             ),
             # 边界外的目标（隔墙鬼影）默认不计入 presence
             cv.Optional(CONF_BOUNDARY_GATES_PRESENCE, default=True): cv.boolean,
+            # presence 的迟滞窗口。模组会在相邻帧之间丢掉边缘目标，没有它
+            # presence 会以数赫兹抖动。默认取 1.5 s：足够跨过实测最长 0.8 s
+            # 的丢失间隔，又远小于 e2e 用例允许的 3 s 清除时间。
+            cv.Optional(
+                CONF_PRESENCE_TIMEOUT, default="1.5s"
+            ): cv.positive_time_period_milliseconds,
 
 
             # Global Presence
@@ -174,6 +181,7 @@ async def to_code(config):
     for pt in config.get(CONF_POLYGON, []):
         cg.add(var.add_polygon_point(pt["x"], pt["y"]))
     cg.add(var.set_boundary_gates_presence(config[CONF_BOUNDARY_GATES_PRESENCE]))
+    cg.add(var.set_presence_timeout(config[CONF_PRESENCE_TIMEOUT]))
 
     if CONF_PRESENCE in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_PRESENCE])

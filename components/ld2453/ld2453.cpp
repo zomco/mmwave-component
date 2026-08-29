@@ -46,6 +46,7 @@ void LD2453Component::loop() {
   if (this->mock_active_until_ > 0 && now < this->mock_active_until_) {
     while (this->available())
       this->read();
+    this->update_presence_();
     return;
   }
 
@@ -58,7 +59,14 @@ void LD2453Component::loop() {
     this->process_byte_(this->read());
   }
 
-  this->check_stale_(now);
+  // millis() is re-read inside both: `now` above predates the read loop, and
+  // a frame parsed in that loop stamps last_frame_ms_/last_presence_ms_ with a
+  // *later* millis(). Passing the stale `now` made `now - last_frame_ms_`
+  // underflow to ~4.29e9, which cleared both thresholds on essentially every
+  // frame — blanking the targets and toggling presence off right after they
+  // had been published.
+  this->check_stale_();
+  this->update_presence_();
 }
 
 /**
@@ -72,8 +80,12 @@ void LD2453Component::loop() {
  *
  * 与 ld2450/ld2452/ld2454 的 check_uart_stale_ 不同，这里连坐标 sensor 一起
  * 置 NAN。留着旧坐标会让消费端把过期位置当成实时位置继续画。
+ *
+ * presence 不在这里发布：它只有 update_presence_ 一个写入点，否则迟滞窗口
+ * 会被这里绕开。帧停了，last_presence_ms_ 自然也不再更新，窗口照样会到期。
  */
-void LD2453Component::check_stale_(uint32_t now) {
+void LD2453Component::check_stale_() {
+  const uint32_t now = millis();
   // 上电后还没收到过任何一帧：各实体仍是初始状态，不需要也不应该推送。
   if (this->last_frame_ms_ == 0 || now - this->last_frame_ms_ <= FRAME_STALE_TIMEOUT_MS)
     return;
@@ -83,10 +95,35 @@ void LD2453Component::check_stale_(uint32_t now) {
     publish_if_changed_(this->targets_[i].speed, NAN);
     publish_if_changed_(this->targets_[i].resolution, NAN);
   }
+}
 
-  if (this->presence_sensor_ != nullptr && (this->presence_sensor_->state || !this->presence_sensor_->has_state())) {
+/**
+ * presence 的唯一发布点。
+ *
+ * 模组会在相邻帧之间丢掉边缘目标：实测一个 8 m 外、速度为 0 的静态反射体，
+ * 会以"有目标 / 空槽位"交替上报，间隔 0.1–0.8 秒。逐帧直接把 any_present
+ * 写进 presence，实体就会以数赫兹抖动——十五分钟里跳变了四千多次，卡片因此
+ * 反复清空目标，轨迹根本画不出来。
+ *
+ * 所以这里只在"距离上一次真正看到目标超过 presence_timeout_"之后才置 false。
+ * 坐标不做这种保持：界外和丢失时它们照旧发布 NAN，消费端不会把过期位置当成
+ * 实时位置。被保持的只有"这里有人"这一个判断。
+ *
+ * 同族的 ld2450/ld2452/ld2454 一直有这个窗口（默认 5 s），LD2453 从来没有。
+ * 之前 target_valid 还接受"坐标为零但分辨率非零"的槽位，等于用一个假目标把
+ * 抖动盖住了；把那层去掉之后，缺失的迟滞就暴露了出来。
+ */
+void LD2453Component::update_presence_() {
+  const uint32_t now = millis();
+  if (this->presence_sensor_ == nullptr)
+    return;
+  // 上电后还没见过任何目标：保持初始 false，不要主动推送。
+  if (this->last_presence_ms_ == 0)
+    return;
+  if (now - this->last_presence_ms_ <= this->presence_timeout_)
+    return;
+  if (this->presence_sensor_->state || !this->presence_sensor_->has_state())
     this->presence_sensor_->publish_state(false);
-  }
 }
 
 void LD2453Component::inject_mock_data(const std::string &data) {
@@ -357,9 +394,11 @@ void LD2453Component::process_packet_() {
     }
   }
 
-  if (this->presence_sensor_ != nullptr) {
-    if (this->presence_sensor_->state != any_present || !this->presence_sensor_->has_state()) {
-      this->presence_sensor_->publish_state(any_present);
+  // 只在这里把 presence 拉高；置 false 交给 update_presence_ 的迟滞窗口。
+  if (any_present) {
+    this->last_presence_ms_ = now_ms;
+    if (this->presence_sensor_ != nullptr && (!this->presence_sensor_->state || !this->presence_sensor_->has_state())) {
+      this->presence_sensor_->publish_state(true);
     }
   }
 }
