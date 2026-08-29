@@ -342,6 +342,20 @@ void LD2420Component::loop() {
   if (this->cmd_active_) {
     return;
   }
+
+  // 注入期间丢弃真实串口字节，避免两路数据交错。
+  if (this->mock_active_until_ > 0 && millis() < this->mock_active_until_) {
+    uint8_t discard[MAX_LINE_LENGTH];
+    size_t avail = this->available();
+    while (avail > 0) {
+      size_t to_read = std::min(avail, sizeof(discard));
+      if (!this->read_array(discard, to_read))
+        break;
+      avail -= to_read;
+    }
+    return;
+  }
+
   this->read_batch_(this->buffer_data_);
 
   // --- Custom Presence Watchdog ---
@@ -972,5 +986,29 @@ void LD2420Component::refresh_gate_config_numbers() {
 }
 
 #endif
+
+/**
+ * 注入十六进制测试数据。
+ *
+ * 与其余型号一致：注入期间 loop() 丢弃真实串口字节，10 秒后自动恢复，
+ * "0"/"reset" 可提前结束。字节走 readline_，也就是真实数据的同一条解析路径。
+ */
+void LD2420Component::inject_mock_data(const std::string &data) {
+  if (data == "0" || data == "reset") {
+    this->mock_active_until_ = 0;
+    ESP_LOGD(TAG, "Mock data disabled, resuming normal hardware UART");
+    return;
+  }
+
+  this->mock_active_until_ = millis() + 10000;
+  for (size_t i = 0; i + 1 < data.length(); i += 2) {
+    while (i + 1 < data.length() && data[i] == ' ')
+      i++;
+    if (i + 1 >= data.length())
+      break;
+    const std::string byte_str = data.substr(i, 2);
+    this->readline_((uint8_t) strtol(byte_str.c_str(), nullptr, 16), this->buffer_data_, MAX_LINE_LENGTH);
+  }
+}
 
 }  // namespace esphome::ld2420

@@ -8,6 +8,7 @@
 #include "ld2411_transform.h"
 
 #include <cstdint>
+#include <string>
 
 namespace esphome {
 namespace ld2411 {
@@ -52,6 +53,12 @@ class LD2411Component : public Component, public uart::UARTDevice {
   void set_room_z_sensor(sensor::Sensor *s) { room_z_ = s; }
   void set_in_boundary_sensor(binary_sensor::BinarySensor *s) { in_boundary_sensor_ = s; }
 
+  /// 注入一帧十六进制测试数据，绕过真实串口。
+  ///
+  /// "0" 或 "reset" 立即结束注入窗口。其余输入按两个字符一字节解析，逐字节喂给
+  /// 与真实串口相同的解析路径，因此测试覆盖的是产线代码而不是旁路。
+  void inject_mock_data(const std::string &data);
+
  protected:
   void process_byte_(uint8_t byte);
   void handle_data_frame_();
@@ -63,6 +70,8 @@ class LD2411Component : public Component, public uart::UARTDevice {
   uint8_t data_dist_h_{0};
 
   uint32_t last_rx_ms_{0};
+  /// 非零且未到期时，loop() 丢弃真实串口字节（见 inject_mock_data）。
+  uint32_t mock_active_until_{0};
 
   CalibrationParams cal_;
 

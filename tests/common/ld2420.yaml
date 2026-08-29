@@ -268,3 +268,47 @@ number:
 # 基础状态与诊断传感器
 # =============================================================================
 
+# =============================================================================
+# 模组控制
+# =============================================================================
+#
+# restart_module_action() 和 factory_reset_action() 一直是公开方法，但没有任何
+# YAML 把它们接出来，所以协议支持的两个动作在 Home Assistant 里都不存在。
+#
+# 走 template button 直接调用公开方法，与 ld2410b/ld2410c/ld2450/ld245x 一致。
+# 组件里另有 set_restart_module_button()/set_factory_reset_button()，但 codegen
+# 从未声明对应的配置键，接它们还要先加 schema——同样的效果，多一层。
+#
+# 这里不暴露 auto_calibrate_sensitivity()：它由 OP_CALIBRATE_MODE 在数据回调里
+# 连续驱动，脱离该模式单独触发只会拿全零的采样算出错误的灵敏度。
+
+button:
+  - platform: template
+    name: "Restart"
+    id: btn_restart_module
+    icon: mdi:restart
+    entity_category: config
+    on_press:
+      - lambda: 'id(radar).restart_module_action();'
+
+  - platform: template
+    name: "Factory Reset"
+    id: btn_factory_reset
+    icon: mdi:factory
+    entity_category: config
+    on_press:
+      - lambda: 'id(radar).factory_reset_action();'
+
+text:
+  - platform: template
+    name: "Mock Data"
+    id: text_mock_data
+    mode: text
+    optimistic: true
+    entity_category: diagnostic
+    icon: mdi:bug
+    # set_action, not on_value: on_value only fires when the value *changes*, so
+    # replaying the same frame twice would silently do nothing the second time.
+    set_action:
+      - lambda: 'id(radar).inject_mock_data(x);'
+

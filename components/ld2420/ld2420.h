@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "esphome/core/component.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/core/automation.h"
@@ -122,6 +124,12 @@ class LD2420Component final : public Component, public uart::UARTDevice {
   void set_reg_value(uint16_t reg, uint16_t value);
   void set_system_mode(uint16_t mode);
   void ld2420_restart();
+
+  /// 注入一帧十六进制测试数据，绕过真实串口。
+  ///
+  /// "0" 或 "reset" 立即结束注入窗口。其余输入按两个字符一字节解析，逐字节喂给
+  /// readline_——真实串口走的同一条解析路径，所以测试覆盖的是产线代码。
+  void inject_mock_data(const std::string &data);
 
   float gate_move_sensitivity_factor{0.5};
   float gate_still_sensitivity_factor{0.5};
@@ -254,6 +262,8 @@ class LD2420Component final : public Component, public uart::UARTDevice {
   uint8_t buffer_data_[MAX_LINE_LENGTH];
   char firmware_ver_[8]{"v0.0.0"};
   bool cmd_active_{false};
+  /// 非零且未到期时，loop() 丢弃真实串口字节（见 inject_mock_data）。
+  uint32_t mock_active_until_{0};
   bool presence_{false};
   bool calibration_{false};
   CmdReplyT cmd_reply_;
