@@ -5,6 +5,10 @@ namespace ld2453 {
 
 static const char *const TAG = "ld2453";
 
+// 连续这么久解析不出一个数据帧，就认为链路不可信。模组固定 10 帧/秒上报，
+// 所以 1 秒相当于连丢 10 帧。
+static const uint32_t FRAME_STALE_TIMEOUT_MS = 1000;
+
 void LD2453Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up LD2453 Component...");
   this->rx_buffer_.reserve(64);
@@ -54,11 +58,34 @@ void LD2453Component::loop() {
     this->process_byte_(this->read());
   }
 
-  // Presence watchdog
-  if (now - this->last_rx_ms_ > 1000) {
-    if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
-      this->presence_sensor_->publish_state(false);
-    }
+  this->check_stale_(now);
+}
+
+/**
+ * 帧级看门狗。
+ *
+ * 这里刻意用 last_frame_ms_ 而不是 last_rx_ms_：模组无条件以 10 帧/秒常发，
+ * 只要线还接着，last_rx_ms_ 就永远是新的。原先按 last_rx_ms_ 判断的写法因此
+ * 只能发现"串口彻底断流"，发现不了"字节还在来、但帧头/帧尾对不上"的失步——
+ * 而失步恰恰会让所有实体连同 presence 无限期锁死在最后一个值上，在卡片上表现
+ * 为目标卡住不动。按解析成功的帧计时，两种情况就都能覆盖。
+ *
+ * 与 ld2450/ld2452/ld2454 的 check_uart_stale_ 不同，这里连坐标 sensor 一起
+ * 置 NAN。留着旧坐标会让消费端把过期位置当成实时位置继续画。
+ */
+void LD2453Component::check_stale_(uint32_t now) {
+  // 上电后还没收到过任何一帧：各实体仍是初始状态，不需要也不应该推送。
+  if (this->last_frame_ms_ == 0 || now - this->last_frame_ms_ <= FRAME_STALE_TIMEOUT_MS)
+    return;
+
+  for (uint8_t i = 0; i < 3; i++) {
+    this->publish_empty_target_(i);
+    publish_if_changed_(this->targets_[i].speed, NAN);
+    publish_if_changed_(this->targets_[i].resolution, NAN);
+  }
+
+  if (this->presence_sensor_ != nullptr && (this->presence_sensor_->state || !this->presence_sensor_->has_state())) {
+    this->presence_sensor_->publish_state(false);
   }
 }
 
@@ -168,7 +195,10 @@ void LD2453Component::handle_ack_data_(uint16_t command, uint16_t status, const 
     ESP_LOGW(TAG, "Command 0x%04X failed!", command);
     return;
   }
-  if (command == 0x0091 && data_len >= 2) {
+  // 协议 2.1.2 表 5：ACK 帧里的命令字是"发送命令字 | 0x0100"，
+  // 所以查询追踪模式（0x0091）的回包带的是 0x0191。原先比较 0x0091 永远不成立，
+  // query_parameters() 因此从来没有打印过结果。
+  if (command == 0x0191 && data_len >= 2) {
     uint16_t mode = (uint16_t(data[1]) << 8) | data[0];
     ESP_LOGI(TAG, "Current Tracking Mode: %s", mode == 1 ? "Single Target" : "Multi Target");
   }
@@ -248,8 +278,24 @@ void LD2453Component::publish_if_changed_(sensor::Sensor *s, float value) {
   s->publish_state(value);
 }
 
+void LD2453Component::publish_empty_target_(uint8_t idx) {
+  publish_if_changed_(this->targets_[idx].x, NAN);
+  publish_if_changed_(this->targets_[idx].y, NAN);
+  publish_if_changed_(this->targets_[idx].room_x, NAN);
+  publish_if_changed_(this->targets_[idx].room_y, NAN);
+  publish_if_changed_(this->targets_[idx].room_z, NAN);
+
+  if (this->targets_[idx].in_boundary != nullptr) {
+    if (this->targets_[idx].in_boundary->state || !this->targets_[idx].in_boundary->has_state()) {
+      this->targets_[idx].in_boundary->publish_state(false);
+    }
+  }
+}
+
 void LD2453Component::process_packet_() {
   uint32_t now_ms = millis();
+  this->last_frame_ms_ = now_ms;
+
   if (now_ms - this->last_frame_publish_ms_ >= 100) {
     this->last_frame_publish_ms_ = now_ms;
     this->publish_target_frame_();
@@ -270,8 +316,13 @@ void LD2453Component::process_packet_() {
     int16_t speed_cm_s = this->decode_value_(this->rx_buffer_[offset + 4], this->rx_buffer_[offset + 5]);
     uint16_t res_mm = (uint16_t(this->rx_buffer_[offset + 7]) << 8) | this->rx_buffer_[offset + 6];
 
-    // If resolution is 0 and x/y are 0, this target slot is empty
-    bool target_valid = (res_mm > 0 || x_mm != 0 || y_mm != 0);
+    // 空槽位判定与 ld2450/ld2452/ld2454 保持一致：只看坐标。
+    //
+    // 原先还接受 res_mm > 0，于是坐标归零、只剩距离分辨率的槽位会被当成
+    // 一个位于 (0,0) 的活目标：presence 被拉高，而消费端普遍把 (0,0) 当作
+    // "无目标"过滤掉，结果就是"有人却看不到目标"。协议里空槽位是整段 0x00，
+    // 分辨率非零、坐标为零的组合并无定义。
+    bool target_valid = (x_mm != 0 || y_mm != 0);
 
     // Speed/resolution are only meaningful for an occupied slot; publishing 0
     // for empty slots contradicts the NAN used for the positional entities.
@@ -302,17 +353,7 @@ void LD2453Component::process_packet_() {
       if (!this->boundary_gates_presence_ || pos.in_boundary)
         any_present = true;
     } else {
-      publish_if_changed_(this->targets_[i].x, NAN);
-      publish_if_changed_(this->targets_[i].y, NAN);
-      publish_if_changed_(this->targets_[i].room_x, NAN);
-      publish_if_changed_(this->targets_[i].room_y, NAN);
-      publish_if_changed_(this->targets_[i].room_z, NAN);
-
-      if (this->targets_[i].in_boundary != nullptr) {
-        if (this->targets_[i].in_boundary->state != false || !this->targets_[i].in_boundary->has_state()) {
-          this->targets_[i].in_boundary->publish_state(false);
-        }
-      }
+      this->publish_empty_target_(i);
     }
   }
 
