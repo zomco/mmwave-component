@@ -49,6 +49,8 @@ class LD2453Component : public Component, public uart::UARTDevice {
   void clear_polygon() { cal_.polygon.clear(); }
   /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
+  /// 目标消失后 presence 保持多久才置 false（迟滞窗口，ms）
+  void set_presence_timeout(uint32_t ms) { presence_timeout_ = ms; }
 
   // ── Sensor setters ──
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
@@ -104,8 +106,10 @@ class LD2453Component : public Component, public uart::UARTDevice {
   void publish_if_changed_(sensor::Sensor *s, float value);
   /// 把一个目标槽位置空：坐标发布 NAN，in_boundary 置 false。
   void publish_empty_target_(uint8_t idx);
-  /// 帧级看门狗：长时间解析不出数据帧时清空所有目标与 presence。
-  void check_stale_(uint32_t now);
+  /// 帧级看门狗：长时间解析不出数据帧时清空所有目标。
+  void check_stale_();
+  /// presence 的唯一发布点，带迟滞（见 .cpp 中的说明）。
+  void update_presence_();
   void process_ack_();
   void send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
   void handle_ack_data_(uint16_t command, uint16_t status, const uint8_t *data, uint8_t data_len);
@@ -122,6 +126,10 @@ class LD2453Component : public Component, public uart::UARTDevice {
   uint32_t frame_id_{0};
   bool config_mode_{false};
   bool boundary_gates_presence_{true};
+  /// 见 update_presence_：模组会在相邻帧之间丢掉边缘目标，没有迟滞的话
+  /// presence 会以数赫兹的频率抖动。
+  uint32_t presence_timeout_{1500};
+  uint32_t last_presence_ms_{0};
 
   CalibrationParams cal_;
 
