@@ -11,6 +11,19 @@ Hi-Link HLK-LD2453 2D Multi-Target Tracking Radar — ESPHome component.
 > This ESPHome component maps each target into a separate configuration block, and uses a built-in 3D transformation matrix to convert the local 2D X/Y coordinates into an absolute 3D room frame (pitch, yaw, and roll compensated).
 > The radar operates at a high baud rate of **256000**.
 
+> [!IMPORTANT]
+> **The LD2453 has no radar-side detection limits.** Its protocol
+> (`docs/ld2453/ld2453-通信协议.txt` §2.2) defines nine commands in total —
+> enable/end config, single/multi-target tracking, query tracking mode, read
+> firmware version, set baud rate, factory reset and restart. There is no
+> distance, zone or region command, and the factory-default table lists only
+> baud rate and tracking mode.
+>
+> So `distance_min` / `distance_max` / `polygon` here are **filters on the ESP**,
+> not module settings. The radar keeps reporting targets outside them; what the
+> filters change is `target_n_in_boundary`, and — while `boundary_gates_presence`
+> is true — whether those targets count toward `presence`.
+
 ### Target Entity Blocks
 
 | YAML Key | Entity Type | Data Type | Value Range | Unit | Update Frequency | Description |
