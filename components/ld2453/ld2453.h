@@ -102,6 +102,10 @@ class LD2453Component : public Component, public uart::UARTDevice {
   void publish_target_frame_();
   /// 仅在数值变化时发布（ESPHome 不会对数值 sensor 去重）
   void publish_if_changed_(sensor::Sensor *s, float value);
+  /// 把一个目标槽位置空：坐标发布 NAN，in_boundary 置 false。
+  void publish_empty_target_(uint8_t idx);
+  /// 帧级看门狗：长时间解析不出数据帧时清空所有目标与 presence。
+  void check_stale_(uint32_t now);
   void process_ack_();
   void send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
   void handle_ack_data_(uint16_t command, uint16_t status, const uint8_t *data, uint8_t data_len);
@@ -110,6 +114,9 @@ class LD2453Component : public Component, public uart::UARTDevice {
   uint32_t mock_active_until_{0};
   std::vector<uint8_t> rx_buffer_;
   uint32_t last_rx_ms_{0};
+  /// 最后一次**成功解析出数据帧**的时刻。与 last_rx_ms_ 不同，它不会被
+  /// 那些没能通过帧头/帧尾校验的字节刷新，所以失步时它会停住。
+  uint32_t last_frame_ms_{0};
   uint32_t last_publish_ms_{0};
   uint32_t last_frame_publish_ms_{0};
   uint32_t frame_id_{0};
