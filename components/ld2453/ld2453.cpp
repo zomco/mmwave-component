@@ -84,8 +84,7 @@ void LD2453Component::check_stale_(uint32_t now) {
     publish_if_changed_(this->targets_[i].resolution, NAN);
   }
 
-  if (this->presence_sensor_ != nullptr &&
-      (this->presence_sensor_->state || !this->presence_sensor_->has_state())) {
+  if (this->presence_sensor_ != nullptr && (this->presence_sensor_->state || !this->presence_sensor_->has_state())) {
     this->presence_sensor_->publish_state(false);
   }
 }
