@@ -110,6 +110,13 @@ uart:
   baud_rate: 115200
 ```
 
+> [!NOTE]
+> `polygon` filters in the room frame, on the ESP, and is independent of the
+> radar's own `max_detection_distance`. Use the radar-side setting to limit what
+> the module reports at all, and `polygon` to shape the region that counts once
+> it has been transformed into room coordinates. An empty polygon disables the
+> filter; fewer than three vertices is rejected at compile time.
+
 ### Step 3: Configure the LD2451 Component
 
 ```yaml

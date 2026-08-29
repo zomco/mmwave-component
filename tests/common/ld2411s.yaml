@@ -67,11 +67,6 @@ globals:
     restore_value: true
     initial_value: "0.0"
 
-  - id: g_polygon
-    type: std::string
-    restore_value: true
-    max_restore_data_length: 254
-    initial_value: '""'
 
 ld2411s:
   id: radar
@@ -219,14 +214,3 @@ text:
     set_action:
       - lambda: 'id(radar).inject_mock_data(x);'
 
-  - platform: template
-    name: "Polygon Config"
-    id: text_polygon
-    min_length: 0
-    max_length: 255
-    optimistic: true
-    mode: text
-    icon: mdi:vector-polygon
-    set_action:
-      - lambda: |-
-          id(g_polygon) = x;
