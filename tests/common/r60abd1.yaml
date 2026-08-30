@@ -174,7 +174,7 @@ r60abd1:
 
   # 多雷达融合入口：与 LD2450 系列同一个 v1 原子帧信封。
   target_frame:
-    name: "target_frame"
+    name: "Target Frame"
     icon: mdi:radar
 
   motion_state:
@@ -407,7 +407,7 @@ number:
 
 button:
   - platform: template
-    name: "Reset Module"
+    name: "Restart Module"
     entity_category: config
     icon: mdi:restart
     on_press:

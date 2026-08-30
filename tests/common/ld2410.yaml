@@ -21,7 +21,7 @@ uart:
 
 number:
   - platform: template
-    name: "Radar Yaw"
+    name: "Yaw"
     entity_category: config
     id: radar_yaw
     min_value: -180

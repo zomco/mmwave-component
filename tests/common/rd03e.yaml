@@ -92,29 +92,29 @@ rd03e:
 
   # ── 存在探测与距离 ────────────────────────────────────────────────────
   presence:
-    name: "presence"
+    name: "Presence"
     device_class: presence
 
   motion_state:
-    name: "motion_state"
+    name: "Motion State"
     # 0=无目标, 1=运动目标, 2=微动目标
 
   distance:
-    name: "distance"
+    name: "Distance"
     unit_of_measurement: "cm"
 
   # ── 坐标转换与区域过滤 ────────────────────────────────────────────────
   room_x:
-    name: "room_x"
+    name: "Room X"
     unit_of_measurement: "cm"
   room_y:
-    name: "room_y"
+    name: "Room Y"
     unit_of_measurement: "cm"
   room_z:
-    name: "room_z"
+    name: "Room Z"
     unit_of_measurement: "cm"
   in_boundary:
-    name: "in_boundary"
+    name: "In Boundary"
 
 # =============================================================================
 # 运行时校准控制实体 (number)

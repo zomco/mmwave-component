@@ -149,71 +149,71 @@ ld2453:
 
   # 鈹€鈹€ 存在探测 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   presence:
-    name: "presence"
+    name: "Presence"
     device_class: presence
 
   target_frame:
-    name: "target_frame"
+    name: "Target Frame"
 
   # 鈹€鈹€ 鐩爣 1 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   target_1:
     x:
-      name: "target_1_x"
+      name: "Target 1 X"
     y:
-      name: "target_1_y"
+      name: "Target 1 Y"
     speed:
-      name: "target_1_speed"
+      name: "Target 1 Speed"
     resolution:
-      name: "target_1_resolution"
+      name: "Target 1 Resolution"
       internal: true
     room_x:
-      name: "target_1_room_x"
+      name: "Target 1 Room X"
     room_y:
-      name: "target_1_room_y"
+      name: "Target 1 Room Y"
     room_z:
-      name: "target_1_room_z"
+      name: "Target 1 Room Z"
     in_boundary:
-      name: "target_1_in_boundary"
+      name: "Target 1 In Boundary"
 
   # 鈹€鈹€ 鐩爣 2 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   target_2:
     x:
-      name: "target_2_x"
+      name: "Target 2 X"
     y:
-      name: "target_2_y"
+      name: "Target 2 Y"
     speed:
-      name: "target_2_speed"
+      name: "Target 2 Speed"
     resolution:
-      name: "target_2_resolution"
+      name: "Target 2 Resolution"
       internal: true
     room_x:
-      name: "target_2_room_x"
+      name: "Target 2 Room X"
     room_y:
-      name: "target_2_room_y"
+      name: "Target 2 Room Y"
     room_z:
-      name: "target_2_room_z"
+      name: "Target 2 Room Z"
     in_boundary:
-      name: "target_2_in_boundary"
+      name: "Target 2 In Boundary"
 
   # 鈹€鈹€ 鐩爣 3 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   target_3:
     x:
-      name: "target_3_x"
+      name: "Target 3 X"
     y:
-      name: "target_3_y"
+      name: "Target 3 Y"
     speed:
-      name: "target_3_speed"
+      name: "Target 3 Speed"
     resolution:
-      name: "target_3_resolution"
+      name: "Target 3 Resolution"
       internal: true
     room_x:
-      name: "target_3_room_x"
+      name: "Target 3 Room X"
     room_y:
-      name: "target_3_room_y"
+      name: "Target 3 Room Y"
     room_z:
-      name: "target_3_room_z"
+      name: "Target 3 Room Z"
     in_boundary:
-      name: "target_3_in_boundary"
+      name: "Target 3 In Boundary"
 
 # =============================================================================
 # 杩愯鏃舵牎鍑嗘帶鍒跺疄浣?(number)

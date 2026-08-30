@@ -124,15 +124,27 @@ fifth block to separate them:
 | --- | --- |
 | `Restart ESP` | the **ESP32 board**. ESPHome's own restart button |
 | `Restart (Safe Mode)` | the **ESP32**, with everything but WiFi and OTA disabled — the recovery path when a radar component wedges the device |
-| `Restart Module` (also `Restart`, `Reboot Radar Module`, `Reset Module`) | the **radar module** over UART. The ESP keeps running |
+| `Restart Module` | the **radar module** over UART. The ESP keeps running |
 | `Factory Reset` | the **radar module's own settings**. It does not touch the ESP or its ESPHome configuration |
 
 Nothing here factory-resets the ESP; reflashing is the only way to do that.
 
-> [!NOTE]
-> The four names for "restart the radar module" are a wart. They are kept
-> because renaming an entity changes its `entity_id` and silently breaks any
-> dashboard or automation that referred to it.
+### Naming
+
+One idea has one name on every model, and the display name is Title Case
+throughout — a device page no longer mixes `target_1_x` with `Radar X`. Home
+Assistant sorts entities by name inside each block, so consistent names are
+also what makes the ordering consistent; there is no separate ordering control.
+
+Names carry which layer they come from:
+
+| Reads like | Comes from |
+| --- | --- |
+| `Target N …` | one tracked target, straight from the radar |
+| `Target N Room …` | the same target after this component's transform |
+| `Radar X/Y/Z`, `Yaw`, `Pitch`, `Roll` | where the radar is installed — this component, not the radar |
+| `Min/Max Distance`, `Polygon Config` | the room region this component filters on |
+| `ESP …`, `Restart ESP` | the ESP32 board, not the radar |
 
 ## Radar Model Status
 
