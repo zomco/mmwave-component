@@ -122,6 +122,13 @@ Two consequences worth knowing:
   `Mount Yaw/Pitch/Roll` describe where the radar is bolted; `Zone Polygon`,
   `Zone Min Distance`, `Zone Max Distance` describe which part of the room
   counts. Nothing named `Mount …` or `Zone …` is ever sent to the radar.
+- `Zone Min/Max Distance` is on all sixteen models and means the same thing on
+  each: a radial gate on how far the target is from the radar, measured in the
+  radar's own frame. Because it is measured there, moving or re-aiming the
+  radar does not change which targets it admits. `0` switches an end off, and
+  both are `0` by default on most models — check `Zone Max Distance` before
+  concluding a target is out of range. A target outside the gate clears
+  `In Boundary`; it is not deleted, so `Target N X/Y` still track it.
 - That also disambiguates a pair which used to be easy to confuse. On models
   exposing both, `Max Detection Distance` (Controls) tells the *radar* what to
   report, while `Zone Max Distance` (Configuration) filters what *this
