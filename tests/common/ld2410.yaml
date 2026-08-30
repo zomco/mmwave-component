@@ -74,3 +74,26 @@ ld2410:
     name: "Room Z"
   in_boundary:
     name: "In Boundary"
+
+# =============================================================================
+# 诊断
+# =============================================================================
+#
+# 组件一直有 inject_mock_data()，但没有实体调用它，所以这个型号无法在没有硬件
+# 的情况下回放帧——其余十二个型号都可以。
+#
+# 名称写 "Mock Data" 而不是带型号前缀的形式：Home Assistant 已经会加设备名。
+# 用 set_action 而不是 on_value——on_value 只在值*变化*时触发，同一帧连续注入
+# 两次时第二次会被静默丢弃。
+
+text:
+  - platform: template
+    name: "Mock Data"
+    id: text_mock_data
+    mode: text
+    optimistic: true
+    entity_category: diagnostic
+    icon: mdi:bug
+    set_action:
+      - lambda: 'id(my_radar).inject_mock_data(x);'
+

@@ -35,6 +35,12 @@ void LD2411Component::loop() {
     this->data_state_ = DataState::IDLE;
   }
 
+  if (this->mock_active_until_ > 0 && now < this->mock_active_until_) {
+    while (this->available())
+      this->read();
+    return;
+  }
+
   while (this->available()) {
     this->last_rx_ms_ = now;
     this->process_byte_(this->read());
@@ -143,6 +149,31 @@ void LD2411Component::publish_position_(float range_cm) {
     if (this->in_boundary_sensor_->state != pos.in_boundary || !this->in_boundary_sensor_->has_state()) {
       this->in_boundary_sensor_->publish_state(pos.in_boundary);
     }
+  }
+}
+
+/**
+ * 注入十六进制测试数据。
+ *
+ * 与 ld2412/ld2450/ld245x 的实现保持一致：注入期间 loop() 丢弃真实串口字节，
+ * 10 秒后自动恢复，"0"/"reset" 可以提前结束。字节走 process_byte_，也就是真实
+ * 数据的同一条解析路径。
+ */
+void LD2411Component::inject_mock_data(const std::string &data) {
+  if (data == "0" || data == "reset") {
+    this->mock_active_until_ = 0;
+    ESP_LOGD(TAG, "Mock data disabled, resuming normal hardware UART");
+    return;
+  }
+
+  this->mock_active_until_ = millis() + 10000;
+  for (size_t i = 0; i + 1 < data.length(); i += 2) {
+    while (i + 1 < data.length() && data[i] == ' ')
+      i++;
+    if (i + 1 >= data.length())
+      break;
+    const std::string byte_str = data.substr(i, 2);
+    this->process_byte_((uint8_t) strtol(byte_str.c_str(), nullptr, 16));
   }
 }
 

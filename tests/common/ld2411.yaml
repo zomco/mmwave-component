@@ -91,3 +91,23 @@ number:
     step: 1
     set_action:
       lambda: "id(radar).set_radar_y(x);"
+
+# =============================================================================
+# 诊断
+# =============================================================================
+#
+# 名称写 "Mock Data" 而不是带型号前缀的形式：Home Assistant 已经会加设备名。
+# 用 set_action 而不是 on_value——on_value 只在值*变化*时触发，同一帧连续注入
+# 两次时第二次会被静默丢弃。
+
+text:
+  - platform: template
+    name: "Mock Data"
+    id: text_mock_data
+    mode: text
+    optimistic: true
+    entity_category: diagnostic
+    icon: mdi:bug
+    set_action:
+      - lambda: 'id(radar).inject_mock_data(x);'
+
