@@ -68,7 +68,7 @@ globals:
   - id: g_distance_max
     type: float
     restore_value: true
-    initial_value: "0.0" # 0 cm = 不设最大距离
+    initial_value: "300.0" # 0 cm = 不设最大距离
 
 uart:
   id: uart_bus
@@ -224,9 +224,6 @@ ld2410:
   pitch: 0.0
   roll: 0.0
   
-  distance_min: 0.0
-  distance_max: 300.0
-
   presence:
     name: "Presence"
   target_state:

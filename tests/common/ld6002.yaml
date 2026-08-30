@@ -133,10 +133,6 @@ ld6002:
   pitch: 0.0
   # carried over from the component config
   roll: 0.0
-  # carried over from the component config
-  distance_min: 30.0
-  # carried over from the component config
-  distance_max: 600.0
 
 number:
   - platform: template

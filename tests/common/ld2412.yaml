@@ -192,11 +192,6 @@ ld2412:
   pitch: 0.0
   # carried over from the component config
   roll: 0.0
-  # 1-D 雷达使用距离门作为边界；0 = 不过滤
-  # carried over from the component config
-  distance_min: 0.0
-  # carried over from the component config
-  distance_max: 900.0 # LD2412 最远 9 m
 
   # carried over from the component config
   room_x:
