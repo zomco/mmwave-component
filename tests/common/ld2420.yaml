@@ -137,7 +137,7 @@ ld2420:
 
 number:
   - platform: template
-    name: "Radar X"
+    name: "Mount X"
     entity_category: config
     id: num_radar_x
     unit_of_measurement: cm
@@ -154,7 +154,7 @@ number:
           id(num_radar_x).publish_state(x);
 
   - platform: template
-    name: "Radar Y"
+    name: "Mount Y"
     entity_category: config
     id: num_radar_y
     unit_of_measurement: cm
@@ -171,7 +171,7 @@ number:
           id(num_radar_y).publish_state(x);
 
   - platform: template
-    name: "Radar Z"
+    name: "Mount Z"
     entity_category: config
     id: num_radar_z
     unit_of_measurement: cm
@@ -188,7 +188,7 @@ number:
           id(num_radar_z).publish_state(x);
 
   - platform: template
-    name: "Yaw"
+    name: "Mount Yaw"
     entity_category: config
     id: num_yaw
     unit_of_measurement: "°"
@@ -205,7 +205,7 @@ number:
           id(num_yaw).publish_state(x);
 
   - platform: template
-    name: "Pitch"
+    name: "Mount Pitch"
     entity_category: config
     id: num_pitch
     unit_of_measurement: "°"
@@ -222,7 +222,7 @@ number:
           id(num_pitch).publish_state(x);
 
   - platform: template
-    name: "Roll"
+    name: "Mount Roll"
     entity_category: config
     id: num_roll
     unit_of_measurement: "°"
@@ -239,7 +239,7 @@ number:
           id(num_roll).publish_state(x);
 
   - platform: template
-    name: "Min Distance"
+    name: "Zone Min Distance"
     entity_category: config
     id: num_distance_min
     unit_of_measurement: cm
@@ -256,7 +256,7 @@ number:
           id(num_distance_min).publish_state(x);
 
   - platform: template
-    name: "Max Distance"
+    name: "Zone Max Distance"
     entity_category: config
     id: num_distance_max
     unit_of_measurement: cm

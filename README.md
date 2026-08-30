@@ -104,7 +104,7 @@ answers one question: **is this the radar's, or is it ours?**
 | --- | --- |
 | **Sensors** | What the radar measures, and the room coordinates derived from it |
 | **Controls** | Everything the radar itself owns — its settings, its operating modes, and its restart and factory-reset actions. The ESP's own restart buttons live here too |
-| **Configuration** | **Only what this component adds**: `Radar X/Y/Z`, `Yaw/Pitch/Roll`, `Polygon Config`, `Min/Max Distance` |
+| **Configuration** | **Only what this component adds**, under two prefixes: `Mount …` (where the radar is) and `Zone …` (which region counts) |
 | **Diagnostic** | Read-only health, radar config read-back, and the frame-injection input tests use |
 
 So **Configuration** is the answer to "how is this radar installed, and which
@@ -118,10 +118,14 @@ gate sensitivity, a tracking mode, or a factory reset.
 
 Two consequences worth knowing:
 
-- On models that expose both, `Max Detection Distance` (Controls) and
-  `Max Distance` (Configuration) are different things and now sit in different
-  blocks. The first tells the radar what to report; the second filters what
-  this component accepts from it.
+- The prefixes say who owns the value, which is why they exist. `Mount X/Y/Z`,
+  `Mount Yaw/Pitch/Roll` describe where the radar is bolted; `Zone Polygon`,
+  `Zone Min Distance`, `Zone Max Distance` describe which part of the room
+  counts. Nothing named `Mount …` or `Zone …` is ever sent to the radar.
+- That also disambiguates a pair which used to be easy to confuse. On models
+  exposing both, `Max Detection Distance` (Controls) tells the *radar* what to
+  report, while `Zone Max Distance` (Configuration) filters what *this
+  component* accepts from it.
 - `Restart ESP` and `Restart (Safe Mode)` are moved out of Configuration
   deliberately, which overrides the `entity_category: config` that ESPHome's
   own `restart` and `safe_mode` platforms set by default. They restart
@@ -171,8 +175,8 @@ Names carry which layer they come from:
 | --- | --- |
 | `Target N …` | one tracked target, straight from the radar |
 | `Target N Room …` | the same target after this component's transform |
-| `Radar X/Y/Z`, `Yaw`, `Pitch`, `Roll` | where the radar is installed — this component, not the radar |
-| `Min/Max Distance`, `Polygon Config` | the room region this component filters on |
+| `Mount …` | where the radar is installed — this component, not the radar |
+| `Zone …` | the room region this component filters on |
 | `ESP …`, `Restart ESP` | the ESP32 board, not the radar |
 
 ## Radar Model Status
