@@ -426,7 +426,6 @@ button:
     name: "Factory Reset"
     id: btn_factory_reset
     icon: mdi:factory
-    entity_category: config
     on_press:
       - lambda: 'id(radar).factory_reset();'
 
@@ -434,6 +433,5 @@ button:
     name: "Restart Module"
     id: btn_restart
     icon: mdi:restart
-    entity_category: config
     on_press:
       - lambda: 'id(radar).restart_module();'

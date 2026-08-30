@@ -264,28 +264,24 @@ number:
 button:
   - platform: template
     name: "Read Firmware Version"
-    entity_category: config
     icon: "mdi:chip"
     on_press:
       - lambda: "id(radar).send_read_firmware_version();"
 
   - platform: template
     name: "Read Parameters"
-    entity_category: config
     icon: "mdi:cog-refresh"
     on_press:
       - lambda: "id(radar).send_read_params();"
 
   - platform: template
     name: "Enable Config Mode"
-    entity_category: config
     icon: "mdi:lock-open-outline"
     on_press:
       - lambda: "id(radar).send_enable_config();"
 
   - platform: template
     name: "End Config Mode"
-    entity_category: config
     icon: "mdi:lock-outline"
     on_press:
       - lambda: "id(radar).send_end_config();"

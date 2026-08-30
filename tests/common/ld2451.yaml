@@ -388,7 +388,6 @@ number:
     name: "Max Detection Distance"
     id: num_max_detection_distance
     update_interval: 10s
-    entity_category: config
     unit_of_measurement: m
     min_value: 10
     max_value: 255
@@ -403,7 +402,6 @@ number:
     name: "Min Speed"
     id: num_min_speed
     update_interval: 10s
-    entity_category: config
     unit_of_measurement: "km/h"
     min_value: 0
     max_value: 120
@@ -418,7 +416,6 @@ number:
     name: "No Target Delay"
     id: num_no_target_delay
     update_interval: 10s
-    entity_category: config
     unit_of_measurement: s
     min_value: 0
     max_value: 255
@@ -433,7 +430,6 @@ number:
     name: "Trigger Count"
     id: num_trigger_count
     update_interval: 10s
-    entity_category: config
     min_value: 1
     max_value: 10
     step: 1
@@ -449,7 +445,6 @@ select:
     name: "Direction Filter"
     id: select_direction_filter
     update_interval: 10s
-    entity_category: config
     icon: mdi:swap-horizontal
     options:
       - "Away only"
@@ -474,7 +469,6 @@ select:
     name: "SNR Threshold"
     id: select_snr_threshold
     update_interval: 10s
-    entity_category: config
     icon: mdi:tune
     options:
       - "Radar default"
@@ -509,7 +503,6 @@ button:
     name: "Factory Reset"
     id: btn_factory_reset
     icon: mdi:factory
-    entity_category: config
     on_press:
       - lambda: 'id(radar).factory_reset();'
 
@@ -517,7 +510,6 @@ button:
     name: "Restart Module"
     id: btn_restart
     icon: mdi:restart
-    entity_category: config
     on_press:
       - lambda: 'id(radar).restart_module();'
 

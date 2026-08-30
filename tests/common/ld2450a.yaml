@@ -322,14 +322,12 @@ button:
   - platform: template
     name: "Factory Reset"
     icon: mdi:factory
-    entity_category: config
     on_press:
       - lambda: "id(radar).factory_reset();"
 
   - platform: template
     name: "Restart Module"
     icon: mdi:restart
-    entity_category: config
     on_press:
       - lambda: "id(radar).reboot();"
 

@@ -408,7 +408,6 @@ number:
 button:
   - platform: template
     name: "Restart Module"
-    entity_category: config
     icon: mdi:restart
     on_press:
       - lambda: "id(radar).reset_module();"

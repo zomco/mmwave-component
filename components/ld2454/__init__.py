@@ -4,7 +4,6 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import uart, sensor, binary_sensor, button, switch, text_sensor
 from esphome.const import (
-    ENTITY_CATEGORY_CONFIG,
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
     DEVICE_CLASS_PRESENCE,
@@ -148,12 +147,10 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_FACTORY_RESET): button.button_schema(
                 ld2454_ns.class_("LD2454Button", button.Button),
                 icon="mdi:restart-alert",
-                entity_category=ENTITY_CATEGORY_CONFIG,
             ),
             cv.Optional(CONF_RESTART): button.button_schema(
                 ld2454_ns.class_("LD2454Button", button.Button),
                 icon="mdi:restart",
-                entity_category=ENTITY_CATEGORY_CONFIG,
             ),
 
             # ── 每目标传感器（动态生成） ──────────────────────────────────
