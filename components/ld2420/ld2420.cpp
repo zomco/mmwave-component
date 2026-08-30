@@ -527,12 +527,19 @@ void LD2420Component::handle_energy_mode_(uint8_t *buffer, int len) {
   }
 
   // --- Custom Inline Entities ---
-  if (this->presence_sensor_)
-    this->presence_sensor_->publish_state(this->presence_);
   if (this->distance_sensor_)
     this->distance_sensor_->publish_state(this->distance_);
 
   auto t1d = this->transform_1d(this->distance_);
+
+  // 边界门控：开启时，界外目标不算存在。发布放在变换之后，因为它要用
+  // t1d.in_boundary。
+  // 只有真的算出了位置，边界才有资格否决存在状态。拿缺失的位置去
+  // 否定存在，正是让雷达看起来坏掉的那类 bug。
+  const bool gate = this->boundary_gates_presence_ && this->distance_ > 0;
+  const bool gated = gate ? (this->presence_ && t1d.in_boundary) : this->presence_;
+  if (this->presence_sensor_)
+    this->presence_sensor_->publish_state(gated);
   if (this->room_x_sensor_)
     this->room_x_sensor_->publish_state(t1d.x);
   if (this->room_y_sensor_)
@@ -596,12 +603,17 @@ void LD2420Component::handle_simple_mode_(const uint8_t *inbuf, int len) {
       listener->on_presence(this->get_presence_());
 
     // --- Custom Inline Entities ---
-    if (this->presence_sensor_)
-      this->presence_sensor_->publish_state(this->presence_);
     if (this->distance_sensor_)
       this->distance_sensor_->publish_state(this->distance_);
 
     auto t1d = this->transform_1d(this->distance_);
+
+    // 只有真的算出了位置，边界才有资格否决存在状态。拿缺失的位置去
+    // 否定存在，正是让雷达看起来坏掉的那类 bug。
+    const bool gate = this->boundary_gates_presence_ && this->distance_ > 0;
+    const bool gated = gate ? (this->presence_ && t1d.in_boundary) : this->presence_;
+    if (this->presence_sensor_)
+      this->presence_sensor_->publish_state(gated);
     if (this->room_x_sensor_)
       this->room_x_sensor_->publish_state(t1d.x);
     if (this->room_y_sensor_)

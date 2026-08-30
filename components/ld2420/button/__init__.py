@@ -4,8 +4,6 @@ import esphome.config_validation as cv
 from esphome.const import (
     CONF_FACTORY_RESET,
     DEVICE_CLASS_RESTART,
-    ENTITY_CATEGORY_CONFIG,
-    ENTITY_CATEGORY_DIAGNOSTIC,
     ICON_DATABASE,
     ICON_RESTART,
     ICON_RESTART_ALERT,
@@ -28,23 +26,19 @@ CONFIG_SCHEMA = {
     cv.Required(CONF_APPLY_CONFIG): button.button_schema(
         LD2420ApplyConfigButton,
         device_class=DEVICE_CLASS_RESTART,
-        entity_category=ENTITY_CATEGORY_CONFIG,
         icon=ICON_RESTART_ALERT,
     ),
     cv.Optional(CONF_REVERT_CONFIG): button.button_schema(
         LD2420RevertConfigButton,
         device_class=DEVICE_CLASS_RESTART,
-        entity_category=ENTITY_CATEGORY_CONFIG,
         icon=ICON_RESTART,
     ),
     cv.Optional(CONF_RESTART_MODULE): button.button_schema(
         LD2420RestartModuleButton,
-        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
         icon=ICON_DATABASE,
     ),
     cv.Optional(CONF_FACTORY_RESET): button.button_schema(
         LD2420FactoryResetButton,
-        entity_category=ENTITY_CATEGORY_CONFIG,
         icon=ICON_DATABASE,
     ),
 }

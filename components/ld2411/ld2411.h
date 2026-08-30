@@ -41,6 +41,8 @@ class LD2411Component : public Component, public uart::UARTDevice {
   void set_yaw(float v) { cal_.yaw = v; }
   void set_pitch(float v) { cal_.pitch = v; }
   void set_roll(float v) { cal_.roll = v; }
+  /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
+  void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
   void set_distance_min(float v) { cal_.distance_min = v; }
   void set_distance_max(float v) { cal_.distance_max = v; }
 
@@ -62,7 +64,7 @@ class LD2411Component : public Component, public uart::UARTDevice {
  protected:
   void process_byte_(uint8_t byte);
   void handle_data_frame_();
-  void publish_position_(float range_cm);
+  bool publish_position_(float range_cm);
 
   DataState data_state_{DataState::IDLE};
   uint8_t data_status_{0};
@@ -72,6 +74,7 @@ class LD2411Component : public Component, public uart::UARTDevice {
   uint32_t last_rx_ms_{0};
   /// 非零且未到期时，loop() 丢弃真实串口字节（见 inject_mock_data）。
   uint32_t mock_active_until_{0};
+  bool boundary_gates_presence_{true};
 
   CalibrationParams cal_;
 

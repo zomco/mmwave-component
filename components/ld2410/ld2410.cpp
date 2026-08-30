@@ -178,11 +178,8 @@ void LD2410Component::handle_periodic_data_() {
     this->target_state_sensor_->publish_state(target_state);
   }
 
-  bool presence = (target_state != 0x00);
-  if (this->presence_sensor_ != nullptr &&
-      (!this->presence_sensor_->has_state() || this->presence_sensor_->state != presence)) {
-    this->presence_sensor_->publish_state(presence);
-  }
+  // 雷达报的原始存在状态。最终发布要等边界判断出来 —— 见本函数末尾。
+  const bool presence = (target_state != 0x00);
 
   uint16_t moving_distance = (uint16_t(this->buffer_data_[10]) << 8) | this->buffer_data_[9];
   uint8_t moving_energy = this->buffer_data_[11];
@@ -225,8 +222,12 @@ void LD2410Component::handle_periodic_data_() {
   }
 
   // Coordinate Transformation
+  bool in_boundary = false;
+  bool have_position = false;
   if (presence) {
     auto pos = Transform3D::transform(0.0f, (float) detection_distance, 0.0f, this->cal_);
+    in_boundary = pos.in_boundary;
+    have_position = detection_distance > 0;
     if (this->room_x_sensor_ != nullptr)
       this->room_x_sensor_->publish_state(pos.room_x);
     if (this->room_y_sensor_ != nullptr)
@@ -248,6 +249,16 @@ void LD2410Component::handle_periodic_data_() {
         (!this->in_boundary_sensor_->has_state() || this->in_boundary_sensor_->state != false)) {
       this->in_boundary_sensor_->publish_state(false);
     }
+  }
+
+  // 边界门控：开启时，界外目标不算存在。发布放在最后，因为它要等
+  // 上面的坐标变换算出 in_boundary 才能决定。
+  // 只有真的算出了位置，边界才有资格否决存在状态。拿缺失的位置去
+  // 否定存在，正是让雷达看起来坏掉的那类 bug。
+  const bool gated = (this->boundary_gates_presence_ && have_position) ? (presence && in_boundary) : presence;
+  if (this->presence_sensor_ != nullptr &&
+      (!this->presence_sensor_->has_state() || this->presence_sensor_->state != gated)) {
+    this->presence_sensor_->publish_state(gated);
   }
 }
 

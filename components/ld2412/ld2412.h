@@ -30,6 +30,8 @@ class ld2412Component : public Component, public uart::UARTDevice {
   void set_yaw(float v) { cal_.yaw = v; }
   void set_pitch(float v) { cal_.pitch = v; }
   void set_roll(float v) { cal_.roll = v; }
+  /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
+  void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
   void set_distance_min(float v) { cal_.distance_min = v; }
   void set_distance_max(float v) { cal_.distance_max = v; }
   void set_distance_resolution(float v) { distance_resolution_ = v; }
@@ -65,6 +67,7 @@ class ld2412Component : public Component, public uart::UARTDevice {
   uint32_t mock_active_until_{0};
   uint8_t buffer_pos_{0};
   uint8_t buffer_data_[MAX_LINE_LENGTH];
+  bool boundary_gates_presence_{true};
 
   CalibrationParams cal_;
 

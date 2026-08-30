@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 from esphome.components import text_sensor
 import esphome.config_validation as cv
-from esphome.const import CONF_ID, ENTITY_CATEGORY_DIAGNOSTIC, ICON_CHIP
+from esphome.const import CONF_ID, ICON_CHIP
 
 from .. import CONF_LD2420_ID, LD2420Component, ld2420_ns
 
@@ -16,8 +16,7 @@ CONFIG_SCHEMA = cv.All(
         {
             cv.GenerateID(): cv.declare_id(LD2420TextSensor),
             cv.GenerateID(CONF_LD2420_ID): cv.use_id(LD2420Component),
-            cv.Optional(CONF_FW_VERSION): text_sensor.text_sensor_schema(
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC, icon=ICON_CHIP
+            cv.Optional(CONF_FW_VERSION): text_sensor.text_sensor_schema( icon=ICON_CHIP
             ),
         }
     ),

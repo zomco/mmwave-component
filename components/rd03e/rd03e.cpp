@@ -300,11 +300,9 @@ void RD03EComponent::handle_data_frame_() {
     return;
   this->last_publish_ms_ = now_ms;
 
-  // 发布存在状态
-  if (presence_sensor_) {
-    const bool present = (status != 0x00);
-    presence_sensor_->publish_state(present);
-  }
+  // 雷达报的原始存在状态。最终发布要等边界判断出来 —— 见本函数末尾。
+  const bool present = (status != 0x00);
+  bool in_boundary = false;
 
   // 发布运动状态 (0=无, 1=运动, 2=微动)
   if (motion_state_) {
@@ -322,9 +320,18 @@ void RD03EComponent::handle_data_frame_() {
   }
 
   // 有目标时进行坐标变换
+  bool have_position = false;
   if (status != 0x00 && distance_cm > 0) {
-    publish_position_(static_cast<float>(distance_cm));
+    in_boundary = publish_position_(static_cast<float>(distance_cm));
+    have_position = true;
   }
+
+  // 边界门控：开启时，界外目标不算存在。
+  // 只有真的算出了位置，边界才有资格否决存在状态。拿缺失的位置去
+  // 否定存在，正是让雷达看起来坏掉的那类 bug。
+  const bool gated = (boundary_gates_presence_ && have_position) ? (present && in_boundary) : present;
+  if (presence_sensor_)
+    presence_sensor_->publish_state(gated);
 
   ESP_LOGD(TAG, "Status: %u  Distance: %u cm", status, distance_cm);
 }
@@ -398,7 +405,7 @@ void RD03EComponent::handle_cmd_frame_() {
 // 坐标变换 & 发布
 // ═══════════════════════════════════════════════════════════════════════════
 
-void RD03EComponent::publish_position_(float range_cm) {
+bool RD03EComponent::publish_position_(float range_cm) {
   const auto res = apply(range_cm, cal_);
 
   if (room_x_)
@@ -412,6 +419,7 @@ void RD03EComponent::publish_position_(float range_cm) {
 
   ESP_LOGD(TAG, "Room: x=%.1f y=%.1f h=%.1f cm  [%s]", res.room.x, res.room.y, res.room_z,
            res.in_boundary ? "inside" : "OUTSIDE");
+  return res.in_boundary;
 }
 
 void RD03EComponent::inject_mock_data(const std::string &hex_str) {

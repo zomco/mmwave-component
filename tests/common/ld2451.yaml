@@ -491,7 +491,6 @@ select:
 button:
   - platform: template
     name: "Query Radar Config"
-    entity_category: diagnostic
     icon: mdi:help-network
     on_press:
       - lambda: |-

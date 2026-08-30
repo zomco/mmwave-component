@@ -32,6 +32,8 @@ class LD6002Component : public Component, public uart::UARTDevice {
   void set_yaw(float v) { cal_.yaw = v; }
   void set_pitch(float v) { cal_.pitch = v; }
   void set_roll(float v) { cal_.roll = v; }
+  /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
+  void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
   void set_distance_min(float v) { cal_.distance_min = v; }
   void set_distance_max(float v) { cal_.distance_max = v; }
 
@@ -54,7 +56,8 @@ class LD6002Component : public Component, public uart::UARTDevice {
  protected:
   void process_byte_(uint8_t byte);
   void process_packet_();
-  void publish_position_(float x_m, float y_m, float z_m);
+  void publish_presence_();
+  void publish_position_(float x_m, float y_m, float z_m, bool has_target = true);
 
   DataState data_state_{DataState::IDLE};
 
@@ -70,6 +73,10 @@ class LD6002Component : public Component, public uart::UARTDevice {
   /// 非零且未到期时，loop() 丢弃真实串口字节（见 inject_mock_data）。
   uint32_t mock_active_until_{0};
   uint32_t last_publish_ms_{0};
+  bool boundary_gates_presence_{true};
+  bool last_raw_presence_{false};
+  bool last_in_boundary_{true};
+  bool last_have_position_{false};
 
   CalibrationParams cal_;
 
