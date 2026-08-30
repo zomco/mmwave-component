@@ -24,6 +24,39 @@ Hi-Link HLK-LD2453 2D Multi-Target Tracking Radar — ESPHome component.
 > filters change is `target_n_in_boundary`, and — while `boundary_gates_presence`
 > is true — whether those targets count toward `presence`.
 
+> [!WARNING]
+> **Known hardware issue: the detection fan is rotated about 20° from the
+> coordinates the module reports.** Observed on a bench unit, 2026-08-30.
+>
+> The datasheet (§6) specifies ±40° centred on the antenna plane normal. This
+> unit detects roughly −60°…+20° in its own reported frame instead: a fan of
+> the right width, rotated. It shows up as a "blind zone" on one side and
+> detection ~20° beyond spec on the other — one rotation seen from both ends,
+> not two faults.
+>
+> **This cannot be corrected with `yaw`.** Room bearing is `yaw + atan2(x, y)`,
+> so `atan2(x, y)` — the bearing the module reports — is independent of `yaw`
+> entirely. Changing `yaw` moves where the fan is *drawn*, never where the
+> radar can *see*. A bench unit was tried at 135° and 180°; the offset was
+> identical at both.
+>
+> What is not yet established is whether the reported bearings are accurate for
+> targets the radar does see. If they are, the fault is the antenna pattern
+> alone and coordinates stay trustworthy; if they carry the same ~20° bias,
+> `yaw` would absorb it. The card's two-point yaw calibration distinguishes
+> them: a solved yaw matching the mounting means the bearings are fine.
+>
+> Suspected to be vendor firmware in a recently released module rather than
+> anything in this component — the transform is shared with ld2450/ld2452/
+> ld2454 and is exercised by the same tests. Worth re-testing when Hi-Link
+> publishes a firmware update.
+>
+> **Everything else about the model works.** Only the angular extent of the fan
+> is affected: parsing, coordinates, boundary filtering, presence and the
+> control entities are all unaffected, and a live LD2453 is still a valid
+> target for feature work and automated tests. The one thing not to trust it
+> for is judging where a radar can and cannot see.
+
 ### Target Entity Blocks
 
 | YAML Key | Entity Type | Data Type | Value Range | Unit | Update Frequency | Description |
