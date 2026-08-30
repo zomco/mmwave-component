@@ -72,6 +72,8 @@ struct CalibrationParams {
   float yaw = 0.f;            // 偏航角（°，顺时针为正）
   float pitch = 0.f;          // 俯仰角（°，向前倾为正）
   float roll = 0.f;           // 横滚角（°，向右倾为正）
+  float distance_min = 0.f;   // 径向距离下限（cm）; 0 = 不设下限
+  float distance_max = 0.f;   // 径向距离上限（cm）; 0 = 不设上限
   std::vector<Vec2> polygon;  // 房间边界多边形（cm）; 空 = 不过滤
 };
 
@@ -152,7 +154,7 @@ inline bool point_in_polygon(float px, float py, const std::vector<Vec2> &polygo
  *   2. world_vec = R * [lx, ly, 0]ᵀ  （2D 雷达，Z 输入为 0）
  *   3. room.x = radar_x + world_vec.x
  *      room.y = radar_y + world_vec.y
- *   4. 射线法判断 room.(x,y) 是否在 polygon 内
+ *   4. 径向距离闸门 + 射线法判断 room.(x,y) 是否在 polygon 内
  *
  * @param lx  雷达局部 X 坐标（cm，已从 mm 转换）
  * @param ly  雷达局部 Y 坐标（cm，已从 mm 转换）
@@ -167,7 +169,21 @@ inline TransformResult apply(float lx, float ly, const Mat3 &R, const Calibratio
   TransformResult res;
   res.room.x = cal.radar_x + wx;
   res.room.y = cal.radar_y + wy;
-  res.in_boundary = point_in_polygon(res.room.x, res.room.y, cal.polygon);
+
+  // 边界过滤：径向距离闸门 + 房间坐标系多边形（射线法）。
+  // 距离用雷达自身坐标算，所以它衡量的是目标离雷达多远，
+  // 与雷达装在房间哪个位置、朝向如何无关。
+  const float range_cm = sqrtf(lx * lx + ly * ly);
+  res.in_boundary = true;
+  if (cal.distance_min > 0.01f && range_cm < cal.distance_min) {
+    res.in_boundary = false;
+  }
+  if (cal.distance_max > 0.01f && range_cm > cal.distance_max) {
+    res.in_boundary = false;
+  }
+  if (res.in_boundary && !point_in_polygon(res.room.x, res.room.y, cal.polygon)) {
+    res.in_boundary = false;
+  }
   return res;
 }
 

@@ -24,6 +24,8 @@ esphome:
           id(radar).set_radar_y(id(g_radar_y));
           id(radar).set_radar_z(id(g_radar_z));
           id(radar).set_yaw(id(g_yaw));
+          id(radar).set_distance_min(id(g_distance_min));
+          id(radar).set_distance_max(id(g_distance_max));
           id(radar).set_pitch(id(g_pitch));
           id(radar).set_roll(id(g_roll));
 
@@ -37,6 +39,16 @@ uart:
   stop_bits: 1
 
 globals:
+  - id: g_distance_min
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 0 cm = 不设最小距离
+
+  - id: g_distance_max
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 0 cm = 不设最大距离
+
   - id: g_radar_x
     type: float
     restore_value: true
@@ -67,7 +79,6 @@ globals:
     restore_value: true
     initial_value: "0.0"
 
-
 ld2411s:
   id: radar
   uart_id: uart_ld2411s
@@ -93,11 +104,6 @@ ld2411s:
   pitch: 0.0
   # carried over from the component config
   roll: 0.0
-  # 1-D 雷达使用距离门作为边界；0 = 不过滤
-  # carried over from the component config
-  distance_min: 0.0
-  # carried over from the component config
-  distance_max: 0.0
 
   # carried over from the component config
   room_x:
@@ -114,7 +120,41 @@ ld2411s:
 
 number:
   - platform: template
-    name: "Radar X"
+    name: "Zone Min Distance"
+    entity_category: config
+    id: num_distance_min
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_min);"
+    set_action:
+      - lambda: |-
+          id(g_distance_min) = x;
+          id(radar).set_distance_min(x);
+          id(num_distance_min).publish_state(x);
+
+  - platform: template
+    name: "Zone Max Distance"
+    entity_category: config
+    id: num_distance_max
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_max);"
+    set_action:
+      - lambda: |-
+          id(g_distance_max) = x;
+          id(radar).set_distance_max(x);
+          id(num_distance_max).publish_state(x);
+
+  - platform: template
+    name: "Mount X"
     entity_category: config
     id: num_radar_x
     unit_of_measurement: cm
@@ -127,10 +167,11 @@ number:
     set_action:
       - lambda: |-
           id(g_radar_x) = x;
+          id(radar).set_radar_x(x);
           id(num_radar_x).publish_state(x);
 
   - platform: template
-    name: "Radar Y"
+    name: "Mount Y"
     entity_category: config
     id: num_radar_y
     unit_of_measurement: cm
@@ -143,10 +184,11 @@ number:
     set_action:
       - lambda: |-
           id(g_radar_y) = x;
+          id(radar).set_radar_y(x);
           id(num_radar_y).publish_state(x);
 
   - platform: template
-    name: "Radar Z"
+    name: "Mount Z"
     entity_category: config
     id: num_radar_z
     unit_of_measurement: cm
@@ -159,10 +201,11 @@ number:
     set_action:
       - lambda: |-
           id(g_radar_z) = x;
+          id(radar).set_radar_z(x);
           id(num_radar_z).publish_state(x);
 
   - platform: template
-    name: "Yaw"
+    name: "Mount Yaw"
     entity_category: config
     id: num_yaw
     unit_of_measurement: "°"
@@ -175,10 +218,11 @@ number:
     set_action:
       - lambda: |-
           id(g_yaw) = x;
+          id(radar).set_yaw(x);
           id(num_yaw).publish_state(x);
 
   - platform: template
-    name: "Pitch"
+    name: "Mount Pitch"
     entity_category: config
     id: num_pitch
     unit_of_measurement: "°"
@@ -191,10 +235,11 @@ number:
     set_action:
       - lambda: |-
           id(g_pitch) = x;
+          id(radar).set_pitch(x);
           id(num_pitch).publish_state(x);
 
   - platform: template
-    name: "Roll"
+    name: "Mount Roll"
     entity_category: config
     id: num_roll
     unit_of_measurement: "°"
@@ -207,6 +252,7 @@ number:
     set_action:
       - lambda: |-
           id(g_roll) = x;
+          id(radar).set_roll(x);
           id(num_roll).publish_state(x);
 
 text:

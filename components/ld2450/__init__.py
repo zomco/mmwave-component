@@ -36,6 +36,8 @@ CONF_RADAR_Z        = "radar_z"
 CONF_YAW            = "yaw"
 CONF_PITCH          = "pitch"
 CONF_ROLL           = "roll"
+CONF_DISTANCE_MIN   = "distance_min"
+CONF_DISTANCE_MAX   = "distance_max"
 CONF_POLYGON        = "polygon"
 
 # 雷达原生区域过滤（协议 2.2.12 / 2.2.13）
@@ -153,6 +155,8 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_YAW,      default=0.0):   cv.float_range(-180, 180),
             cv.Optional(CONF_PITCH,    default=0.0):   cv.float_range(-90, 90),
             cv.Optional(CONF_ROLL,     default=0.0):   cv.float_range(-90, 90),
+            cv.Optional(CONF_DISTANCE_MIN, default=0.0):   cv.float_range(min=0.0, max=10000.0),
+            cv.Optional(CONF_DISTANCE_MAX, default=0.0):   cv.float_range(min=0.0, max=10000.0),
             cv.Optional(CONF_POLYGON,  default=[]):
                 cv.ensure_list(POLYGON_POINT_SCHEMA),
 
@@ -210,6 +214,8 @@ async def to_code(config):
     cg.add(var.set_yaw(config[CONF_YAW]))
     cg.add(var.set_pitch(config[CONF_PITCH]))
     cg.add(var.set_roll(config[CONF_ROLL]))
+    cg.add(var.set_distance_min(config[CONF_DISTANCE_MIN]))
+    cg.add(var.set_distance_max(config[CONF_DISTANCE_MAX]))
 
     # 多边形顶点
     for pt in config.get(CONF_POLYGON, []):

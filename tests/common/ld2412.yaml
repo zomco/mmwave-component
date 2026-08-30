@@ -192,11 +192,6 @@ ld2412:
   pitch: 0.0
   # carried over from the component config
   roll: 0.0
-  # 1-D 雷达使用距离门作为边界；0 = 不过滤
-  # carried over from the component config
-  distance_min: 0.0
-  # carried over from the component config
-  distance_max: 900.0 # LD2412 最远 9 m
 
   # carried over from the component config
   room_x:
@@ -221,7 +216,41 @@ ld2412:
 
 number:
   - platform: template
-    name: "Radar X"
+    name: "Zone Min Distance"
+    entity_category: config
+    id: num_distance_min
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_min);"
+    set_action:
+      - lambda: |-
+          id(g_distance_min) = x;
+          id(radar).set_distance_min(x);
+          id(num_distance_min).publish_state(x);
+
+  - platform: template
+    name: "Zone Max Distance"
+    entity_category: config
+    id: num_distance_max
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_max);"
+    set_action:
+      - lambda: |-
+          id(g_distance_max) = x;
+          id(radar).set_distance_max(x);
+          id(num_distance_max).publish_state(x);
+
+  - platform: template
+    name: "Mount X"
     entity_category: config
     id: num_radar_x
     unit_of_measurement: cm
@@ -238,7 +267,7 @@ number:
           id(num_radar_x).publish_state(x);
 
   - platform: template
-    name: "Radar Y"
+    name: "Mount Y"
     entity_category: config
     id: num_radar_y
     unit_of_measurement: cm
@@ -255,7 +284,7 @@ number:
           id(num_radar_y).publish_state(x);
 
   - platform: template
-    name: "Radar Z"
+    name: "Mount Z"
     entity_category: config
     id: num_radar_z
     unit_of_measurement: cm
@@ -272,7 +301,7 @@ number:
           id(num_radar_z).publish_state(x);
 
   - platform: template
-    name: "Yaw"
+    name: "Mount Yaw"
     entity_category: config
     id: num_yaw
     unit_of_measurement: "°"
@@ -289,7 +318,7 @@ number:
           id(num_yaw).publish_state(x);
 
   - platform: template
-    name: "Pitch"
+    name: "Mount Pitch"
     entity_category: config
     id: num_pitch
     unit_of_measurement: "°"
@@ -306,7 +335,7 @@ number:
           id(num_pitch).publish_state(x);
 
   - platform: template
-    name: "Roll"
+    name: "Mount Roll"
     entity_category: config
     id: num_roll
     unit_of_measurement: "°"

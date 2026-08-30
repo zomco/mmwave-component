@@ -25,6 +25,8 @@ esphome:
           id(radar).set_yaw(id(g_yaw));
           id(radar).set_pitch(id(g_pitch));
           id(radar).set_roll(id(g_roll));
+          id(radar).set_distance_min(id(g_distance_min));
+          id(radar).set_distance_max(id(g_distance_max));
 
           if (!id(g_polygon).empty()) {
             id(text_polygon).publish_state(id(g_polygon));
@@ -119,6 +121,16 @@ globals:
     type: float
     restore_value: true
     initial_value: "0.0"
+
+  - id: g_distance_min
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 0 cm = 不设最小距离
+
+  - id: g_distance_max
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 0 cm = 不设最大距离
 
   - id: g_polygon
     type: std::string
@@ -228,7 +240,41 @@ ld2452:
 
 number:
   - platform: template
-    name: "Radar X"
+    name: "Zone Min Distance"
+    entity_category: config
+    id: num_distance_min
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_min);"
+    set_action:
+      - lambda: |-
+          id(g_distance_min) = x;
+          id(radar).set_distance_min(x);
+          id(num_distance_min).publish_state(x);
+
+  - platform: template
+    name: "Zone Max Distance"
+    entity_category: config
+    id: num_distance_max
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_max);"
+    set_action:
+      - lambda: |-
+          id(g_distance_max) = x;
+          id(radar).set_distance_max(x);
+          id(num_distance_max).publish_state(x);
+
+  - platform: template
+    name: "Mount X"
     entity_category: config
     id: num_radar_x
     unit_of_measurement: cm
@@ -245,7 +291,7 @@ number:
           id(num_radar_x).publish_state(x);
 
   - platform: template
-    name: "Radar Y"
+    name: "Mount Y"
     entity_category: config
     id: num_radar_y
     unit_of_measurement: cm
@@ -262,7 +308,7 @@ number:
           id(num_radar_y).publish_state(x);
 
   - platform: template
-    name: "Radar Z"
+    name: "Mount Z"
     entity_category: config
     id: num_radar_z
     unit_of_measurement: cm
@@ -279,7 +325,7 @@ number:
           id(num_radar_z).publish_state(x);
 
   - platform: template
-    name: "Yaw"
+    name: "Mount Yaw"
     entity_category: config
     id: num_yaw
     unit_of_measurement: "°"
@@ -296,7 +342,7 @@ number:
           id(num_yaw).publish_state(x);
 
   - platform: template
-    name: "Pitch"
+    name: "Mount Pitch"
     entity_category: config
     id: num_pitch
     unit_of_measurement: "°"
@@ -313,7 +359,7 @@ number:
           id(num_pitch).publish_state(x);
 
   - platform: template
-    name: "Roll"
+    name: "Mount Roll"
     entity_category: config
     id: num_roll
     unit_of_measurement: "°"
@@ -331,7 +377,7 @@ number:
 
 text:
   - platform: template
-    name: "Polygon Config"
+    name: "Zone Polygon"
     entity_category: config
     id: text_polygon
     min_length: 0
