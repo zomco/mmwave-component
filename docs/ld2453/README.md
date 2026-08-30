@@ -50,6 +50,12 @@ Hi-Link HLK-LD2453 2D Multi-Target Tracking Radar — ESPHome component.
 > anything in this component — the transform is shared with ld2450/ld2452/
 > ld2454 and is exercised by the same tests. Worth re-testing when Hi-Link
 > publishes a firmware update.
+>
+> **Everything else about the model works.** Only the angular extent of the fan
+> is affected: parsing, coordinates, boundary filtering, presence and the
+> control entities are all unaffected, and a live LD2453 is still a valid
+> target for feature work and automated tests. The one thing not to trust it
+> for is judging where a radar can and cannot see.
 
 ### Target Entity Blocks
 
