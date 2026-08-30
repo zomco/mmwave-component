@@ -53,7 +53,10 @@ button:
   # dashboard or automation referring to it.
   - platform: restart
     name: "Restart ESP"
-    entity_category: config
+    # The restart and safe_mode platforms default to
+    # entity_category: config. Cleared so Configuration holds only the
+    # installation calibration this component adds.
+    entity_category: ""
     icon: mdi:power-cycle
 
   # Reboots with every component disabled except WiFi and OTA. This is the
@@ -61,7 +64,10 @@ button:
   # never reaches the point of accepting an OTA update.
   - platform: safe_mode
     name: "Restart (Safe Mode)"
-    entity_category: config
+    # The restart and safe_mode platforms default to
+    # entity_category: config. Cleared so Configuration holds only the
+    # installation calibration this component adds.
+    entity_category: ""
     icon: mdi:lifebuoy
 
 # Local fallback UI: live entity states, logs, and a browser OTA upload. The

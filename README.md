@@ -97,26 +97,35 @@ This firmware is one of three pieces, released separately:
 
 ## Reading the device page
 
-Home Assistant files a device's entities into four blocks. Which block an
-entity lands in is decided by its category and whether it can be written, so
-the same rule is applied on every model here:
+Home Assistant files a device's entities into four blocks. The split here
+answers one question: **is this the radar's, or is it ours?**
 
-| Block | What is in it | Comes from |
-| --- | --- | --- |
-| **Sensors** | What the radar measures, and the room coordinates derived from it | the radar, plus this component's transform |
-| **Controls** | Operating modes you change while it is running — tracking mode, multi-target | the radar |
-| **Configuration** | Set once at install and then left alone | see below |
-| **Diagnostic** | Read-only health, and the frame-injection input used by tests | the ESP, and this component |
+| Block | What is in it |
+| --- | --- |
+| **Sensors** | What the radar measures, and the room coordinates derived from it |
+| **Controls** | Everything the radar itself owns — its settings, its operating modes, and its restart and factory-reset actions. The ESP's own restart buttons live here too |
+| **Configuration** | **Only what this component adds**: `Radar X/Y/Z`, `Yaw/Pitch/Roll`, `Polygon Config`, `Min/Max Distance` |
+| **Diagnostic** | Read-only health, radar config read-back, and the frame-injection input tests use |
 
-**Configuration** mixes two origins on purpose, because Home Assistant has no
-fifth block to separate them:
+So **Configuration** is the answer to "how is this radar installed, and which
+part of the room counts?" — nothing in it is a radar setting, and the radar
+knows about none of it. Every one of those values is applied on the ESP, which
+is why they survive a radar factory reset and why changing them cannot put the
+module into a bad state.
 
-- *Radar-native settings* — gate sensitivities, detection distance, direction
-  filters, and the two module actions below.
-- *Installation calibration added by this component* — `Radar X/Y/Z`,
-  `Yaw/Pitch/Roll`, `Polygon Config`, and `Min/Max Distance`. The radar knows
-  nothing about these; they describe where the radar is and which part of the
-  room counts, and they are applied on the ESP.
+Everything the radar itself understands is in **Controls**, whether it is a
+gate sensitivity, a tracking mode, or a factory reset.
+
+Two consequences worth knowing:
+
+- On models that expose both, `Max Detection Distance` (Controls) and
+  `Max Distance` (Configuration) are different things and now sit in different
+  blocks. The first tells the radar what to report; the second filters what
+  this component accepts from it.
+- `Restart ESP` and `Restart (Safe Mode)` are moved out of Configuration
+  deliberately, which overrides the `entity_category: config` that ESPHome's
+  own `restart` and `safe_mode` platforms set by default. They restart
+  hardware; they do not configure anything.
 
 ### What the restart and reset controls actually do
 
