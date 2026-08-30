@@ -92,30 +92,30 @@ ld6002:
 
   # ── 存在探测、距离与生命体征 ────────────────────────────────────────────────────
   presence:
-    name: "presence"
+    name: "Presence"
     device_class: presence
   distance:
-    name: "distance"
+    name: "Distance"
     unit_of_measurement: "cm"
   respiration_rate:
-    name: "respiration_rate"
+    name: "Respiration Rate"
     unit_of_measurement: "bpm"
   heart_rate:
-    name: "heart_rate"
+    name: "Heart Rate"
     unit_of_measurement: "bpm"
 
   # ── 坐标转换与区域过滤 ────────────────────────────────────────────────
   room_x:
-    name: "room_x"
+    name: "Room X"
     unit_of_measurement: "cm"
   room_y:
-    name: "room_y"
+    name: "Room Y"
     unit_of_measurement: "cm"
   room_z:
-    name: "room_z"
+    name: "Room Z"
     unit_of_measurement: "cm"
   in_boundary:
-    name: "in_boundary"
+    name: "In Boundary"
 
 # =============================================================================
 # 运行时校准控制实体 (number)

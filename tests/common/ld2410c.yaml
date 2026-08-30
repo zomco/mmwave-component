@@ -97,112 +97,112 @@ ld2410c:
 
   # ── 存在探测、目标距离与状态 ────────────────────────────────────────────────────
   presence:
-    name: "presence"
+    name: "Presence"
     device_class: presence
   target_state:
-    name: "target_state"
+    name: "Target State"
   moving_distance:
-    name: "moving_distance"
+    name: "Moving Distance"
     unit_of_measurement: "cm"
   moving_energy:
-    name: "moving_energy"
+    name: "Moving Energy"
   stationary_distance:
-    name: "stationary_distance"
+    name: "Stationary Distance"
     unit_of_measurement: "cm"
   stationary_energy:
-    name: "stationary_energy"
+    name: "Stationary Energy"
   detection_distance:
-    name: "detection_distance"
+    name: "Detection Distance"
     unit_of_measurement: "cm"
   max_distance:
-    name: "max_distance"
+    name: "Max Distance"
     unit_of_measurement: "cm"
 
   # ── 工程模式附加数据（协议表 15）────────────────────────────────────────────
   # 模块自带光敏二极管；OUT 引脚状态在开启光感辅助控制后会与 presence 不同。
   light:
-    name: "light"
+    name: "Light"
   out_pin:
-    name: "out_pin"
+    name: "OUT Pin"
 
   # ── 坐标转换与区域过滤 ────────────────────────────────────────────────
   room_x:
-    name: "room_x"
+    name: "Room X"
     unit_of_measurement: "cm"
   room_y:
-    name: "room_y"
+    name: "Room Y"
     unit_of_measurement: "cm"
   room_z:
-    name: "room_z"
+    name: "Room Z"
     unit_of_measurement: "cm"
   in_boundary:
-    name: "in_boundary"
+    name: "In Boundary"
 
   # ── 雷达自身配置回读（协议 2.2.4 / 2.2.8 / 2.2.17 / 2.2.21）──────────────
   # 发布的是雷达答复的值，而不是写进去的值：写失败时看得见。
   firmware_version:
-    name: "firmware_version"
+    name: "Firmware Version"
   max_moving_gate:
-    name: "max_moving_gate"
+    name: "Max Moving Gate"
   max_still_gate:
-    name: "max_still_gate"
+    name: "Max Still Gate"
   unmanned_duration:
-    name: "unmanned_duration"
+    name: "Unmanned Duration"
   distance_resolution:
-    name: "distance_resolution"
+    name: "Distance Resolution"
   gate_sensitivity:
-    name: "gate_sensitivity"
+    name: "Gate Sensitivity"
   noise_floor_status:
-    name: "noise_floor_status"
+    name: "Noise Floor Status"
 
   # ── 各距离门能量值（工程模式）──────────────────────────────────────────────
   # 9 个距离门，每门运动/静止各一个。组件一直在解析它们，之前没有实体承接，
   # 于是这半个协议在 Home Assistant 里根本不存在。
   g0:
     gate_move_energy:
-      name: "g0_move_energy"
+      name: "G0 Move Energy"
     gate_still_energy:
-      name: "g0_still_energy"
+      name: "G0 Still Energy"
   g1:
     gate_move_energy:
-      name: "g1_move_energy"
+      name: "G1 Move Energy"
     gate_still_energy:
-      name: "g1_still_energy"
+      name: "G1 Still Energy"
   g2:
     gate_move_energy:
-      name: "g2_move_energy"
+      name: "G2 Move Energy"
     gate_still_energy:
-      name: "g2_still_energy"
+      name: "G2 Still Energy"
   g3:
     gate_move_energy:
-      name: "g3_move_energy"
+      name: "G3 Move Energy"
     gate_still_energy:
-      name: "g3_still_energy"
+      name: "G3 Still Energy"
   g4:
     gate_move_energy:
-      name: "g4_move_energy"
+      name: "G4 Move Energy"
     gate_still_energy:
-      name: "g4_still_energy"
+      name: "G4 Still Energy"
   g5:
     gate_move_energy:
-      name: "g5_move_energy"
+      name: "G5 Move Energy"
     gate_still_energy:
-      name: "g5_still_energy"
+      name: "G5 Still Energy"
   g6:
     gate_move_energy:
-      name: "g6_move_energy"
+      name: "G6 Move Energy"
     gate_still_energy:
-      name: "g6_still_energy"
+      name: "G6 Still Energy"
   g7:
     gate_move_energy:
-      name: "g7_move_energy"
+      name: "G7 Move Energy"
     gate_still_energy:
-      name: "g7_still_energy"
+      name: "G7 Still Energy"
   g8:
     gate_move_energy:
-      name: "g8_move_energy"
+      name: "G8 Move Energy"
     gate_still_energy:
-      name: "g8_still_energy"
+      name: "G8 Still Energy"
 
 # =============================================================================
 # 运行时校准控制实体 (number)

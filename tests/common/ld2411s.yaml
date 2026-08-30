@@ -72,14 +72,14 @@ ld2411s:
   id: radar
   uart_id: uart_ld2411s
   distance:
-    name: "distance"
+    name: "Distance"
   presence:
-    name: "presence"
+    name: "Presence"
     device_class: presence
   moving_target:
-    name: "moving target"
+    name: "Moving Target"
   micro_target:
-    name: "micro target"
+    name: "Micro Target"
 
   # carried over from the component config
   radar_x: 0.0

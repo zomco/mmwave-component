@@ -131,85 +131,85 @@ ld2454:
   uart_id: uart_ld2454
 
   presence:
-    name: "presence"
+    name: "Presence"
     device_class: presence
   target_frame:
-    name: "target_frame"
+    name: "Target Frame"
     icon: mdi:radar
   presence_timeout: 5s
 
   multi_target:
     name: "Multi Target Mode"
   restart:
-    name: "Restart"
+    name: "Restart Module"
   factory_reset:
     name: "Factory Reset"
 
   target_1_x:
-    name: "target_1_x"
+    name: "Target 1 X"
   target_1_y:
-    name: "target_1_y"
+    name: "Target 1 Y"
   target_1_speed:
-    name: "target_1_speed"
+    name: "Target 1 Speed"
   target_1_resolution:
-    name: "target_1_resolution"
+    name: "Target 1 Resolution"
     internal: true
   target_1_distance:
-    name: "target_1_distance"
+    name: "Target 1 Distance"
   target_1_angle:
-    name: "target_1_angle"
+    name: "Target 1 Angle"
   target_1_room_x:
-    name: "target_1_room_x"
+    name: "Target 1 Room X"
   target_1_room_y:
-    name: "target_1_room_y"
+    name: "Target 1 Room Y"
   target_1_active:
-    name: "target_1_active"
+    name: "Target 1 Active"
   target_1_in_boundary:
-    name: "target_1_in_boundary"
+    name: "Target 1 In Boundary"
 
   target_2_x:
-    name: "target_2_x"
+    name: "Target 2 X"
   target_2_y:
-    name: "target_2_y"
+    name: "Target 2 Y"
   target_2_speed:
-    name: "target_2_speed"
+    name: "Target 2 Speed"
   target_2_resolution:
-    name: "target_2_resolution"
+    name: "Target 2 Resolution"
     internal: true
   target_2_distance:
-    name: "target_2_distance"
+    name: "Target 2 Distance"
   target_2_angle:
-    name: "target_2_angle"
+    name: "Target 2 Angle"
   target_2_room_x:
-    name: "target_2_room_x"
+    name: "Target 2 Room X"
   target_2_room_y:
-    name: "target_2_room_y"
+    name: "Target 2 Room Y"
   target_2_active:
-    name: "target_2_active"
+    name: "Target 2 Active"
   target_2_in_boundary:
-    name: "target_2_in_boundary"
+    name: "Target 2 In Boundary"
 
   target_3_x:
-    name: "target_3_x"
+    name: "Target 3 X"
   target_3_y:
-    name: "target_3_y"
+    name: "Target 3 Y"
   target_3_speed:
-    name: "target_3_speed"
+    name: "Target 3 Speed"
   target_3_resolution:
-    name: "target_3_resolution"
+    name: "Target 3 Resolution"
     internal: true
   target_3_distance:
-    name: "target_3_distance"
+    name: "Target 3 Distance"
   target_3_angle:
-    name: "target_3_angle"
+    name: "Target 3 Angle"
   target_3_room_x:
-    name: "target_3_room_x"
+    name: "Target 3 Room X"
   target_3_room_y:
-    name: "target_3_room_y"
+    name: "Target 3 Room Y"
   target_3_active:
-    name: "target_3_active"
+    name: "Target 3 Active"
   target_3_in_boundary:
-    name: "target_3_in_boundary"
+    name: "Target 3 In Boundary"
 
   # carried over from the component config
   radar_x: 0.0 # 雷达在房间中的 X 位置（cm，房间左下角为原点）

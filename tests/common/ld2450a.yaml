@@ -106,28 +106,28 @@ ld2450a:
   uart_id: uart_ld2450a
 
   presence:
-    name: "presence"
+    name: "Presence"
     device_class: presence
   distance:
-    name: "distance"
+    name: "Distance"
   gesture:
-    name: "gesture"
+    name: "Gesture"
   gesture_type:
-    name: "gesture_type"
+    name: "Gesture Type"
   gesture_distance:
-    name: "gesture_distance"
+    name: "Gesture Distance"
   gesture_speed:
-    name: "gesture_speed"
+    name: "Gesture Speed"
   gesture_angle:
-    name: "gesture_angle"
+    name: "Gesture Angle"
   room_x:
-    name: "room_x"
+    name: "Room X"
   room_y:
-    name: "room_y"
+    name: "Room Y"
   room_z:
-    name: "room_z"
+    name: "Room Z"
   in_boundary:
-    name: "in_boundary"
+    name: "In Boundary"
 
 # =============================================================================
 # 运行时校准与控制实体 (number)
@@ -327,7 +327,7 @@ button:
       - lambda: "id(radar).factory_reset();"
 
   - platform: template
-    name: "Reboot Radar Module"
+    name: "Restart Module"
     icon: mdi:restart
     entity_category: config
     on_press:

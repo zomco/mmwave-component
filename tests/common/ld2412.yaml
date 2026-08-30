@@ -92,93 +92,93 @@ ld2412:
   uart_id: uart_ld2412
 
   presence:
-    name: "presence"
+    name: "Presence"
     device_class: presence
   target_state:
-    name: "target_state"
+    name: "Target State"
   moving_distance:
-    name: "moving_distance"
+    name: "Moving Distance"
     unit_of_measurement: "cm"
   moving_energy:
-    name: "moving_energy"
+    name: "Moving Energy"
   stationary_distance:
-    name: "stationary_distance"
+    name: "Stationary Distance"
     unit_of_measurement: "cm"
   stationary_energy:
-    name: "stationary_energy"
+    name: "Stationary Energy"
   light:
-    name: "light_sensor"
+    name: "Light Sensor"
 
   g0:
     gate_move_energy:
-      name: "g0_move_energy"
+      name: "G0 Move Energy"
     gate_still_energy:
-      name: "g0_still_energy"
+      name: "G0 Still Energy"
   g1:
     gate_move_energy:
-      name: "g1_move_energy"
+      name: "G1 Move Energy"
     gate_still_energy:
-      name: "g1_still_energy"
+      name: "G1 Still Energy"
   g2:
     gate_move_energy:
-      name: "g2_move_energy"
+      name: "G2 Move Energy"
     gate_still_energy:
-      name: "g2_still_energy"
+      name: "G2 Still Energy"
   g3:
     gate_move_energy:
-      name: "g3_move_energy"
+      name: "G3 Move Energy"
     gate_still_energy:
-      name: "g3_still_energy"
+      name: "G3 Still Energy"
   g4:
     gate_move_energy:
-      name: "g4_move_energy"
+      name: "G4 Move Energy"
     gate_still_energy:
-      name: "g4_still_energy"
+      name: "G4 Still Energy"
   g5:
     gate_move_energy:
-      name: "g5_move_energy"
+      name: "G5 Move Energy"
     gate_still_energy:
-      name: "g5_still_energy"
+      name: "G5 Still Energy"
   g6:
     gate_move_energy:
-      name: "g6_move_energy"
+      name: "G6 Move Energy"
     gate_still_energy:
-      name: "g6_still_energy"
+      name: "G6 Still Energy"
   g7:
     gate_move_energy:
-      name: "g7_move_energy"
+      name: "G7 Move Energy"
     gate_still_energy:
-      name: "g7_still_energy"
+      name: "G7 Still Energy"
   g8:
     gate_move_energy:
-      name: "g8_move_energy"
+      name: "G8 Move Energy"
     gate_still_energy:
-      name: "g8_still_energy"
+      name: "G8 Still Energy"
   g9:
     gate_move_energy:
-      name: "g9_move_energy"
+      name: "G9 Move Energy"
     gate_still_energy:
-      name: "g9_still_energy"
+      name: "G9 Still Energy"
   g10:
     gate_move_energy:
-      name: "g10_move_energy"
+      name: "G10 Move Energy"
     gate_still_energy:
-      name: "g10_still_energy"
+      name: "G10 Still Energy"
   g11:
     gate_move_energy:
-      name: "g11_move_energy"
+      name: "G11 Move Energy"
     gate_still_energy:
-      name: "g11_still_energy"
+      name: "G11 Still Energy"
   g12:
     gate_move_energy:
-      name: "g12_move_energy"
+      name: "G12 Move Energy"
     gate_still_energy:
-      name: "g12_still_energy"
+      name: "G12 Still Energy"
   g13:
     gate_move_energy:
-      name: "g13_move_energy"
+      name: "G13 Move Energy"
     gate_still_energy:
-      name: "g13_still_energy"
+      name: "G13 Still Energy"
 
   # carried over from the component config
   radar_x: 0.0
@@ -200,16 +200,16 @@ ld2412:
 
   # carried over from the component config
   room_x:
-    name: "room_x"
+    name: "Room X"
   # carried over from the component config
   room_y:
-    name: "room_y"
+    name: "Room Y"
   # carried over from the component config
   room_z:
-    name: "room_z"
+    name: "Room Z"
   # carried over from the component config
   in_boundary:
-    name: "in_boundary"
+    name: "In Boundary"
 
   # 14 个距离门（0-13）的运动/静止能量
 
