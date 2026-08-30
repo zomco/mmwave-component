@@ -174,6 +174,11 @@ class LD2450Component : public Component, public uart::UARTDevice {
     recompute_rotation_();
   }
 
+  /// 设置径向距离下限（cm）; 0 = 不设下限
+  void set_distance_min(float v) { cal_.distance_min = v; }
+  /// 设置径向距离上限（cm）; 0 = 不设上限
+  void set_distance_max(float v) { cal_.distance_max = v; }
+
   /// 追加一个多边形顶点（房间坐标系，cm）
   void add_polygon_point(float x, float y) { cal_.polygon.push_back(Vec2{x, y}); }
   /// 清空多边形

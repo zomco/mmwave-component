@@ -35,6 +35,8 @@ CONF_RADAR_Z        = "radar_z"
 CONF_YAW            = "yaw"
 CONF_PITCH          = "pitch"
 CONF_ROLL           = "roll"
+CONF_DISTANCE_MIN   = "distance_min"
+CONF_DISTANCE_MAX   = "distance_max"
 CONF_POLYGON        = "polygon"
 CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
 
@@ -83,6 +85,8 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_YAW,          default=0.0):   cv.float_range(-180, 180),
             cv.Optional(CONF_PITCH,        default=0.0):   cv.float_range(-90, 90),
             cv.Optional(CONF_ROLL,         default=0.0):   cv.float_range(-90, 90),
+            cv.Optional(CONF_DISTANCE_MIN, default=0.0):   cv.float_range(min=0.0, max=10000.0),
+            cv.Optional(CONF_DISTANCE_MAX, default=0.0):   cv.float_range(min=0.0, max=10000.0),
             cv.Optional(CONF_POLYGON,      default=[]):
                 cv.ensure_list(POLYGON_POINT_SCHEMA),
             # 边界外的目标（隔墙鬼影）默认不计入 presence
@@ -230,6 +234,8 @@ async def to_code(config):
     cg.add(var.set_yaw(config[CONF_YAW]))
     cg.add(var.set_pitch(config[CONF_PITCH]))
     cg.add(var.set_roll(config[CONF_ROLL]))
+    cg.add(var.set_distance_min(config[CONF_DISTANCE_MIN]))
+    cg.add(var.set_distance_max(config[CONF_DISTANCE_MAX]))
 
     # 多边形：逐点追加（避免传递 std::vector，与 ESPHome codegen 兼容）
     for pt in config.get(CONF_POLYGON, []):

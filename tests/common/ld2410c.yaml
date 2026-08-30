@@ -115,7 +115,7 @@ ld2410c:
     name: "Detection Distance"
     unit_of_measurement: "cm"
   max_distance:
-    name: "Zone Max Distance"
+    name: "Max Detection Distance"
     unit_of_measurement: "cm"
 
   # ── 工程模式附加数据（协议表 15）────────────────────────────────────────────

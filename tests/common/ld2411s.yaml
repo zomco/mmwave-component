@@ -24,6 +24,8 @@ esphome:
           id(radar).set_radar_y(id(g_radar_y));
           id(radar).set_radar_z(id(g_radar_z));
           id(radar).set_yaw(id(g_yaw));
+          id(radar).set_distance_min(id(g_distance_min));
+          id(radar).set_distance_max(id(g_distance_max));
           id(radar).set_pitch(id(g_pitch));
           id(radar).set_roll(id(g_roll));
 
@@ -37,6 +39,16 @@ uart:
   stop_bits: 1
 
 globals:
+  - id: g_distance_min
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 0 cm = 不设最小距离
+
+  - id: g_distance_max
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 0 cm = 不设最大距离
+
   - id: g_radar_x
     type: float
     restore_value: true
@@ -113,6 +125,40 @@ ld2411s:
     name: "In Boundary"
 
 number:
+  - platform: template
+    name: "Zone Min Distance"
+    entity_category: config
+    id: num_distance_min
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_min);"
+    set_action:
+      - lambda: |-
+          id(g_distance_min) = x;
+          id(radar).set_distance_min(x);
+          id(num_distance_min).publish_state(x);
+
+  - platform: template
+    name: "Zone Max Distance"
+    entity_category: config
+    id: num_distance_max
+    unit_of_measurement: cm
+    min_value: 0
+    max_value: 1000
+    step: 10
+    mode: box
+    icon: mdi:ruler
+    lambda: "return id(g_distance_max);"
+    set_action:
+      - lambda: |-
+          id(g_distance_max) = x;
+          id(radar).set_distance_max(x);
+          id(num_distance_max).publish_state(x);
+
   - platform: template
     name: "Mount X"
     entity_category: config

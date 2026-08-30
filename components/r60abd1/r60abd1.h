@@ -63,6 +63,10 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   void set_yaw(float v) { cal_.yaw = v; }
   void set_pitch(float v) { cal_.pitch = v; }
   void set_roll(float v) { cal_.roll = v; }
+  /// 设置径向距离下限（cm）; 0 = 不设下限
+  void set_distance_min(float v) { cal_.distance_min = v; }
+  /// 设置径向距离上限（cm）; 0 = 不设上限
+  void set_distance_max(float v) { cal_.distance_max = v; }
 
   /**
    * 追加一个多边形顶点（房间坐标系，cm）
