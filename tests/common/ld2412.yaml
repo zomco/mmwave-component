@@ -222,6 +222,7 @@ ld2412:
 number:
   - platform: template
     name: "Radar X"
+    entity_category: config
     id: num_radar_x
     unit_of_measurement: cm
     min_value: -2000
@@ -238,6 +239,7 @@ number:
 
   - platform: template
     name: "Radar Y"
+    entity_category: config
     id: num_radar_y
     unit_of_measurement: cm
     min_value: -2000
@@ -254,6 +256,7 @@ number:
 
   - platform: template
     name: "Radar Z"
+    entity_category: config
     id: num_radar_z
     unit_of_measurement: cm
     min_value: 50
@@ -270,6 +273,7 @@ number:
 
   - platform: template
     name: "Yaw"
+    entity_category: config
     id: num_yaw
     unit_of_measurement: "°"
     min_value: -180
@@ -286,6 +290,7 @@ number:
 
   - platform: template
     name: "Pitch"
+    entity_category: config
     id: num_pitch
     unit_of_measurement: "°"
     min_value: -90
@@ -302,6 +307,7 @@ number:
 
   - platform: template
     name: "Roll"
+    entity_category: config
     id: num_roll
     unit_of_measurement: "°"
     min_value: -90
@@ -324,6 +330,7 @@ text:
     # spelled differently from the other eleven, and a name nothing could
     # reasonably guess.
     name: "Mock Data"
+    entity_category: diagnostic
     id: text_ld2412_mock_data
     mode: text
     optimistic: true
