@@ -95,6 +95,45 @@ This firmware is one of three pieces, released separately:
 
 ---
 
+## Reading the device page
+
+Home Assistant files a device's entities into four blocks. Which block an
+entity lands in is decided by its category and whether it can be written, so
+the same rule is applied on every model here:
+
+| Block | What is in it | Comes from |
+| --- | --- | --- |
+| **Sensors** | What the radar measures, and the room coordinates derived from it | the radar, plus this component's transform |
+| **Controls** | Operating modes you change while it is running — tracking mode, multi-target | the radar |
+| **Configuration** | Set once at install and then left alone | see below |
+| **Diagnostic** | Read-only health, and the frame-injection input used by tests | the ESP, and this component |
+
+**Configuration** mixes two origins on purpose, because Home Assistant has no
+fifth block to separate them:
+
+- *Radar-native settings* — gate sensitivities, detection distance, direction
+  filters, and the two module actions below.
+- *Installation calibration added by this component* — `Radar X/Y/Z`,
+  `Yaw/Pitch/Roll`, `Polygon Config`, and `Min/Max Distance`. The radar knows
+  nothing about these; they describe where the radar is and which part of the
+  room counts, and they are applied on the ESP.
+
+### What the restart and reset controls actually do
+
+| Entity | Restarts / resets |
+| --- | --- |
+| `Restart ESP` | the **ESP32 board**. ESPHome's own restart button |
+| `Restart (Safe Mode)` | the **ESP32**, with everything but WiFi and OTA disabled — the recovery path when a radar component wedges the device |
+| `Restart Module` (also `Restart`, `Reboot Radar Module`, `Reset Module`) | the **radar module** over UART. The ESP keeps running |
+| `Factory Reset` | the **radar module's own settings**. It does not touch the ESP or its ESPHome configuration |
+
+Nothing here factory-resets the ESP; reflashing is the only way to do that.
+
+> [!NOTE]
+> The four names for "restart the radar module" are a wart. They are kept
+> because renaming an entity changes its `entity_id` and silently breaks any
+> dashboard or automation that referred to it.
+
 ## Radar Model Status
 
 All 16 models below have a component and firmware config. The `Docs` column

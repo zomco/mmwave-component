@@ -123,6 +123,7 @@ rd03e:
 number:
   - platform: template
     name: "Radar X"
+    entity_category: config
     id: num_radar_x
     unit_of_measurement: cm
     min_value: -2000
@@ -139,6 +140,7 @@ number:
 
   - platform: template
     name: "Radar Y"
+    entity_category: config
     id: num_radar_y
     unit_of_measurement: cm
     min_value: -2000
@@ -155,6 +157,7 @@ number:
 
   - platform: template
     name: "Radar Z"
+    entity_category: config
     id: num_radar_z
     unit_of_measurement: cm
     min_value: 50
@@ -171,6 +174,7 @@ number:
 
   - platform: template
     name: "Yaw"
+    entity_category: config
     id: num_yaw
     unit_of_measurement: "°"
     min_value: -180
@@ -187,6 +191,7 @@ number:
 
   - platform: template
     name: "Pitch"
+    entity_category: config
     id: num_pitch
     unit_of_measurement: "°"
     min_value: -90
@@ -203,6 +208,7 @@ number:
 
   - platform: template
     name: "Roll"
+    entity_category: config
     id: num_roll
     unit_of_measurement: "°"
     min_value: -90
@@ -219,6 +225,7 @@ number:
 
   - platform: template
     name: "Min Distance"
+    entity_category: config
     id: num_distance_min
     unit_of_measurement: cm
     min_value: 0
@@ -235,6 +242,7 @@ number:
 
   - platform: template
     name: "Max Distance"
+    entity_category: config
     id: num_distance_max
     unit_of_measurement: cm
     min_value: 0
@@ -289,6 +297,7 @@ button:
 text:
   - platform: template
     name: "Mock Data"
+    entity_category: diagnostic
     id: text_mock_data
     min_length: 0
     max_length: 255
