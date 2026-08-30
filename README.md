@@ -129,6 +129,26 @@ fifth block to separate them:
 
 Nothing here factory-resets the ESP; reflashing is the only way to do that.
 
+> [!IMPORTANT]
+> **Changing an entity's block needs more than a reflash.** Home Assistant
+> stores `entity_category` in its entity registry when the entity is *first*
+> registered, and a device reporting a new value does not overwrite it. Flash
+> the firmware and the device page looks exactly as it did before.
+>
+> Reload the device's config entry afterwards — in the UI, or:
+>
+> ```yaml
+> service: homeassistant.reload_config_entry
+> data:
+>   entity_id: text.<device>_mock_data   # any entity on that device
+> ```
+>
+> This bites hardest because the symptom is nothing happening at all, and
+> `/api/states` cannot show you the problem: it does not return
+> `entity_category`. Checking whether the change actually landed means reading
+> the entity registry over the WebSocket API
+> (`config/entity_registry/list`), not the REST states endpoint.
+
 ### Naming
 
 One idea has one name on every model, and the display name is Title Case
