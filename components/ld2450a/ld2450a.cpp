@@ -109,21 +109,30 @@ void LD2450AComponent::process_packet_() {
     uint8_t gesture_ang = this->rx_buffer_[10];
     // uint8_t gesture_ang_thresh  = this->rx_buffer_[11];
 
-    bool is_present = (presence_val != 0x00);
-    if (this->presence_sensor_ != nullptr) {
-      this->presence_sensor_->publish_state(is_present);
-    }
+    // 雷达报的原始存在状态。发布要等边界判断出来。
+    const bool is_present = (presence_val != 0x00);
+    bool in_boundary = false;
+    bool have_position = false;
 
     if (is_present && dist_val != 255) {
       float dist_cm = dist_val;
       if (this->distance_sensor_ != nullptr) {
         this->distance_sensor_->publish_state(dist_cm);
       }
-      this->publish_position_(dist_cm);
+      in_boundary = this->publish_position_(dist_cm);
+      have_position = true;
     } else {
       if (this->in_boundary_sensor_ != nullptr) {
         this->in_boundary_sensor_->publish_state(false);
       }
+    }
+
+    // 边界门控：开启时，界外目标不算存在。
+    // 只有真的算出了位置，边界才有资格否决存在状态。拿缺失的位置去
+    // 否定存在，正是让雷达看起来坏掉的那类 bug。
+    const bool gated = (this->boundary_gates_presence_ && have_position) ? (is_present && in_boundary) : is_present;
+    if (this->presence_sensor_ != nullptr) {
+      this->presence_sensor_->publish_state(gated);
     }
 
     // Gesture reporting
@@ -192,7 +201,7 @@ void LD2450AComponent::factory_reset() { this->send_command_(0xC5, 0); }
 
 void LD2450AComponent::reboot() { this->send_command_(0x02, 0); }
 
-void LD2450AComponent::publish_position_(float range_cm) {
+bool LD2450AComponent::publish_position_(float range_cm) {
   auto pos = Transform1D::transform(range_cm, this->cal_);
 
   if (this->room_x_ != nullptr) {
@@ -209,6 +218,7 @@ void LD2450AComponent::publish_position_(float range_cm) {
       this->in_boundary_sensor_->publish_state(pos.in_boundary);
     }
   }
+  return pos.in_boundary;
 }
 
 void LD2450AComponent::inject_mock_data(std::string data) {

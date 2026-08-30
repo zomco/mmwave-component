@@ -178,12 +178,8 @@ void LD6002Component::process_packet_() {
       this->frame_count_0F09_++;
       if (this->payload_.size() >= 2) {
         uint16_t is_human = (uint16_t(this->payload_[1]) << 8) | this->payload_[0];
-        bool present = (is_human != 0);
-        if (this->presence_sensor_ != nullptr) {
-          if (this->presence_sensor_->state != present || !this->presence_sensor_->has_state()) {
-            this->presence_sensor_->publish_state(present);
-          }
-        }
+        this->last_raw_presence_ = (is_human != 0);
+        this->publish_presence_();
       }
       break;
     }
@@ -202,7 +198,7 @@ void LD6002Component::process_packet_() {
           ESP_LOGI(TAG, "0x0A04 position: x=%.3f y=%.3f z=%.3f", x_m, y_m, z_m);
           this->publish_position_(x_m, y_m, z_m);
         } else if (target_num == 0) {
-          this->publish_position_(0, 0, 0);
+          this->publish_position_(0, 0, 0, false);
         }
       }
       break;
@@ -224,7 +220,7 @@ void LD6002Component::process_packet_() {
           // LD6002 is a 1D radar. Synthesize target coordinates based on distance.
           this->publish_position_(0, distance_cm / 100.0f, 0);
         } else {
-          this->publish_position_(0, 0, 0);
+          this->publish_position_(0, 0, 0, false);
         }
       }
       break;
@@ -280,7 +276,21 @@ void LD6002Component::process_packet_() {
   }
 }
 
-void LD6002Component::publish_position_(float x_m, float y_m, float z_m) {
+// 存在状态与位置来自不同的帧（0x0F09 与 0x0A04/0x0A16），所以边界门控
+// 只能靠缓存两边的最新值，任意一边更新时重算一次。
+//
+// last_in_boundary_ 初值为 true：还没收到过位置帧时不应该压制存在状态，
+// 拿陈旧或缺失的位置去否定存在，正是让雷达看起来坏掉的那类 bug。
+void LD6002Component::publish_presence_() {
+  if (this->presence_sensor_ == nullptr)
+    return;
+  const bool gate = this->boundary_gates_presence_ && this->last_have_position_;
+  const bool gated = gate ? (this->last_raw_presence_ && this->last_in_boundary_) : this->last_raw_presence_;
+  if (this->presence_sensor_->state != gated || !this->presence_sensor_->has_state())
+    this->presence_sensor_->publish_state(gated);
+}
+
+void LD6002Component::publish_position_(float x_m, float y_m, float z_m, bool has_target) {
   uint32_t now_ms = millis();
   if (now_ms - this->last_publish_ms_ < 1000)
     return;
@@ -293,6 +303,10 @@ void LD6002Component::publish_position_(float x_m, float y_m, float z_m) {
 
   float radial_dist = sqrtf(x_cm * x_cm + y_cm * y_cm + z_cm * z_cm);
   auto pos = Transform3D::transform(x_cm, y_cm, z_cm, radial_dist, this->cal_);
+
+  this->last_have_position_ = has_target;
+  this->last_in_boundary_ = pos.in_boundary;
+  this->publish_presence_();
 
   if (this->room_x_ != nullptr) {
     this->room_x_->publish_state(pos.room_x);

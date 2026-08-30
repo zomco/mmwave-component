@@ -163,6 +163,8 @@ class LD2420Component final : public Component, public uart::UARTDevice {
   void set_yaw(float yaw) { this->yaw_ = yaw; }
   void set_pitch(float pitch) { this->pitch_ = pitch; }
   void set_roll(float roll) { this->roll_ = roll; }
+  /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
+  void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
   void set_distance_min(float d) { this->distance_min_ = d; }
   void set_distance_max(float d) { this->distance_max_ = d; }
 
@@ -276,6 +278,7 @@ class LD2420Component final : public Component, public uart::UARTDevice {
   float yaw_{0.0};
   float pitch_{0.0};
   float roll_{0.0};
+  bool boundary_gates_presence_{true};
   float distance_min_{0.0};
   float distance_max_{0.0};
 

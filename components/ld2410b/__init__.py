@@ -5,7 +5,6 @@ from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
     DEVICE_CLASS_PRESENCE,
-    ENTITY_CATEGORY_DIAGNOSTIC,
     UNIT_CENTIMETER,
     UNIT_SECOND,
 )
@@ -146,33 +145,26 @@ CONFIG_SCHEMA = cv.All(
             # Configuration read-back
             cv.Optional(CONF_FIRMWARE_VERSION): text_sensor.text_sensor_schema(
                 icon="mdi:chip",
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_GATE_SENSITIVITY): text_sensor.text_sensor_schema(
                 icon="mdi:tune-variant",
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_NOISE_FLOOR_STATUS): text_sensor.text_sensor_schema(
                 icon="mdi:waveform",
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_MAX_MOVING_GATE): sensor.sensor_schema(
                 accuracy_decimals=0,
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_MAX_STILL_GATE): sensor.sensor_schema(
                 accuracy_decimals=0,
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_UNMANNED_DURATION): sensor.sensor_schema(
                 unit_of_measurement=UNIT_SECOND,
                 accuracy_decimals=0,
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_DISTANCE_RESOLUTION): sensor.sensor_schema(
                 unit_of_measurement=UNIT_METER_PER_GATE,
                 accuracy_decimals=2,
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
         }
     )

@@ -389,14 +389,12 @@ button:
   # 网络日志永远看不到它的 ACK，所以提供一个可随时触发的按钮。
   - platform: template
     name: "Query Radar State"
-    entity_category: diagnostic
     icon: mdi:help-network
     on_press:
       - lambda: "id(radar).query_state();"
 
   - platform: template
     name: "Query Zone Filter"
-    entity_category: diagnostic
     icon: mdi:selection-search
     on_press:
       - lambda: "id(radar).query_zone_config();"

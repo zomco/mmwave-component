@@ -101,13 +101,10 @@ void LD2411Component::process_byte_(uint8_t byte) {
 void LD2411Component::handle_data_frame_() {
   uint16_t dist_raw = (uint16_t(this->data_dist_h_) << 8) | this->data_dist_l_;
 
-  bool is_present = (this->data_status_ != 0);
-
-  if (this->presence_sensor_ != nullptr) {
-    if (this->presence_sensor_->state != is_present || !this->presence_sensor_->has_state()) {
-      this->presence_sensor_->publish_state(is_present);
-    }
-  }
+  // 雷达报的原始存在状态。最终发布要等边界判断出来 —— 见本函数末尾。
+  const bool is_present = (this->data_status_ != 0);
+  bool in_boundary = false;
+  bool have_position = false;
 
   if (this->motion_state_ != nullptr) {
     if (this->motion_state_->state != this->data_status_ || !this->motion_state_->has_state()) {
@@ -121,7 +118,8 @@ void LD2411Component::handle_data_frame_() {
     if (this->distance_ != nullptr) {
       this->distance_->publish_state(distance_cm);
     }
-    this->publish_position_(distance_cm);
+    in_boundary = this->publish_position_(distance_cm);
+    have_position = distance_cm > 0;
   } else {
     // Publish a default "far" value or leave untouched?
     // Often it's cleaner to just not update distance when nobody is present
@@ -131,9 +129,19 @@ void LD2411Component::handle_data_frame_() {
       }
     }
   }
+
+  // 边界门控：开启时，界外目标不算存在。
+  // 只有真的算出了位置，边界才有资格否决存在状态。拿缺失的位置去
+  // 否定存在，正是让雷达看起来坏掉的那类 bug。
+  const bool gated = (this->boundary_gates_presence_ && have_position) ? (is_present && in_boundary) : is_present;
+  if (this->presence_sensor_ != nullptr) {
+    if (this->presence_sensor_->state != gated || !this->presence_sensor_->has_state()) {
+      this->presence_sensor_->publish_state(gated);
+    }
+  }
 }
 
-void LD2411Component::publish_position_(float range_cm) {
+bool LD2411Component::publish_position_(float range_cm) {
   auto pos = Transform1D::transform(range_cm, this->cal_);
 
   if (this->room_x_ != nullptr) {
@@ -150,6 +158,7 @@ void LD2411Component::publish_position_(float range_cm) {
       this->in_boundary_sensor_->publish_state(pos.in_boundary);
     }
   }
+  return pos.in_boundary;
 }
 
 /**

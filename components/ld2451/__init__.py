@@ -5,7 +5,6 @@ from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
     DEVICE_CLASS_PRESENCE,
-    ENTITY_CATEGORY_DIAGNOSTIC,
     UNIT_CENTIMETER,
     UNIT_METER,
     UNIT_DEGREES,
@@ -144,35 +143,28 @@ CONFIG_SCHEMA = cv.All(
             # Configuration read-back
             cv.Optional(CONF_FIRMWARE_VERSION): text_sensor.text_sensor_schema(
                 icon="mdi:chip",
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_DIRECTION_FILTER): text_sensor.text_sensor_schema(
                 icon="mdi:swap-horizontal",
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_MAX_DETECTION_DISTANCE): sensor.sensor_schema(
                 unit_of_measurement=UNIT_METER,
                 device_class=DEVICE_CLASS_DISTANCE,
                 accuracy_decimals=0,
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_MIN_SPEED): sensor.sensor_schema(
                 unit_of_measurement=UNIT_KM_PER_H,
                 accuracy_decimals=0,
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_NO_TARGET_DELAY): sensor.sensor_schema(
                 unit_of_measurement=UNIT_SECOND,
                 accuracy_decimals=0,
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_TRIGGER_COUNT): sensor.sensor_schema(
                 accuracy_decimals=0,
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             cv.Optional(CONF_SNR_THRESHOLD): sensor.sensor_schema(
                 accuracy_decimals=0,
-                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             ),
             
             # Targets

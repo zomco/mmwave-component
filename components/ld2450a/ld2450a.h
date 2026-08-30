@@ -28,6 +28,8 @@ class LD2450AComponent : public Component, public uart::UARTDevice {
   void set_yaw(float v) { cal_.yaw = v; }
   void set_pitch(float v) { cal_.pitch = v; }
   void set_roll(float v) { cal_.roll = v; }
+  /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
+  void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
   void set_distance_min(float v) { cal_.distance_min = v; }
   void set_distance_max(float v) { cal_.distance_max = v; }
 
@@ -56,12 +58,13 @@ class LD2450AComponent : public Component, public uart::UARTDevice {
   void process_byte_(uint8_t byte);
   void process_packet_();
   void send_command_(uint8_t cmd, uint16_t val);
-  void publish_position_(float range_cm);
+  bool publish_position_(float range_cm);
 
   std::vector<uint8_t> rx_buffer_;
   uint32_t last_rx_ms_{0};
   uint32_t last_publish_ms_{0};
   uint32_t mock_active_until_{0};
+  bool boundary_gates_presence_{true};
 
   CalibrationParams cal_;
 

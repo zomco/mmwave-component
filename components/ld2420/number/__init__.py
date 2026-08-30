@@ -6,7 +6,6 @@ from esphome.const import (
     CONF_MOVE_THRESHOLD,
     CONF_STILL_THRESHOLD,
     DEVICE_CLASS_DISTANCE,
-    ENTITY_CATEGORY_CONFIG,
     ICON_MOTION_SENSOR,
     ICON_SCALE,
     ICON_TIMELAPSE,
@@ -47,47 +46,39 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Inclusive(CONF_PRESENCE_TIMEOUT, TIMEOUT_GROUP): number.number_schema(
             LD2420TimeoutNumber,
             unit_of_measurement=UNIT_SECOND,
-            entity_category=ENTITY_CATEGORY_CONFIG,
             icon=ICON_TIMELAPSE,
         ),
         cv.Inclusive(CONF_MIN_GATE_DISTANCE, TIMEOUT_GROUP): number.number_schema(
             LD2420MinDistanceNumber,
             device_class=DEVICE_CLASS_DISTANCE,
-            entity_category=ENTITY_CATEGORY_CONFIG,
             icon=ICON_MOTION_SENSOR,
         ),
         cv.Inclusive(CONF_MAX_GATE_DISTANCE, TIMEOUT_GROUP): number.number_schema(
             LD2420MaxDistanceNumber,
             device_class=DEVICE_CLASS_DISTANCE,
-            entity_category=ENTITY_CATEGORY_CONFIG,
             icon=ICON_MOTION_SENSOR,
         ),
         cv.Inclusive(CONF_GATE_SELECT, GATE_GROUP): number.number_schema(
             LD2420GateSelectNumber,
             device_class=DEVICE_CLASS_DISTANCE,
-            entity_category=ENTITY_CATEGORY_CONFIG,
             icon=ICON_MOTION_SENSOR,
         ),
         cv.Inclusive(CONF_STILL_THRESHOLD, GATE_GROUP): number.number_schema(
             LD2420StillThresholdNumbers,
-            entity_category=ENTITY_CATEGORY_CONFIG,
             icon=ICON_MOTION_SENSOR,
         ),
         cv.Inclusive(CONF_MOVE_THRESHOLD, GATE_GROUP): number.number_schema(
             LD2420MoveThresholdNumbers,
-            entity_category=ENTITY_CATEGORY_CONFIG,
             icon=ICON_MOTION_SENSOR,
         ),
         cv.Optional(CONF_GATE_MOVE_SENSITIVITY): number.number_schema(
             LD2420MoveSensFactorNumber,
             device_class=DEVICE_CLASS_DISTANCE,
-            entity_category=ENTITY_CATEGORY_CONFIG,
             icon=ICON_SCALE,
         ),
         cv.Optional(CONF_GATE_STILL_SENSITIVITY): number.number_schema(
             LD2420StillSensFactorNumber,
             device_class=DEVICE_CLASS_DISTANCE,
-            entity_category=ENTITY_CATEGORY_CONFIG,
             icon=ICON_SCALE,
         ),
     }
@@ -98,12 +89,10 @@ CONFIG_SCHEMA = CONFIG_SCHEMA.extend(
             {
                 cv.Required(CONF_MOVE_THRESHOLD): number.number_schema(
                     LD2420MoveThresholdNumbers,
-                    entity_category=ENTITY_CATEGORY_CONFIG,
                     icon=ICON_MOTION_SENSOR,
                 ),
                 cv.Required(CONF_STILL_THRESHOLD): number.number_schema(
                     LD2420StillThresholdNumbers,
-                    entity_category=ENTITY_CATEGORY_CONFIG,
                     icon=ICON_MOTION_SENSOR,
                 ),
             }

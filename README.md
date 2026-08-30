@@ -103,9 +103,9 @@ answers one question: **is this the radar's, or is it ours?**
 | Block | What is in it |
 | --- | --- |
 | **Sensors** | What the radar measures, and the room coordinates derived from it |
-| **Controls** | Everything the radar itself owns — its settings, its operating modes, and its restart and factory-reset actions. The ESP's own restart buttons live here too |
+| **Controls** | Everything the radar itself owns — its settings, its operating modes, its query buttons, and its restart and factory-reset actions. The ESP's own restart buttons live here too |
 | **Configuration** | **Only what this component adds**, under two prefixes: `Mount …` (where the radar is) and `Zone …` (which region counts) |
-| **Diagnostic** | Read-only health, radar config read-back, and the frame-injection input tests use |
+| **Diagnostic** | **Only the ESP's own health**, plus the frame-injection input tests use: `ESP Temperature`, `IP Address`, `MAC Address`, `Mock Data`, `SSID`, `Status`, `Uptime`, `WiFi Signal`. Nothing model-specific belongs here |
 
 So **Configuration** is the answer to "how is this radar installed, and which
 part of the room counts?" — nothing in it is a radar setting, and the radar
@@ -129,14 +129,23 @@ Two consequences worth knowing:
   both are `0` by default on most models — check `Zone Max Distance` before
   concluding a target is out of range. A target outside the gate is filtered,
   not dropped: `Target N X/Y` and `Room X/Y` keep tracking it and only
-  `In Boundary` goes false. Whether it also clears `Presence` depends on the
-  model's `boundary_gates_presence:` option (default on) — the nine models
-  that have it gate presence on the boundary, the other seven publish presence
-  straight from the radar's own status byte and ignore the gate.
+  `In Boundary` goes false. It also clears `Presence`, on every model, unless
+  you set `boundary_gates_presence: false` in the component config — that is
+  what keeps a target seen through a wall from registering as someone in the
+  room.
 - That also disambiguates a pair which used to be easy to confuse. On models
   exposing both, `Max Detection Distance` (Controls) tells the *radar* what to
   report, while `Zone Max Distance` (Configuration) filters what *this
   component* accepts from it.
+- Radar config read-backs (`Gate Sensitivity`, `Max Moving Gate`, `Distance
+  Resolution`, `Firmware Version` and the like) are **not** diagnostics — they
+  are the radar reporting its own settings, so they sit with the rest of the
+  radar's data rather than beside the ESP's uptime. Home Assistant files
+  read-only entities under Sensors and only controllable ones under Controls,
+  so a read-back lands in Sensors while the control that writes it is in
+  Controls. That pairing is deliberate: the control shows what you asked for,
+  the read-back shows what the radar actually replied, so a failed write is
+  visible instead of silent.
 - `Restart ESP` and `Restart (Safe Mode)` are moved out of Configuration
   deliberately, which overrides the `entity_category: config` that ESPHome's
   own `restart` and `safe_mode` platforms set by default. They restart
