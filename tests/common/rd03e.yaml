@@ -89,6 +89,8 @@ globals:
 rd03e:
   id: radar
   uart_id: uart_rd03e
+  # Bridge brief radar dropouts; zero disables the hold for raw diagnostics.
+  target_timeout: 3s
 
   # ── 存在探测与距离 ────────────────────────────────────────────────────
   presence:
@@ -266,13 +268,21 @@ button:
     name: "Read Firmware Version"
     icon: "mdi:chip"
     on_press:
+      - lambda: "id(radar).send_enable_config();"
+      - delay: 100ms
       - lambda: "id(radar).send_read_firmware_version();"
+      - delay: 100ms
+      - lambda: "id(radar).send_end_config();"
 
   - platform: template
     name: "Read Parameters"
     icon: "mdi:cog-refresh"
     on_press:
+      - lambda: "id(radar).send_enable_config();"
+      - delay: 100ms
       - lambda: "id(radar).send_read_params();"
+      - delay: 100ms
+      - lambda: "id(radar).send_end_config();"
 
   - platform: template
     name: "Enable Config Mode"

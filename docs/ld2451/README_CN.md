@@ -15,7 +15,7 @@
 
 | YAML Key | Entity 类型 | 数据类型 | 数值范围 | 说明 |
 |---|---|---|---|---|
-| `presence` | `binary_sensor` | `bool` | `true`/`false` | 检测到目标**且**目标在距离门内（见 `boundary_gates_presence`） |
+| `presence` | `binary_sensor` | `bool` | `true`/`false` | 检测到目标**且**目标在房间多边形内（见 `boundary_gates_presence`） |
 | `target_count` | `sensor` | `int` | `0` ~ `max` | 雷达当前检测到的总目标数量 |
 | `alarm` | `binary_sensor` | `bool` | `true`/`false` | 映射雷达内置的“有靠近目标报警”标志位 |
 | `target_frame` | `text_sensor` | `json` | — | 10 Hz 原子帧，`{"v":1,"f":…,"ts":…,"t":[[x,y,speed],…]}`，单位 cm 与 cm/s。融合集成读的就是这一条；逐目标实体会在帧边界上撕裂，这条不会 |
@@ -32,7 +32,7 @@
 | `snr` | `sensor` | `float` | — | 信噪比 (0~255) |
 | `x` / `y` | `sensor` | `float` | cm | 由极坐标换算得到的局部坐标 |
 | `room_x` / `room_y` / `room_z` | `sensor` | `float` | cm | 经过姿态修正后的房间绝对 3D 坐标 |
-| `in_boundary` | `binary_sensor`| `bool` | — | 该目标是否位于 `distance_min` 与 `distance_max` 的有效范围内 |
+| `in_boundary` | `binary_sensor`| `bool` | — | 该目标是否位于房间多边形内（未设置多边形时为真） |
 
 ### 雷达配置回读实体
 
@@ -135,3 +135,7 @@ ld2451:
     room_z:
       name: "Target 1 Room Z"
 ```
+
+### 仅使用多边形的软件边界过滤
+
+提供定位坐标的雷达仅按房间多边形执行软件边界过滤。共享固件移除了 Zone Min/Max Distance 控件及对应持久化变量。为兼容旧配置仍接受 `distance_min`/`distance_max`，但旧值即使非零也不再参与检测判定。多边形为空时不执行软件边界过滤。雷达原生设置与坐标变换保持不变。

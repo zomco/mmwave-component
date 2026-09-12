@@ -19,8 +19,8 @@ struct CalibrationParams {
   float yaw{0.0f};
   float pitch{0.0f};
   float roll{0.0f};
-  float distance_min{0.0f};
-  float distance_max{0.0f};
+  float distance_min{0.0f};  // Legacy compatibility only; ignored by polygon filtering.
+  float distance_max{0.0f};  // Legacy compatibility only; ignored by polygon filtering.
   std::vector<Vec2> polygon;  // 房间边界多边形（cm）; 少于 3 个顶点 = 不过滤
 };
 
@@ -55,9 +55,6 @@ class Transform3D {
  public:
   static Position3D transform(float local_x, float local_y, float local_z, const CalibrationParams &cal) {
     Position3D pos{};
-
-    // Radial distance for boundary filtering
-    float range_cm = std::sqrt(local_x * local_x + local_y * local_y + local_z * local_z);
 
     // Convert angles to radians
     float yaw_rad = cal.yaw * (M_PI / 180.0f);
@@ -95,18 +92,9 @@ class Transform3D {
     pos.room_y = cal.radar_y + wy;
     pos.room_z = cal.radar_z - wz;  // -wz because z-axis points down from radar but room_z points up from floor
 
-    // Boundary filtering: radial distance gate AND room-frame polygon (ray casting).
+    // Boundary filtering: room-frame polygon only (ray casting).
     // The polygon is evaluated post-transform, in room coordinates.
-    pos.in_boundary = true;
-    if (cal.distance_min > 0.01f && range_cm < cal.distance_min) {
-      pos.in_boundary = false;
-    }
-    if (cal.distance_max > 0.01f && range_cm > cal.distance_max) {
-      pos.in_boundary = false;
-    }
-    if (pos.in_boundary && !point_in_polygon(pos.room_x, pos.room_y, cal.polygon)) {
-      pos.in_boundary = false;
-    }
+    pos.in_boundary = point_in_polygon(pos.room_x, pos.room_y, cal.polygon);
 
     return pos;
   }

@@ -325,3 +325,7 @@ esphome upload your-config.yaml
 | `pitch`   | `float` | degrees | `0.0`        | Pitch angle — forward tilt positive (−90 ~ 90)                                                                    |
 | `roll`    | `float` | degrees | `0.0`        | Roll angle — right tilt positive (−90 ~ 90)                                                                       |
 | `polygon` | `list`  | cm      | `[]` (empty) | Room boundary polygon vertices, each as `{ x, y }`. Boundary filtering is disabled with fewer than 3 vertices     |
+
+### Polygon-only software filtering
+
+Position-reporting radars now use only the room polygon for software boundary filtering. Zone Min/Max Distance controls and their persisted globals have been removed from the shared firmware. Legacy `distance_min`/`distance_max` parameters remain accepted for compatibility but no longer affect detection, even with old nonzero values. An empty polygon disables software boundary filtering. Native radar settings and coordinate transforms are unchanged.

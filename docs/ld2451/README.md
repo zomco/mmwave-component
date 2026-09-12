@@ -35,7 +35,7 @@ For each target block (`target_1`, `target_2`, `target_3`):
 | `room_x` | `sensor` | `float` | — | cm | Projected X coordinate in the global room frame |
 | `room_y` | `sensor` | `float` | — | cm | Projected Y coordinate in the global room frame |
 | `room_z` | `sensor` | `float` | — | cm | Projected Z height in the global room frame |
-| `in_boundary` | `binary_sensor`| `bool` | `true`/`false` | — | True if target falls within `distance_min` & `distance_max` |
+| `in_boundary` | `binary_sensor`| `bool` | `true`/`false` | — | True if the target is inside the room polygon (or no polygon is configured) |
 
 ### Configuration read-back entities
 
@@ -151,3 +151,7 @@ ld2451:
     room_z:
       name: "Target 1 Room Z"
 ```
+
+### Polygon-only software filtering
+
+Position-reporting radars now use only the room polygon for software boundary filtering. Zone Min/Max Distance controls and their persisted globals have been removed from the shared firmware. Legacy `distance_min`/`distance_max` parameters remain accepted for compatibility but no longer affect detection, even with old nonzero values. An empty polygon disables software boundary filtering. Native radar settings and coordinate transforms are unchanged.

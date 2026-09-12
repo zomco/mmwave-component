@@ -22,7 +22,7 @@
 | `room_x` | `sensor` | `float` | — | cm | 持续上报 | 经过姿态修正后的房间绝对 X 坐标 |
 | `room_y` | `sensor` | `float` | — | cm | 持续上报 | 经过姿态修正后的房间绝对 Y 坐标 |
 | `room_z` | `sensor` | `float` | — | cm | 持续上报 | 经过姿态修正后的房间绝对高度（Z 坐标） |
-| `in_boundary` | `binary_sensor`| `bool` | `true`/`false` | — | 持续上报 | 该目标是否位于 `distance_min` 与 `distance_max` 的有效范围内 |
+| `in_boundary` | `binary_sensor`| `bool` | `true`/`false` | — | 持续上报 | 该目标是否位于房间多边形内（未设置多边形时为真） |
 
 *此外提供一个全局的 `presence` binary_sensor，只要三个目标槽位中有任意一个活跃，即输出 `true`。*
 
@@ -93,3 +93,7 @@ ld2453:
       name: "Target 2 X"
     # ... 其他需要的 Sensor
 ```
+
+### 仅使用多边形的软件边界过滤
+
+提供定位坐标的雷达仅按房间多边形执行软件边界过滤。共享固件移除了 Zone Min/Max Distance 控件及对应持久化变量。为兼容旧配置仍接受 `distance_min`/`distance_max`，但旧值即使非零也不再参与检测判定。多边形为空时不执行软件边界过滤。雷达原生设置与坐标变换保持不变。

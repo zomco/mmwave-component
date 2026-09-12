@@ -19,7 +19,7 @@ Hi-Link HLK-LD2453 2D Multi-Target Tracking Radar — ESPHome component.
 > distance, zone or region command, and the factory-default table lists only
 > baud rate and tracking mode.
 >
-> So `distance_min` / `distance_max` / `polygon` here are **filters on the ESP**,
+> So `polygon` here is a **filter on the ESP**,
 > not module settings. The radar keeps reporting targets outside them; what the
 > filters change is `target_n_in_boundary`, and — while `boundary_gates_presence`
 > is true — whether those targets count toward `presence`.
@@ -68,7 +68,7 @@ Hi-Link HLK-LD2453 2D Multi-Target Tracking Radar — ESPHome component.
 | `room_x` | `sensor` | `float` | — | cm | Continuous | Projected X coordinate in the global room frame |
 | `room_y` | `sensor` | `float` | — | cm | Continuous | Projected Y coordinate in the global room frame |
 | `room_z` | `sensor` | `float` | — | cm | Continuous | Projected Z height in the global room frame |
-| `in_boundary` | `binary_sensor`| `bool` | `true`/`false` | — | Continuous | True if target's distance falls within `distance_min` & `distance_max` |
+| `in_boundary` | `binary_sensor`| `bool` | `true`/`false` | — | Continuous | True if the target is inside the room polygon (or no polygon is configured) |
 
 *A global `presence` binary_sensor is also provided, which reads `true` if any of the three targets are currently active.*
 
@@ -137,3 +137,7 @@ ld2453:
       name: "Target 2 X"
     # ... any other target sensors
 ```
+
+### Polygon-only software filtering
+
+Position-reporting radars now use only the room polygon for software boundary filtering. Zone Min/Max Distance controls and their persisted globals have been removed from the shared firmware. Legacy `distance_min`/`distance_max` parameters remain accepted for compatibility but no longer affect detection, even with old nonzero values. An empty polygon disables software boundary filtering. Native radar settings and coordinate transforms are unchanged.

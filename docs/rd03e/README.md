@@ -195,3 +195,20 @@ Click **Install** in the ESPHome Dashboard to compile and flash. The first flash
 | `roll` | `float` | degrees | `0.0` | Roll angle — right tilt positive (−90 ~ 90) |
 | `distance_min` | `float` | cm | `0.0` | Minimum target distance for boundary filter (0 = disabled) |
 | `distance_max` | `float` | cm | `0.0` | Maximum target distance for boundary filter (0 = disabled) |
+
+
+## Brief detection dropouts
+
+`rd03e.target_timeout` defaults to `3s` (`0ms` disables the hold). The component
+tracks every valid UART frame before limiting sensor publications to 1 Hz.
+Brief no-target reports retain the last detection, and a missing range retains
+the last measured distance for at most this timeout. A longer missing range is
+reported as zero; a longer absence clears motion, distance and presence. UART
+silence clears these states after one second. Detection removal can therefore
+lag the last radar detection by up to the timeout plus one publication interval.
+This does not improve the radar's physical sensitivity or establish occupancy
+when the radar has never detected a target.
+
+The Read Parameters and Read Firmware Version buttons automatically enter and
+leave configuration mode. DEBUG logs include the raw ACK; parameter decoding
+supports both the manual's layout and the 54-byte reply observed on the device.

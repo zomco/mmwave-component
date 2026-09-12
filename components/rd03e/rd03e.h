@@ -92,6 +92,7 @@ class RD03EComponent : public Component, public uart::UARTDevice {
   void set_roll(float v) { cal_.roll = v; }
   /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
+  void set_target_timeout(uint32_t v) { target_timeout_ms_ = v; }
   void set_distance_min(float v) { cal_.distance_min = v; }
   void set_distance_max(float v) { cal_.distance_max = v; }
 
@@ -146,6 +147,11 @@ class RD03EComponent : public Component, public uart::UARTDevice {
   uint8_t cmd_buf_[MAX_CMD_DATA_LEN]{};
 
   uint32_t last_rx_ms_{0};
+  uint32_t last_detection_ms_{0};
+  uint32_t last_distance_ms_{0};
+  uint32_t target_timeout_ms_{3000};
+  uint8_t last_target_status_{0};
+  uint16_t last_target_distance_{0};
   uint32_t last_publish_ms_{0};
   uint32_t mock_active_until_{0};
   bool boundary_gates_presence_{true};

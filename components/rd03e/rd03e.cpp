@@ -1,5 +1,6 @@
 #include "rd03e.h"
 #include "esphome/core/log.h"
+#include "esphome/core/helpers.h"
 
 namespace esphome {
 namespace rd03e {
@@ -35,9 +36,14 @@ void RD03EComponent::loop() {
   }
 
   // Presence watchdog
-  if (now - this->last_rx_ms_ > 1000) {
-    if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
-      this->presence_sensor_->publish_state(false);
+  if (now >= this->mock_active_until_ && now - this->last_rx_ms_ > 1000) {
+    if (last_target_status_ != 0 || (presence_sensor_ && presence_sensor_->state)) {
+      if (presence_sensor_) presence_sensor_->publish_state(false);
+      if (motion_state_) motion_state_->publish_state(0);
+      if (distance_) distance_->publish_state(0);
+      if (in_boundary_sensor_) in_boundary_sensor_->publish_state(false);
+      last_target_status_ = 0;
+      last_target_distance_ = 0;
     }
   }
 }
@@ -282,8 +288,8 @@ void RD03EComponent::process_byte_(uint8_t byte) {
 
 void RD03EComponent::handle_data_frame_() {
   // 目标状态: 0x00=无目标, 0x01=运动目标, 0x02=微动目标
-  const uint8_t status = data_status_;
-  const uint16_t distance_cm = static_cast<uint16_t>(data_dist_l_) | (static_cast<uint16_t>(data_dist_h_) << 8);
+  uint8_t status = data_status_;
+  uint16_t distance_cm = static_cast<uint16_t>(data_dist_l_) | (static_cast<uint16_t>(data_dist_h_) << 8);
 
   // 范围检查
   if (status > 0x02) {
@@ -295,7 +301,30 @@ void RD03EComponent::handle_data_frame_() {
     return;
   }
 
-  uint32_t now_ms = millis();
+  const uint32_t now_ms = millis();
+  // Track EVERY received frame before the 1 Hz publication throttle. Otherwise
+  // a single empty frame at the sampling instant hides the detections between
+  // publications. Retain a detection/range only for a bounded dropout window.
+  if (status != 0) {
+    last_detection_ms_ = now_ms;
+    last_target_status_ = status;
+    if (distance_cm > 0) {
+      last_distance_ms_ = now_ms;
+      last_target_distance_ = distance_cm;
+    }
+  } else if (last_target_status_ != 0 && now_ms - last_detection_ms_ < target_timeout_ms_) {
+    status = last_target_status_;
+  }
+  if (status != 0 && distance_cm == 0 && last_target_distance_ != 0 &&
+      now_ms - last_distance_ms_ < target_timeout_ms_) {
+    distance_cm = last_target_distance_;
+  }
+  if (status == 0) {
+    last_target_status_ = 0;
+    last_target_distance_ = 0;
+    distance_cm = 0;
+  }
+
   if (now_ms - this->last_publish_ms_ < 1000)
     return;
   this->last_publish_ms_ = now_ms;
@@ -319,6 +348,9 @@ void RD03EComponent::handle_data_frame_() {
     }
   }
 
+  if (status == 0 && in_boundary_sensor_)
+    in_boundary_sensor_->publish_state(false);
+
   // 有目标时进行坐标变换
   bool have_position = false;
   if (status != 0x00 && distance_cm > 0) {
@@ -333,7 +365,8 @@ void RD03EComponent::handle_data_frame_() {
   if (presence_sensor_)
     presence_sensor_->publish_state(gated);
 
-  ESP_LOGD(TAG, "Status: %u  Distance: %u cm", status, distance_cm);
+  ESP_LOGD(TAG, "Status: %u  Distance: %u cm (raw status=%u distance=%u cm)", status, distance_cm,
+           data_status_, static_cast<uint16_t>(data_dist_l_) | (static_cast<uint16_t>(data_dist_h_) << 8));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -346,48 +379,64 @@ void RD03EComponent::handle_cmd_frame_() {
     return;
   }
 
-  // ACK 命令字: 低字节 = 原命令低字节, 高字节 = 原命令高字节 | 0x01
+  // ACK words are little-endian: FF 01 is 0x01FF.
+  // Some firmware adds a separate uint16 status after the ACK word.
   const uint16_t ack_word = static_cast<uint16_t>(cmd_buf_[0]) | (static_cast<uint16_t>(cmd_buf_[1]) << 8);
 
-  ESP_LOGD(TAG, "Cmd ACK: word=0x%04X len=%u", ack_word, cmd_data_len_);
+  ESP_LOGD(TAG, "Cmd ACK: word=0x%04X len=%u data=%s", ack_word, cmd_data_len_,
+           format_hex_pretty(cmd_buf_, cmd_data_len_).c_str());
 
-  // 检查 ACK 状态（如果有数据的话）
+  if (cmd_buf_[1] != 0x01) {
+    ESP_LOGW(TAG, "Invalid ACK word: 0x%04X", ack_word);
+    return;
+  }
+
   if (cmd_data_len_ >= 4) {
-    const uint16_t ack_status = static_cast<uint16_t>(cmd_buf_[2]) | (static_cast<uint16_t>(cmd_buf_[3]) << 8);
-
     // 根据 ACK 命令字识别具体命令
     switch (ack_word) {
-      case 0x0001: {  // 固件版本 ACK (0x0000 | 0x0100 → 但实际为 0x0001 based on docs)
-        if (cmd_data_len_ >= 8) {
-          // ACK 状态 + 主版本 + 次版本 + patch
+      case 0x0100: {  // Wire bytes: 00 01
+        if (cmd_data_len_ == 8) {
+          // V1.0.0 manual: ACK word + major + minor + patch
           const uint16_t major = static_cast<uint16_t>(cmd_buf_[2]) | (static_cast<uint16_t>(cmd_buf_[3]) << 8);
           const uint16_t minor = static_cast<uint16_t>(cmd_buf_[4]) | (static_cast<uint16_t>(cmd_buf_[5]) << 8);
           const uint16_t patch = static_cast<uint16_t>(cmd_buf_[6]) | (static_cast<uint16_t>(cmd_buf_[7]) << 8);
           ESP_LOGI(TAG, "Firmware version: %u.%u.%u", major, minor, patch);
+        } else {
+          ESP_LOGI(TAG, "Firmware version response: %s", format_hex_pretty(cmd_buf_, cmd_data_len_).c_str());
         }
         break;
       }
 
-      case 0xFF01:  // 使能配置 ACK
-        ESP_LOGD(TAG, "Enable config ACK: status=%u", ack_status);
+      case 0x01FF:  // Wire bytes: FF 01
+        ESP_LOGD(TAG, "Enable config ACK: status=%u",
+                 static_cast<uint16_t>(cmd_buf_[2]) | (static_cast<uint16_t>(cmd_buf_[3]) << 8));
         break;
 
-      case 0xFE01:  // 结束配置 ACK
-        ESP_LOGD(TAG, "End config ACK: status=%u", ack_status);
+      case 0x01FE:  // Wire bytes: FE 01
+        ESP_LOGD(TAG, "End config ACK: status=%u",
+                 static_cast<uint16_t>(cmd_buf_[2]) | (static_cast<uint16_t>(cmd_buf_[3]) << 8));
         break;
 
-      case 0x6701:  // 距离配置 ACK
-        ESP_LOGD(TAG, "Distance config ACK: status=%u", ack_status);
+      case 0x0167:  // Wire bytes: 67 01
+        ESP_LOGD(TAG, "Distance config ACK: status=%u",
+                 static_cast<uint16_t>(cmd_buf_[2]) | (static_cast<uint16_t>(cmd_buf_[3]) << 8));
         break;
 
-      case 0x7301: {  // 读取参数 ACK
-        if (cmd_data_len_ >= 48) {
-          // 解析并记录所有参数
-          const uint16_t max_motion = static_cast<uint16_t>(cmd_buf_[2]) | (static_cast<uint16_t>(cmd_buf_[3]) << 8);
-          const uint16_t min_motion = static_cast<uint16_t>(cmd_buf_[4]) | (static_cast<uint16_t>(cmd_buf_[5]) << 8);
-          const uint16_t max_micro = static_cast<uint16_t>(cmd_buf_[6]) | (static_cast<uint16_t>(cmd_buf_[7]) << 8);
-          const uint16_t min_micro = static_cast<uint16_t>(cmd_buf_[8]) | (static_cast<uint16_t>(cmd_buf_[9]) << 8);
-          const uint16_t vacancy = static_cast<uint16_t>(cmd_buf_[10]) | (static_cast<uint16_t>(cmd_buf_[11]) << 8);
+      case 0x0173: {  // Wire bytes: 73 01
+        if (cmd_data_len_ >= 52) {
+          // The device returns 54 bytes (ACK + status + 50-byte parameters);
+          // the manual omits the separate status (52 bytes total).
+          const uint16_t offset = cmd_data_len_ >= 54 ? 2 : 0;
+          if (offset != 0 && (cmd_buf_[2] != 0 || cmd_buf_[3] != 0)) {
+            ESP_LOGW(TAG, "Read parameters failed");
+            break;
+          }
+          // Log the five distance/vacancy parameters.
+          const uint16_t max_motion = static_cast<uint16_t>(cmd_buf_[offset + 2]) | (static_cast<uint16_t>(cmd_buf_[offset + 3]) << 8);
+          const uint16_t min_motion = static_cast<uint16_t>(cmd_buf_[offset + 4]) | (static_cast<uint16_t>(cmd_buf_[offset + 5]) << 8);
+          const uint16_t max_micro = static_cast<uint16_t>(cmd_buf_[offset + 6]) | (static_cast<uint16_t>(cmd_buf_[offset + 7]) << 8);
+          const uint16_t min_micro = static_cast<uint16_t>(cmd_buf_[offset + 8]) | (static_cast<uint16_t>(cmd_buf_[offset + 9]) << 8);
+          const uint16_t vacancy = static_cast<uint16_t>(cmd_buf_[offset + 10]) | (static_cast<uint16_t>(cmd_buf_[offset + 11]) << 8);
           ESP_LOGI(TAG, "Params: motion=[%u-%u] micro=[%u-%u] vacancy=%u (*50ms)", min_motion, max_motion, min_micro,
                    max_micro, vacancy);
         }
@@ -395,7 +444,7 @@ void RD03EComponent::handle_cmd_frame_() {
       }
 
       default:
-        ESP_LOGD(TAG, "Unknown ACK word: 0x%04X status=%u", ack_word, ack_status);
+        ESP_LOGD(TAG, "Unknown ACK word: 0x%04X", ack_word);
         break;
     }
   }
@@ -426,6 +475,10 @@ void RD03EComponent::inject_mock_data(const std::string &hex_str) {
   if (hex_str == "0" || hex_str == "reset" || hex_str == "clear" || hex_str.empty()) {
     ESP_LOGI(TAG, "Clearing mock mode, resuming live hardware UART input");
     this->mock_active_until_ = 0;
+    last_target_status_ = 0;
+    last_target_distance_ = 0;
+    data_state_ = DataState::IDLE;
+    cmd_state_ = CmdState::IDLE;
     return;
   }
   this->mock_active_until_ = millis() + 10000;

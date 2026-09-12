@@ -266,3 +266,13 @@ ld2450:
 > The zone configuration is stored in the radar and survives power-off. The component
 > only writes it when `zone_filter` is present in the YAML, so it will not rewrite the
 > radar's flash on every boot. It is read back and logged at startup either way.
+
+### Atomic frame slot metadata
+
+The Target Frame text sensor publishes coherent centimetre coordinates in `t` and an optional parallel `s` array containing the original zero-based UART slots. For example, `"t":[[-82.5,769.7,0]],"s":[1]` means only slot 1 is occupied, not that slot 0 moved. Empty frames contain `"t":[],"s":[]`. The v1 format and existing target tuples remain compatible with consumers that ignore `s`. Slots can be reused by the radar and are not permanent person IDs. Configure the card's `frame_entity` to use this sensor.
+
+The shared LD2450 firmware explicitly sets `zone_filter: {type: disabled}`. The module persists native exclusion zones across reboots; omitting the block does not clear an old zone. Enable exclusion only for an intentionally selected area. The previous example excluded X = -100…100 cm, Y = 100…500 cm, suppressing people directly in front of the radar.
+
+### Polygon-only software filtering
+
+Position-reporting radars now use only the room polygon for software boundary filtering. Zone Min/Max Distance controls and their persisted globals have been removed from the shared firmware. Legacy `distance_min`/`distance_max` parameters remain accepted for compatibility but no longer affect detection, even with old nonzero values. An empty polygon disables software boundary filtering. Native radar settings and coordinate transforms are unchanged.

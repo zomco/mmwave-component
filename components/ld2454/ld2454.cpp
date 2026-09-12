@@ -56,6 +56,7 @@ void LD2454Component::loop() {
     diag_last_ms_ = millis();
   }
 
+  this->check_config_timeout_(millis());
   this->check_uart_stale_(millis());
 }
 
@@ -142,22 +143,41 @@ void LD2454Component::send_raw_cmd_(uint16_t cmd_word, const uint8_t *data, uint
  * LD2454 要求在发送任何配置命令前先发送 enable_config
  */
 void LD2454Component::send_config_cmd(uint16_t cmd_word, const uint8_t *data, uint16_t len) {
-  // 1. 使能配置
-  ESP_LOGD(TAG, "Entering config mode...");
+  if (config_state_ != ConfigState::IDLE) {
+    ESP_LOGW(TAG, "Configuration busy; command 0x%04X not sent", cmd_word);
+    return;
+  }
+  if (len > sizeof(pending_data_) || (len > 0 && data == nullptr)) {
+    ESP_LOGW(TAG, "Invalid configuration payload for 0x%04X", cmd_word);
+    return;
+  }
+  pending_cmd_ = cmd_word;
+  pending_len_ = len;
+  for (uint16_t i = 0; i < len; ++i)
+    pending_data_[i] = data[i];
+  config_state_ = ConfigState::ENABLE;
+  config_sent_ms_ = millis();
   const uint8_t enable_val[] = {0x01, 0x00};
-  send_raw_cmd_(CMD_ENABLE_CONFIG, enable_val, 2);
-  delay(50);  // NOLINT
+  ESP_LOGD(TAG, "Entering config mode for command 0x%04X", pending_cmd_);
+  send_raw_cmd_(CMD_ENABLE_CONFIG, enable_val, sizeof(enable_val));
+}
 
-  // 2. 发送目标命令
-  ESP_LOGI(TAG, "Sending command: 0x%04X", cmd_word);
-  send_raw_cmd_(cmd_word, data, len);
-  delay(50);  // NOLINT
-
-  // 3. 结束配置
-  ESP_LOGD(TAG, "Exiting config mode...");
+void LD2454Component::finish_config_() {
+  config_state_ = ConfigState::END;
+  config_sent_ms_ = millis();
   send_raw_cmd_(CMD_END_CONFIG, nullptr, 0);
+}
 
-  ESP_LOGD(TAG, "Config cmd sent: 0x%04X", cmd_word);
+void LD2454Component::check_config_timeout_(uint32_t now) {
+  if (config_state_ == ConfigState::IDLE || now - config_sent_ms_ < 1500)
+    return;
+  ESP_LOGW(TAG, "Configuration ACK timeout: command=0x%04X stage=%u", pending_cmd_,
+           static_cast<unsigned>(config_state_));
+  // Do not leave the radar paused in configuration mode after a missing ACK.
+  if (config_state_ == ConfigState::END)
+    config_state_ = ConfigState::IDLE;
+  else
+    finish_config_();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -385,14 +405,36 @@ void LD2454Component::dispatch_cmd_frame_() {
              cmd_buf_[9], cmd_buf_[8]);
   }
 
-  // 特殊处理: 追踪模式设置确认 (0x8001, 0x9001)
-  if (ack_cmd == (CMD_MULTI_TARGET | 0x0100) && status == 0) {
-    if (this->multi_target_switch_ != nullptr)
-      this->multi_target_switch_->publish_state(true);
-  } else if (ack_cmd == (CMD_SINGLE_TARGET | 0x0100) && status == 0) {
-    if (this->multi_target_switch_ != nullptr)
-      this->multi_target_switch_->publish_state(false);
+  if (config_state_ == ConfigState::IDLE)
+    return;
+  const uint16_t expected = config_state_ == ConfigState::ENABLE ? CMD_ENABLE_CONFIG
+                            : config_state_ == ConfigState::END ? CMD_END_CONFIG : pending_cmd_;
+  if (ack_cmd != (expected | 0x0100) || !has_status)
+    return;
+  if (config_state_ == ConfigState::END) {
+    config_state_ = ConfigState::IDLE;
+    return;
   }
+  if (status != 0) {
+    ESP_LOGW(TAG, "Configuration command 0x%04X rejected (status=%u)", expected, status);
+    finish_config_();
+    return;
+  }
+  if (config_state_ == ConfigState::ENABLE) {
+    config_state_ = ConfigState::COMMAND;
+    config_sent_ms_ = millis();
+    ESP_LOGI(TAG, "Sending command after enable ACK: 0x%04X", pending_cmd_);
+    send_raw_cmd_(pending_cmd_, pending_data_, pending_len_);
+    return;
+  }
+  // Report only a mode that the radar has explicitly acknowledged.
+  if (multi_target_switch_ != nullptr) {
+    if (pending_cmd_ == CMD_MULTI_TARGET)
+      multi_target_switch_->publish_state(true);
+    else if (pending_cmd_ == CMD_SINGLE_TARGET)
+      multi_target_switch_->publish_state(false);
+  }
+  finish_config_();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

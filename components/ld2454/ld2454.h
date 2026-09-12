@@ -232,6 +232,14 @@ class LD2454Component : public Component, public uart::UARTDevice {
   switch_::Switch *multi_target_switch_{nullptr};
 
  protected:
+  enum class ConfigState : uint8_t { IDLE, ENABLE, COMMAND, END };
+  ConfigState config_state_{ConfigState::IDLE};
+  uint32_t config_sent_ms_{0};
+  uint16_t pending_cmd_{0};
+  uint16_t pending_len_{0};
+  uint8_t pending_data_[MAX_CMD_DATA - 2]{};
+  void finish_config_();
+  void check_config_timeout_(uint32_t now);
   void process_byte_(uint8_t byte);
   void dispatch_data_frame_();
   void publish_target_frame_();
