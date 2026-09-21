@@ -16,6 +16,9 @@ Hi-Link HLK-LD2451 2D Multi-Target Tracking Radar — ESPHome component.
 | YAML Key | Entity Type | Data Type | Value Range | Description |
 |---|---|---|---|---|
 | `presence` | `binary_sensor` | `bool` | `true`/`false` | True if at least one target is detected **and** inside the range gate (see `boundary_gates_presence`) |
+| `area_1_occupied` | `binary_sensor` | `bool` | `true`/`false` | Occupied if an in-boundary target is assigned to Area 1 (`device_class: occupancy`) |
+| `area_2_occupied` | `binary_sensor` | `bool` | `true`/`false` | Occupied if an in-boundary target is assigned to Area 2 |
+| `area_3_occupied` | `binary_sensor` | `bool` | `true`/`false` | Occupied if an in-boundary target is assigned to Area 3 |
 | `target_count` | `sensor` | `int` | `0` ~ `max` | Total number of detected targets reported by the DSP |
 | `alarm` | `binary_sensor` | `bool` | `true`/`false` | True if the radar's built-in "approaching alarm" is active |
 | `target_frame` | `text_sensor` | `json` | — | All targets in one atomic 10 Hz frame, `{"v":1,"f":…,"ts":…,"t":[[x,y,speed],…]}` in cm and cm/s. This is what the fusion integration reads; the per-target entities can tear across a frame boundary, this cannot |

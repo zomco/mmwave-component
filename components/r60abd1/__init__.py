@@ -6,6 +6,7 @@ from esphome.components import uart, sensor, binary_sensor, text_sensor
 from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
+    DEVICE_CLASS_OCCUPANCY,
     DEVICE_CLASS_PRESENCE,
     STATE_CLASS_MEASUREMENT,
     UNIT_CENTIMETER,
@@ -42,6 +43,9 @@ CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
 
 # 传感器
 CONF_PRESENCE           = "presence"
+CONF_AREA_1_OCCUPIED    = "area_1_occupied"
+CONF_AREA_2_OCCUPIED    = "area_2_occupied"
+CONF_AREA_3_OCCUPIED    = "area_3_occupied"
 CONF_MOTION_STATE       = "motion_state"
 CONF_BODY_MOVEMENT      = "body_movement"
 CONF_BODY_DISTANCE      = "body_distance"
@@ -95,6 +99,15 @@ CONFIG_SCHEMA = (
             # ── 存在与运动 ─────────────────────────────────────────────────────
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_PRESENCE,
+            ),
+            cv.Optional(CONF_AREA_1_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
+            ),
+            cv.Optional(CONF_AREA_2_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
+            ),
+            cv.Optional(CONF_AREA_3_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
             ),
             cv.Optional(CONF_MOTION_STATE): sensor.sensor_schema(
                 icon="mdi:motion-sensor",
@@ -242,6 +255,11 @@ async def to_code(config):
         cg.add(var.add_polygon_point(pt["x"], pt["y"]))
 
     cg.add(var.set_boundary_gates_presence(config[CONF_BOUNDARY_GATES_PRESENCE]))
+
+    for index, key in enumerate((CONF_AREA_1_OCCUPIED, CONF_AREA_2_OCCUPIED, CONF_AREA_3_OCCUPIED)):
+        if key in config:
+            sens = await binary_sensor.new_binary_sensor(config[key])
+            cg.add(var.set_area_occupied_sensor(index, sens))
 
     # sensor 传感器
     _sensor_map = {

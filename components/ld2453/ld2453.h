@@ -6,6 +6,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
+#include "area_occupancy.h"
 #include "ld2453_transform.h"
 
 #include <vector>
@@ -49,6 +50,17 @@ class LD2453Component : public Component, public uart::UARTDevice {
   void clear_polygon() { cal_.polygon.clear(); }
   /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
+  void clear_area(uint8_t i) { areas_.clear(i); }
+  void add_area_point(uint8_t i, float x, float y) { areas_.add_point(i, x, y); }
+  void set_area_hysteresis(float cm) { areas_.set_hysteresis(cm); }
+  void set_area_still_speed(float cm_s) { areas_.set_still_speed(cm_s); }
+  void set_area_confirm_ms(uint32_t ms) { areas_.set_confirm_ms(ms); }
+  void set_area_clear_ms(uint32_t ms) { areas_.set_clear_ms(ms); }
+  void set_area_pass_speed(float cm_s) { areas_.set_pass_speed(cm_s); }
+  void set_area_occupied_sensor(uint8_t i, binary_sensor::BinarySensor *s) {
+    if (i < mmwave_area::Occupancy::kAreas)
+      area_occupied_[i] = s;
+  }
   /// 目标消失后 presence 保持多久才置 false（迟滞窗口，ms）
   void set_presence_timeout(uint32_t ms) { presence_timeout_ = ms; }
 
@@ -110,6 +122,7 @@ class LD2453Component : public Component, public uart::UARTDevice {
   void check_stale_();
   /// presence 的唯一发布点，带迟滞（见 .cpp 中的说明）。
   void update_presence_();
+  void publish_areas_();
   void process_ack_();
   void send_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
   void handle_ack_data_(uint16_t command, uint16_t status, const uint8_t *data, uint8_t data_len);
@@ -133,6 +146,9 @@ class LD2453Component : public Component, public uart::UARTDevice {
 
   CalibrationParams cal_;
 
+  mmwave_area::Occupancy areas_;
+  mmwave_area::Sample area_samples_[3]{};
+  binary_sensor::BinarySensor *area_occupied_[mmwave_area::Occupancy::kAreas]{};
   binary_sensor::BinarySensor *presence_sensor_ = nullptr;
   text_sensor::TextSensor *target_frame_sensor_ = nullptr;
   TargetSensors targets_[3];

@@ -154,9 +154,19 @@ clockwise seen from above.
 
 Walk around and watch the dot. If it tracks you, you are done.
 
+The everyday card (not this calibration tab) does not draw walking trails —
+only Occupied chips — so a bedroom dashboard does not show where you are.
+
 If the dot moves **mirrored** — you walk left, it goes right — your yaw is
 180° out. If it moves at right angles to you, it is 90° out. Go back to Tab ②
 rather than nudging the number by hand.
+
+On 2-D/3-D models (LD2450/2451/2452/2453/2454, R60ABD1) this tab also lets you
+draw up to three occupancy areas — desk, bed, door. Keep centroids at least
+2 m apart and each area at least 1.5 m on its short side, or the Occupied bits
+will flicker. Occupied waits 0.4 s before turning on and 2 s before turning
+off (`Area Confirm` / `Area Clear`). **Save** writes them to `Area N Polygon`
+on the device.
 
 Press **Save**, which writes the calibration to the device so it survives a
 reboot.

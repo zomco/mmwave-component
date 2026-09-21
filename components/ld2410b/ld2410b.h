@@ -6,6 +6,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
+#include "area_occupancy.h"
 #include "ld2410b_transform.h"
 
 #include <vector>
@@ -43,6 +44,16 @@ class LD2410BComponent : public Component, public uart::UARTDevice {
   void set_distance_max(float v) { cal_.distance_max = v; }
   /// 边界过滤是否门控 presence：true 时超出 distance_min/max 的目标不计入存在检测（默认 true）
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
+  void set_area_split(float cm) { areas_.set_split(cm); }
+  void set_area_hysteresis(float cm) { areas_.set_hysteresis(cm); }
+  void set_area_still_speed(float cm_s) { areas_.set_still_speed(cm_s); }
+  void set_area_confirm_ms(uint32_t ms) { areas_.set_confirm_ms(ms); }
+  void set_area_clear_ms(uint32_t ms) { areas_.set_clear_ms(ms); }
+  void set_area_pass_speed(float cm_s) { areas_.set_pass_speed(cm_s); }
+  void set_area_occupied_sensor(uint8_t i, binary_sensor::BinarySensor *s) {
+    if (i < mmwave_area::Occupancy::kAreas)
+      area_occupied_[i] = s;
+  }
 
   // Seed value only. setup() asks the radar what its resolution actually is
   // (protocol 2.2.17) and the answer overwrites this, so a wrong seed corrects
@@ -135,6 +146,7 @@ class LD2410BComponent : public Component, public uart::UARTDevice {
   void send_max_gate_command_();
   void send_light_control_command_();
   void publish_gate_sensitivity_summary_();
+  void publish_areas_();
 
   uint32_t mock_active_until_{0};
   uint8_t buffer_pos_{0};
@@ -142,6 +154,8 @@ class LD2410BComponent : public Component, public uart::UARTDevice {
 
   CalibrationParams cal_;
 
+  mmwave_area::Occupancy areas_;
+  binary_sensor::BinarySensor *area_occupied_[mmwave_area::Occupancy::kAreas]{};
   binary_sensor::BinarySensor *presence_sensor_ = nullptr;
 
   // UART 静默看门狗：记录最后一次收到串口字节的时刻。

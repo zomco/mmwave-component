@@ -4,6 +4,7 @@ from esphome.components import uart, binary_sensor, sensor, text_sensor
 from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
+    DEVICE_CLASS_OCCUPANCY,
     DEVICE_CLASS_PRESENCE,
     UNIT_CENTIMETER,
     UNIT_METER,
@@ -18,6 +19,9 @@ ld2451_ns = cg.esphome_ns.namespace("ld2451")
 LD2451Component = ld2451_ns.class_("LD2451Component", cg.Component, uart.UARTDevice)
 
 CONF_PRESENCE = "presence"
+CONF_AREA_1_OCCUPIED = "area_1_occupied"
+CONF_AREA_2_OCCUPIED = "area_2_occupied"
+CONF_AREA_3_OCCUPIED = "area_3_occupied"
 CONF_ALARM = "alarm"
 CONF_TARGET_COUNT = "target_count"
 CONF_TARGET_FRAME = "target_frame"
@@ -132,6 +136,15 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_PRESENCE,
             ),
+            cv.Optional(CONF_AREA_1_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
+            ),
+            cv.Optional(CONF_AREA_2_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
+            ),
+            cv.Optional(CONF_AREA_3_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
+            ),
             cv.Optional(CONF_ALARM): binary_sensor.binary_sensor_schema(),
             cv.Optional(CONF_TARGET_COUNT): sensor.sensor_schema(
                 accuracy_decimals=0,
@@ -236,6 +249,10 @@ async def to_code(config):
     if CONF_PRESENCE in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_PRESENCE])
         cg.add(var.set_presence_sensor(sens))
+    for index, key in enumerate((CONF_AREA_1_OCCUPIED, CONF_AREA_2_OCCUPIED, CONF_AREA_3_OCCUPIED)):
+        if key in config:
+            sens = await binary_sensor.new_binary_sensor(config[key])
+            cg.add(var.set_area_occupied_sensor(index, sens))
     if CONF_ALARM in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_ALARM])
         cg.add(var.set_alarm_sensor(sens))

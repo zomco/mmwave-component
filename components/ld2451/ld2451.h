@@ -6,6 +6,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
+#include "area_occupancy.h"
 #include "ld2451_transform.h"
 
 #include <vector>
@@ -52,6 +53,17 @@ class LD2451Component : public Component, public uart::UARTDevice {
 
   /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
+  void clear_area(uint8_t i) { areas_.clear(i); }
+  void add_area_point(uint8_t i, float x, float y) { areas_.add_point(i, x, y); }
+  void set_area_hysteresis(float cm) { areas_.set_hysteresis(cm); }
+  void set_area_still_speed(float cm_s) { areas_.set_still_speed(cm_s); }
+  void set_area_confirm_ms(uint32_t ms) { areas_.set_confirm_ms(ms); }
+  void set_area_clear_ms(uint32_t ms) { areas_.set_clear_ms(ms); }
+  void set_area_pass_speed(float cm_s) { areas_.set_pass_speed(cm_s); }
+  void set_area_occupied_sensor(uint8_t i, binary_sensor::BinarySensor *s) {
+    if (i < mmwave_area::Occupancy::kAreas)
+      area_occupied_[i] = s;
+  }
 
   // ── Sensor setters ──
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
@@ -159,6 +171,7 @@ class LD2451Component : public Component, public uart::UARTDevice {
   void publish_target_frame_(uint8_t target_count);
   /// 仅在数值变化时发布（ESPHome 不会对数值 sensor 去重）
   void publish_if_changed_(sensor::Sensor *s, float value);
+  void publish_areas_();
   void process_ack_();
   void write_command_frame_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
   void enqueue_command_(uint16_t command, const uint8_t *command_value, uint8_t command_value_len);
@@ -184,6 +197,9 @@ class LD2451Component : public Component, public uart::UARTDevice {
 
   CalibrationParams cal_;
 
+  mmwave_area::Occupancy areas_;
+  mmwave_area::Sample area_samples_[3]{};
+  binary_sensor::BinarySensor *area_occupied_[mmwave_area::Occupancy::kAreas]{};
   binary_sensor::BinarySensor *presence_sensor_ = nullptr;
   binary_sensor::BinarySensor *alarm_sensor_ = nullptr;
   sensor::Sensor *target_count_sensor_ = nullptr;

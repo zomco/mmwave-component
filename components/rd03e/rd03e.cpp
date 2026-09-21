@@ -45,6 +45,8 @@ void RD03EComponent::loop() {
       last_target_status_ = 0;
       last_target_distance_ = 0;
     }
+    this->areas_.update_bands(false, false, 0.f, 0.f, now);
+    this->publish_areas_();
   }
 }
 
@@ -365,8 +367,23 @@ void RD03EComponent::handle_data_frame_() {
   if (presence_sensor_)
     presence_sensor_->publish_state(gated);
 
+  const float range_cm = present ? static_cast<float>(distance_cm) : 0.f;
+  const float speed = (status == 0x01) ? 999.f : 0.f;
+  this->areas_.update_bands(present, in_boundary, range_cm, speed, millis());
+  this->publish_areas_();
+
   ESP_LOGD(TAG, "Status: %u  Distance: %u cm (raw status=%u distance=%u cm)", status, distance_cm,
            data_status_, static_cast<uint16_t>(data_dist_l_) | (static_cast<uint16_t>(data_dist_h_) << 8));
+}
+
+void RD03EComponent::publish_areas_() {
+  for (uint8_t i = 0; i < mmwave_area::Occupancy::kAreas; i++) {
+    if (area_occupied_[i] == nullptr)
+      continue;
+    const bool on = areas_.occupied(i);
+    if (!area_occupied_[i]->has_state() || area_occupied_[i]->state != on)
+      area_occupied_[i]->publish_state(on);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -5,6 +5,7 @@ from esphome.const import (
     CONF_ID,
     CONF_DISTANCE,
     DEVICE_CLASS_DISTANCE,
+    DEVICE_CLASS_OCCUPANCY,
     DEVICE_CLASS_PRESENCE,
     UNIT_CENTIMETER,
 )
@@ -16,6 +17,8 @@ ld2450a_ns = cg.esphome_ns.namespace("ld2450a")
 LD2450AComponent = ld2450a_ns.class_("LD2450AComponent", cg.Component, uart.UARTDevice)
 
 CONF_PRESENCE = "presence"
+CONF_AREA_1_OCCUPIED = "area_1_occupied"
+CONF_AREA_2_OCCUPIED = "area_2_occupied"
 CONF_GESTURE = "gesture"
 CONF_GESTURE_TYPE = "gesture_type"
 CONF_GESTURE_DISTANCE = "gesture_distance"
@@ -59,6 +62,12 @@ CONFIG_SCHEMA = cv.All(
             # Entities
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_PRESENCE,
+            ),
+            cv.Optional(CONF_AREA_1_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
+            ),
+            cv.Optional(CONF_AREA_2_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
             ),
             cv.Optional(CONF_DISTANCE): sensor.sensor_schema(
                 unit_of_measurement=UNIT_CENTIMETER,
@@ -123,6 +132,10 @@ async def to_code(config):
     if CONF_PRESENCE in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_PRESENCE])
         cg.add(var.set_presence_sensor(sens))
+    for index, key in enumerate((CONF_AREA_1_OCCUPIED, CONF_AREA_2_OCCUPIED)):
+        if key in config:
+            sens = await binary_sensor.new_binary_sensor(config[key])
+            cg.add(var.set_area_occupied_sensor(index, sens))
 
     if CONF_DISTANCE in config:
         sens = await sensor.new_sensor(config[CONF_DISTANCE])

@@ -4,6 +4,7 @@ from esphome.components import uart, binary_sensor, sensor
 from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
+    DEVICE_CLASS_OCCUPANCY,
     DEVICE_CLASS_PRESENCE,
     UNIT_CENTIMETER,
 )
@@ -15,6 +16,8 @@ ld2410_ns = cg.esphome_ns.namespace("ld2410")
 LD2410Component = ld2410_ns.class_("LD2410Component", cg.Component, uart.UARTDevice)
 
 CONF_PRESENCE = "presence"
+CONF_AREA_1_OCCUPIED = "area_1_occupied"
+CONF_AREA_2_OCCUPIED = "area_2_occupied"
 CONF_TARGET_STATE = "target_state"
 CONF_MOVING_DISTANCE = "moving_distance"
 CONF_MOVING_ENERGY = "moving_energy"
@@ -63,6 +66,12 @@ CONFIG_SCHEMA = cv.All(
             # Entities
             cv.Optional(CONF_PRESENCE): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_PRESENCE,
+            ),
+            cv.Optional(CONF_AREA_1_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
+            ),
+            cv.Optional(CONF_AREA_2_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
             ),
             cv.Optional(CONF_TARGET_STATE): sensor.sensor_schema(
                 accuracy_decimals=0,
@@ -151,6 +160,10 @@ async def to_code(config):
     if CONF_PRESENCE in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_PRESENCE])
         cg.add(var.set_presence_sensor(sens))
+    for index, key in enumerate((CONF_AREA_1_OCCUPIED, CONF_AREA_2_OCCUPIED)):
+        if key in config:
+            sens = await binary_sensor.new_binary_sensor(config[key])
+            cg.add(var.set_area_occupied_sensor(index, sens))
     if CONF_TARGET_STATE in config:
         sens = await sensor.new_sensor(config[CONF_TARGET_STATE])
         cg.add(var.set_target_state_sensor(sens))

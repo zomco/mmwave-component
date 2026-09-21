@@ -4,6 +4,7 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "area_occupancy.h"
 #include "ld2411s_transform.h"
 
 #include <vector>
@@ -47,6 +48,16 @@ class LD2411SComponent : public Component, public uart::UARTDevice {
   void set_distance_max(float v) { cal_.distance_max = v; }
   /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
+  void set_area_split(float cm) { areas_.set_split(cm); }
+  void set_area_hysteresis(float cm) { areas_.set_hysteresis(cm); }
+  void set_area_still_speed(float cm_s) { areas_.set_still_speed(cm_s); }
+  void set_area_confirm_ms(uint32_t ms) { areas_.set_confirm_ms(ms); }
+  void set_area_clear_ms(uint32_t ms) { areas_.set_clear_ms(ms); }
+  void set_area_pass_speed(float cm_s) { areas_.set_pass_speed(cm_s); }
+  void set_area_occupied_sensor(uint8_t i, binary_sensor::BinarySensor *s) {
+    if (i < mmwave_area::Occupancy::kAreas)
+      area_occupied_[i] = s;
+  }
 
   // ── 变换后传感器 ────────────────────────────────────────────────────────
   void set_room_x_sensor(sensor::Sensor *s) { this->room_x_ = s; }
@@ -56,8 +67,11 @@ class LD2411SComponent : public Component, public uart::UARTDevice {
 
  protected:
   void process_packet_();
+  void publish_areas_();
 
   sensor::Sensor *distance_sensor_{nullptr};
+  mmwave_area::Occupancy areas_;
+  binary_sensor::BinarySensor *area_occupied_[mmwave_area::Occupancy::kAreas]{};
   binary_sensor::BinarySensor *presence_sensor_{nullptr};
   binary_sensor::BinarySensor *moving_target_sensor_{nullptr};
   binary_sensor::BinarySensor *micro_target_sensor_{nullptr};

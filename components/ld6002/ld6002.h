@@ -5,6 +5,7 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "area_occupancy.h"
 #include "ld6002_transform.h"
 
 #include <vector>
@@ -36,6 +37,16 @@ class LD6002Component : public Component, public uart::UARTDevice {
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
   void set_distance_min(float v) { cal_.distance_min = v; }
   void set_distance_max(float v) { cal_.distance_max = v; }
+  void set_area_split(float cm) { areas_.set_split(cm); }
+  void set_area_hysteresis(float cm) { areas_.set_hysteresis(cm); }
+  void set_area_still_speed(float cm_s) { areas_.set_still_speed(cm_s); }
+  void set_area_confirm_ms(uint32_t ms) { areas_.set_confirm_ms(ms); }
+  void set_area_clear_ms(uint32_t ms) { areas_.set_clear_ms(ms); }
+  void set_area_pass_speed(float cm_s) { areas_.set_pass_speed(cm_s); }
+  void set_area_occupied_sensor(uint8_t i, binary_sensor::BinarySensor *s) {
+    if (i < mmwave_area::Occupancy::kAreas)
+      area_occupied_[i] = s;
+  }
 
   // ── Sensor setters ──
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
@@ -58,6 +69,7 @@ class LD6002Component : public Component, public uart::UARTDevice {
   void process_packet_();
   void publish_presence_();
   void publish_position_(float x_m, float y_m, float z_m, bool has_target = true);
+  void publish_areas_();
 
   DataState data_state_{DataState::IDLE};
 
@@ -79,6 +91,9 @@ class LD6002Component : public Component, public uart::UARTDevice {
   bool last_have_position_{false};
 
   CalibrationParams cal_;
+
+  mmwave_area::Occupancy areas_;
+  binary_sensor::BinarySensor *area_occupied_[mmwave_area::Occupancy::kAreas]{};
 
   float last_distance_cm_{0};
 

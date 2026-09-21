@@ -8,6 +8,7 @@
 #include "esphome/components/button/button.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/components/text_sensor/text_sensor.h"
+#include "area_occupancy.h"
 #include "ld2454_transform.h"
 
 #include <vector>
@@ -169,6 +170,17 @@ class LD2454Component : public Component, public uart::UARTDevice {
   void set_presence_timeout(uint32_t ms) { presence_timeout_ = ms; }
   /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
+  void clear_area(uint8_t i) { areas_.clear(i); }
+  void add_area_point(uint8_t i, float x, float y) { areas_.add_point(i, x, y); }
+  void set_area_hysteresis(float cm) { areas_.set_hysteresis(cm); }
+  void set_area_still_speed(float cm_s) { areas_.set_still_speed(cm_s); }
+  void set_area_confirm_ms(uint32_t ms) { areas_.set_confirm_ms(ms); }
+  void set_area_clear_ms(uint32_t ms) { areas_.set_clear_ms(ms); }
+  void set_area_pass_speed(float cm_s) { areas_.set_pass_speed(cm_s); }
+  void set_area_occupied_sensor(uint8_t i, binary_sensor::BinarySensor *s) {
+    if (i < mmwave_area::Occupancy::kAreas)
+      area_occupied_[i] = s;
+  }
 
   // ── 目标 1 传感器 setters ──────────────────────────────────────────────
   void set_target_1_x_sensor(sensor::Sensor *s) { targets_[0].x = s; }
@@ -278,6 +290,10 @@ class LD2454Component : public Component, public uart::UARTDevice {
   uint32_t presence_timeout_{5000};
   uint32_t last_presence_ms_{0};
   bool boundary_gates_presence_{true};
+  void publish_areas_();
+  mmwave_area::Occupancy areas_;
+  mmwave_area::Sample area_samples_[MAX_TARGETS]{};
+  binary_sensor::BinarySensor *area_occupied_[mmwave_area::Occupancy::kAreas]{};
 
   // ── 测试模拟数据状态 ───────────────────────────────────────────────────
   uint32_t mock_active_until_{0};

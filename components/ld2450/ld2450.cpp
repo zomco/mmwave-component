@@ -72,11 +72,13 @@ void LD2450Component::check_uart_stale_(uint32_t now) {
     this->presence_sensor_->publish_state(false);
 
   for (uint8_t i = 0; i < MAX_TARGETS; i++) {
+    this->area_samples_[i] = {};
     if (this->targets_[i].active != nullptr && this->targets_[i].active->state)
       this->targets_[i].active->publish_state(false);
     if (this->targets_[i].in_boundary != nullptr && this->targets_[i].in_boundary->state)
       this->targets_[i].in_boundary->publish_state(false);
   }
+  this->publish_areas_();
 }
 
 void LD2450Component::dump_config() {
@@ -336,6 +338,7 @@ void LD2450Component::dispatch_data_frame_() {
       any_present = true;
   }
 
+  publish_areas_();
   publish_target_frame_();
 
   if (presence_sensor_) {
@@ -486,6 +489,7 @@ bool LD2450Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm, i
     t.active->publish_state(active);
 
   if (!active) {
+    area_samples_[idx] = {};
     // 目标不存在时发布 0
     if (t.x)
       t.x->publish_state(0);
@@ -540,6 +544,8 @@ bool LD2450Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm, i
   if (t.in_boundary)
     t.in_boundary->publish_state(res.in_boundary);
 
+  area_samples_[idx] = {true, res.in_boundary, res.room.x, res.room.y, fabsf(static_cast<float>(speed_cm_s))};
+
   ESP_LOGV(TAG,
            "T%u: x=%d y=%d mm  spd=%d cm/s  dist=%.1f cm  "
            "room=(%.1f,%.1f) [%s]",
@@ -547,6 +553,17 @@ bool LD2450Component::publish_target_(uint8_t idx, int16_t x_mm, int16_t y_mm, i
 
   // 计入 presence 与否：开启边界门控时，界外目标不算存在
   return boundary_gates_presence_ ? res.in_boundary : true;
+}
+
+void LD2450Component::publish_areas_() {
+  areas_.update(area_samples_, MAX_TARGETS, millis());
+  for (uint8_t i = 0; i < mmwave_area::Occupancy::kAreas; i++) {
+    if (area_occupied_[i] == nullptr)
+      continue;
+    const bool on = areas_.occupied(i);
+    if (!area_occupied_[i]->has_state() || area_occupied_[i]->state != on)
+      area_occupied_[i]->publish_state(on);
+  }
 }
 
 void LD2450Component::inject_mock_data(const std::string &hex_str) {

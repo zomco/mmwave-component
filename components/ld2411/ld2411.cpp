@@ -139,6 +139,21 @@ void LD2411Component::handle_data_frame_() {
       this->presence_sensor_->publish_state(gated);
     }
   }
+
+  const float range_cm = is_present ? static_cast<float>(dist_raw) : 0.f;
+  const float speed = (this->data_status_ == 0x01) ? 999.f : 0.f;
+  this->areas_.update_bands(is_present, in_boundary, range_cm, speed, millis());
+  this->publish_areas_();
+}
+
+void LD2411Component::publish_areas_() {
+  for (uint8_t i = 0; i < mmwave_area::Occupancy::kAreas; i++) {
+    if (area_occupied_[i] == nullptr)
+      continue;
+    const bool on = areas_.occupied(i);
+    if (!area_occupied_[i]->has_state() || area_occupied_[i]->state != on)
+      area_occupied_[i]->publish_state(on);
+  }
 }
 
 bool LD2411Component::publish_position_(float range_cm) {

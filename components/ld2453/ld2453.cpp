@@ -94,7 +94,9 @@ void LD2453Component::check_stale_() {
     this->publish_empty_target_(i);
     publish_if_changed_(this->targets_[i].speed, NAN);
     publish_if_changed_(this->targets_[i].resolution, NAN);
+    this->area_samples_[i] = {};
   }
+  this->publish_areas_();
 }
 
 /**
@@ -387,12 +389,15 @@ void LD2453Component::process_packet_() {
       }
 
       // 边界门控：界外目标（隔墙鬼影）默认不计入 presence
+      this->area_samples_[i] = {true, pos.in_boundary, pos.room_x, pos.room_y, fabsf(speed_cm_s)};
       if (!this->boundary_gates_presence_ || pos.in_boundary)
         any_present = true;
     } else {
       this->publish_empty_target_(i);
+      this->area_samples_[i] = {};
     }
   }
+  this->publish_areas_();
 
   // 只在这里把 presence 拉高；置 false 交给 update_presence_ 的迟滞窗口。
   if (any_present) {
@@ -400,6 +405,17 @@ void LD2453Component::process_packet_() {
     if (this->presence_sensor_ != nullptr && (!this->presence_sensor_->state || !this->presence_sensor_->has_state())) {
       this->presence_sensor_->publish_state(true);
     }
+  }
+}
+
+void LD2453Component::publish_areas_() {
+  areas_.update(area_samples_, 3, millis());
+  for (uint8_t i = 0; i < mmwave_area::Occupancy::kAreas; i++) {
+    if (area_occupied_[i] == nullptr)
+      continue;
+    const bool on = areas_.occupied(i);
+    if (!area_occupied_[i]->has_state() || area_occupied_[i]->state != on)
+      area_occupied_[i]->publish_state(on);
   }
 }
 

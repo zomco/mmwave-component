@@ -6,6 +6,7 @@ from esphome.components import uart, sensor, binary_sensor, button, switch, text
 from esphome.const import (
     CONF_ID,
     DEVICE_CLASS_DISTANCE,
+    DEVICE_CLASS_OCCUPANCY,
     DEVICE_CLASS_PRESENCE,
     DEVICE_CLASS_SPEED,
     STATE_CLASS_MEASUREMENT,
@@ -71,6 +72,9 @@ CONF_PRESENCE       = "presence"
 CONF_PRESENCE_TIMEOUT = "presence_timeout"
 CONF_BOUNDARY_GATES_PRESENCE = "boundary_gates_presence"
 CONF_TARGET_FRAME    = "target_frame"
+CONF_AREA_1_OCCUPIED = "area_1_occupied"
+CONF_AREA_2_OCCUPIED = "area_2_occupied"
+CONF_AREA_3_OCCUPIED = "area_3_occupied"
 
 # 控制实体
 CONF_MULTI_TARGET   = "multi_target"
@@ -173,6 +177,15 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_PRESENCE_TIMEOUT, default="5s"): cv.positive_time_period_milliseconds,
             # 边界外的目标（隔墙鬼影）默认不计入 presence
             cv.Optional(CONF_BOUNDARY_GATES_PRESENCE, default=True): cv.boolean,
+            cv.Optional(CONF_AREA_1_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
+            ),
+            cv.Optional(CONF_AREA_2_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
+            ),
+            cv.Optional(CONF_AREA_3_OCCUPIED): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_OCCUPANCY,
+            ),
 
             # ── 控制实体 ──────────────────────────────────────────────────
             cv.Optional(CONF_MULTI_TARGET): switch.switch_schema(
@@ -265,6 +278,11 @@ async def to_code(config):
     # 全局超时设置
     cg.add(var.set_presence_timeout(config[CONF_PRESENCE_TIMEOUT]))
     cg.add(var.set_boundary_gates_presence(config[CONF_BOUNDARY_GATES_PRESENCE]))
+
+    for index, key in enumerate((CONF_AREA_1_OCCUPIED, CONF_AREA_2_OCCUPIED, CONF_AREA_3_OCCUPIED)):
+        if key in config:
+            sens = await binary_sensor.new_binary_sensor(config[key])
+            cg.add(var.set_area_occupied_sensor(index, sens))
 
     # 控制实体
     if CONF_MULTI_TARGET in config:

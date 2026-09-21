@@ -466,6 +466,7 @@ void LD2451Component::process_packet_() {
         }
       }
 
+      this->area_samples_[i] = {true, pos.in_boundary, pos.room_x, pos.room_y, fabsf(speed_kmh * (100000.f / 3600.f))};
       if (!this->boundary_gates_presence_ || pos.in_boundary)
         presence = true;
     } else {
@@ -487,13 +488,26 @@ void LD2451Component::process_packet_() {
           this->targets_[i].in_boundary->publish_state(false);
         }
       }
+      this->area_samples_[i] = {};
     }
   }
+  this->publish_areas_();
 
   if (this->presence_sensor_ != nullptr) {
     if (this->presence_sensor_->state != presence || !this->presence_sensor_->has_state()) {
       this->presence_sensor_->publish_state(presence);
     }
+  }
+}
+
+void LD2451Component::publish_areas_() {
+  areas_.update(area_samples_, 3, millis());
+  for (uint8_t i = 0; i < mmwave_area::Occupancy::kAreas; i++) {
+    if (area_occupied_[i] == nullptr)
+      continue;
+    const bool on = areas_.occupied(i);
+    if (!area_occupied_[i]->has_state() || area_occupied_[i]->state != on)
+      area_occupied_[i]->publish_state(on);
   }
 }
 

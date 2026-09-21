@@ -1,0 +1,85 @@
+blueprint:
+  name: MMWave — light follows area occupancy
+  description: >-
+    Turn a light on while a single-radar occupancy area is occupied and off
+    once it is empty.
+
+
+    This is not a motion-light timeout. Area Occupied reports presence at the
+    desk / bed / door after hysteresis and still-speed lock on the ESP, so the
+    grace period below is only insurance against a dropped frame.
+
+
+    Needs a 2-D/3-D mmwave-component firmware with Areas (LD2450/2451/2452/2453/2454,
+    R60ABD1). The sensor is named `binary_sensor.<device>_area_N_occupied`.
+  domain: automation
+  source_url: https://github.com/zomco/mmwave-component/blob/main/blueprints/automation/mmwave/area_occupied_light.yaml
+  input:
+    area_sensor:
+      name: Area occupancy sensor
+      description: Area 1/2/3 Occupied on the radar device.
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              device_class: occupancy
+    target_light:
+      name: Light
+      selector:
+        target:
+          entity:
+            - domain: light
+    grace_period:
+      name: Grace period
+      description: >-
+        How long the area must stay empty before the light goes off.
+      default:
+        seconds: 10
+      selector:
+        duration: {}
+    only_when_dark:
+      name: Only when dark
+      description: >-
+        Optional. When set, the light only comes on while this entity is `on`.
+      default: []
+      selector:
+        entity:
+          filter:
+            - domain:
+                - binary_sensor
+                - input_boolean
+
+mode: restart
+max_exceeded: silent
+
+variables:
+  only_when_dark: !input only_when_dark
+
+trigger:
+  - platform: state
+    entity_id: !input area_sensor
+    to: "on"
+    id: occupied
+  - platform: state
+    entity_id: !input area_sensor
+    to: "off"
+    for: !input grace_period
+    id: empty
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: occupied
+          - condition: template
+            value_template: >-
+              {{ only_when_dark | length == 0 or is_state(only_when_dark, 'on') }}
+        sequence:
+          - service: light.turn_on
+            target: !input target_light
+      - conditions:
+          - condition: trigger
+            id: empty
+        sequence:
+          - service: light.turn_off
+            target: !input target_light

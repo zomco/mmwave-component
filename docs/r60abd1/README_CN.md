@@ -26,6 +26,9 @@ MicRadar R60ABD1 60 GHz 毫米波呼吸睡眠雷达 ESPHome 组件。
 | YAML Key        | Entity 类型     | 数据类型 | 数值/状态                       | 单位 | 更新频率                                        | 说明                                                 |
 | --------------- | --------------- | -------- | ------------------------------- | ---- | ----------------------------------------------- | ---------------------------------------------------- |
 | `presence`      | `binary_sensor` | `bool`   | `true` / `false`                | —    | 状态变化时上报；无人→有人 ≤0.5s，有人→无人 ~40s | 人体存在检测（`device_class: presence`）             |
+| `area_1_occupied` | `binary_sensor` | `bool` | `true` / `false`                | —    | 状态变化时                                      | 界内人体被分到区域 1 时为占用（`device_class: occupancy`） |
+| `area_2_occupied` | `binary_sensor` | `bool` | `true` / `false`                | —    | 状态变化时                                      | 分到区域 2 时为占用                                  |
+| `area_3_occupied` | `binary_sensor` | `bool` | `true` / `false`                | —    | 状态变化时                                      | 分到区域 3 时为占用                                  |
 | `motion_state`  | `sensor`        | `int`    | `0`＝无人，`1`＝静止，`2`＝活跃 | —    | 状态变化时上报；静止↔活跃切换 ≤0.5s             | 运动状态（协议 cmd `0x80/0x02`）                     |
 | `body_movement` | `sensor`        | `int`    | `0` ~ `100`                     | —    | 每 1s 上报                                      | 体动幅度参数                                         |
 | `body_distance` | `sensor`        | `uint16` | `0` ~ `65535`                   | cm   | 每 2s 上报                                      | 人体与雷达之间的直线距离（`device_class: distance`） |

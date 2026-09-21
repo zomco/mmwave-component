@@ -45,6 +45,8 @@ void LD6002Component::loop() {
     if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
       this->presence_sensor_->publish_state(false);
     }
+    this->areas_.update_bands(false, false, 0.f, 0.f, now);
+    this->publish_areas_();
   }
 
   if (this->mock_active_until_ > 0 && now < this->mock_active_until_) {
@@ -288,6 +290,20 @@ void LD6002Component::publish_presence_() {
   const bool gated = gate ? (this->last_raw_presence_ && this->last_in_boundary_) : this->last_raw_presence_;
   if (this->presence_sensor_->state != gated || !this->presence_sensor_->has_state())
     this->presence_sensor_->publish_state(gated);
+
+  const float range_cm = this->last_raw_presence_ ? this->last_distance_cm_ : 0.f;
+  this->areas_.update_bands(this->last_raw_presence_, this->last_in_boundary_, range_cm, 0.f, millis());
+  this->publish_areas_();
+}
+
+void LD6002Component::publish_areas_() {
+  for (uint8_t i = 0; i < mmwave_area::Occupancy::kAreas; i++) {
+    if (area_occupied_[i] == nullptr)
+      continue;
+    const bool on = areas_.occupied(i);
+    if (!area_occupied_[i]->has_state() || area_occupied_[i]->state != on)
+      area_occupied_[i]->publish_state(on);
+  }
 }
 
 void LD6002Component::publish_position_(float x_m, float y_m, float z_m, bool has_target) {

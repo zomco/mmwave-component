@@ -12,6 +12,7 @@
 # in one place rather than being copied into sixteen radar cores.
 packages:
   device: !include _device.yaml
+  areas: !include _areas_1d.yaml
 
 esphome:
   on_boot:
@@ -20,14 +21,14 @@ esphome:
       - lambda: |-
           // 开机后把闪存里的标定值恢复给底层组件。没有这一步，
           // Zone 距离闸门会在每次重启后归零，也就是静默失效。
-          id(my_radar).set_yaw(id(g_yaw));
-          id(my_radar).set_pitch(id(g_pitch));
-          id(my_radar).set_roll(id(g_roll));
-          id(my_radar).set_radar_x(id(g_radar_x));
-          id(my_radar).set_radar_y(id(g_radar_y));
-          id(my_radar).set_radar_z(id(g_radar_z));
-          id(my_radar).set_distance_min(id(g_distance_min));
-          id(my_radar).set_distance_max(id(g_distance_max));
+          id(radar).set_yaw(id(g_yaw));
+          id(radar).set_pitch(id(g_pitch));
+          id(radar).set_roll(id(g_roll));
+          id(radar).set_radar_x(id(g_radar_x));
+          id(radar).set_radar_y(id(g_radar_y));
+          id(radar).set_radar_z(id(g_radar_z));
+          id(radar).set_distance_min(id(g_distance_min));
+          id(radar).set_distance_max(id(g_distance_max));
 
 globals:
   - id: g_yaw
@@ -91,7 +92,7 @@ number:
     set_action:
       - lambda: |-
           id(g_distance_min) = x;
-          id(my_radar).set_distance_min(x);
+          id(radar).set_distance_min(x);
           id(num_distance_min).publish_state(x);
 
   - platform: template
@@ -108,7 +109,7 @@ number:
     set_action:
       - lambda: |-
           id(g_distance_max) = x;
-          id(my_radar).set_distance_max(x);
+          id(radar).set_distance_max(x);
           id(num_distance_max).publish_state(x);
 
   - platform: template
@@ -125,7 +126,7 @@ number:
     set_action:
       - lambda: |-
           id(g_yaw) = x;
-          id(my_radar).set_yaw(x);
+          id(radar).set_yaw(x);
           id(num_yaw).publish_state(x);
 
   - platform: template
@@ -142,7 +143,7 @@ number:
     set_action:
       - lambda: |-
           id(g_pitch) = x;
-          id(my_radar).set_pitch(x);
+          id(radar).set_pitch(x);
           id(num_pitch).publish_state(x);
 
   - platform: template
@@ -159,7 +160,7 @@ number:
     set_action:
       - lambda: |-
           id(g_roll) = x;
-          id(my_radar).set_roll(x);
+          id(radar).set_roll(x);
           id(num_roll).publish_state(x);
 
   - platform: template
@@ -176,7 +177,7 @@ number:
     set_action:
       - lambda: |-
           id(g_radar_x) = x;
-          id(my_radar).set_radar_x(x);
+          id(radar).set_radar_x(x);
           id(num_radar_x).publish_state(x);
 
   - platform: template
@@ -193,7 +194,7 @@ number:
     set_action:
       - lambda: |-
           id(g_radar_y) = x;
-          id(my_radar).set_radar_y(x);
+          id(radar).set_radar_y(x);
           id(num_radar_y).publish_state(x);
 
   - platform: template
@@ -210,11 +211,11 @@ number:
     set_action:
       - lambda: |-
           id(g_radar_z) = x;
-          id(my_radar).set_radar_z(x);
+          id(radar).set_radar_z(x);
           id(num_radar_z).publish_state(x);
 
 ld2410:
-  id: my_radar
+  id: radar
   uart_id: uart_bus
   
   radar_x: 0.0
@@ -226,6 +227,12 @@ ld2410:
   
   presence:
     name: "Presence"
+  area_1_occupied:
+    name: "Area 1 Occupied"
+    device_class: occupancy
+  area_2_occupied:
+    name: "Area 2 Occupied"
+    device_class: occupancy
   target_state:
     name: "Target State"
   moving_distance:
@@ -268,5 +275,5 @@ text:
     entity_category: diagnostic
     icon: mdi:bug
     set_action:
-      - lambda: 'id(my_radar).inject_mock_data(x);'
+      - lambda: 'id(radar).inject_mock_data(x);'
 

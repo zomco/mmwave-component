@@ -12,6 +12,7 @@
 # in one place rather than being copied into sixteen radar cores.
 packages:
   device: !include _device.yaml
+  areas: !include _areas_1d.yaml
 
 esphome:
   on_boot:
@@ -99,6 +100,12 @@ ld2410c:
   presence:
     name: "Presence"
     device_class: presence
+  area_1_occupied:
+    name: "Area 1 Occupied"
+    device_class: occupancy
+  area_2_occupied:
+    name: "Area 2 Occupied"
+    device_class: occupancy
   target_state:
     name: "Target State"
   moving_distance:

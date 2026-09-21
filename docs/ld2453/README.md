@@ -57,6 +57,10 @@ Hi-Link HLK-LD2453 2D Multi-Target Tracking Radar — ESPHome component.
 > target for feature work and automated tests. The one thing not to trust it
 > for is judging where a radar can and cannot see.
 
+### Occupancy Areas
+
+`area_1_occupied` / `area_2_occupied` / `area_3_occupied` (`device_class: occupancy`) are on when an in-boundary target is assigned to that area. Room `presence` is unchanged. See [DIY.md — Occupancy areas](../../DIY.md#solution-3-occupancy-areas).
+
 ### Target Entity Blocks
 
 | YAML Key | Entity Type | Data Type | Value Range | Unit | Update Frequency | Description |

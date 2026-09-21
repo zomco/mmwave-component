@@ -247,6 +247,10 @@ void R60ABD1Component::handle_presence_frame_() {
     case 0x01:  // 存在信息: 00=无人, 01=有人
       last_raw_presence_ = (rx_buf_[0] == 0x01);
       ESP_LOGD(TAG, "Presence (raw): %s", last_raw_presence_ ? "YES" : "NO");
+      if (!last_raw_presence_) {
+        area_sample_.active = false;
+        publish_areas_();
+      }
       publish_presence_();
       break;
 
@@ -563,10 +567,23 @@ void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
 
   // 坐标帧更新了边界判定，重新计算 presence（隔墙鬼影不应算有人）
   last_in_boundary_ = res.in_boundary;
+  area_sample_ = {last_raw_presence_, res.in_boundary, res.room.x, res.room.y, 0.f};
+  publish_areas_();
   publish_presence_();
 
   ESP_LOGD(TAG, "Room: x=%.1f y=%.1f z=%.1f cm  [%s]", res.room.x, res.room.y, res.room_z,
            res.in_boundary ? "inside" : "OUTSIDE");
+}
+
+void R60ABD1Component::publish_areas_() {
+  areas_.update(&area_sample_, 1, millis());
+  for (uint8_t i = 0; i < mmwave_area::Occupancy::kAreas; i++) {
+    if (area_occupied_[i] == nullptr)
+      continue;
+    const bool on = areas_.occupied(i);
+    if (!area_occupied_[i]->has_state() || area_occupied_[i]->state != on)
+      area_occupied_[i]->publish_state(on);
+  }
 }
 
 /**

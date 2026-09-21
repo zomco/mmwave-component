@@ -22,6 +22,7 @@
 
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "area_occupancy.h"
 #include <cmath>
 
 namespace esphome::ld2420 {
@@ -167,6 +168,16 @@ class LD2420Component final : public Component, public uart::UARTDevice {
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
   void set_distance_min(float d) { this->distance_min_ = d; }
   void set_distance_max(float d) { this->distance_max_ = d; }
+  void set_area_split(float cm) { areas_.set_split(cm); }
+  void set_area_hysteresis(float cm) { areas_.set_hysteresis(cm); }
+  void set_area_still_speed(float cm_s) { areas_.set_still_speed(cm_s); }
+  void set_area_confirm_ms(uint32_t ms) { areas_.set_confirm_ms(ms); }
+  void set_area_clear_ms(uint32_t ms) { areas_.set_clear_ms(ms); }
+  void set_area_pass_speed(float cm_s) { areas_.set_pass_speed(cm_s); }
+  void set_area_occupied_sensor(uint8_t i, binary_sensor::BinarySensor *s) {
+    if (i < mmwave_area::Occupancy::kAreas)
+      area_occupied_[i] = s;
+  }
 
   void set_presence_sensor(binary_sensor::BinarySensor *s) { this->presence_sensor_ = s; }
   void set_distance_sensor(sensor::Sensor *s) { this->distance_sensor_ = s; }
@@ -245,6 +256,7 @@ class LD2420Component final : public Component, public uart::UARTDevice {
   void read_batch_(std::span<uint8_t, MAX_LINE_LENGTH> buffer);
   void set_calibration_(bool state) { this->calibration_ = state; };
   bool get_calibration_() { return this->calibration_; };
+  void publish_areas_();
 
 #ifdef USE_NUMBER
   number::Number *gate_timeout_number_{nullptr};
@@ -282,6 +294,8 @@ class LD2420Component final : public Component, public uart::UARTDevice {
   float distance_min_{0.0};
   float distance_max_{0.0};
 
+  mmwave_area::Occupancy areas_;
+  binary_sensor::BinarySensor *area_occupied_[mmwave_area::Occupancy::kAreas]{};
   binary_sensor::BinarySensor *presence_sensor_{nullptr};
   sensor::Sensor *distance_sensor_{nullptr};
   sensor::Sensor *room_x_sensor_{nullptr};

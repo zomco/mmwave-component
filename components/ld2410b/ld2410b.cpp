@@ -159,6 +159,8 @@ void LD2410BComponent::check_uart_stale_(uint32_t now) {
     this->presence_sensor_->publish_state(false);
   if (this->in_boundary_sensor_ != nullptr && this->in_boundary_sensor_->state)
     this->in_boundary_sensor_->publish_state(false);
+  this->areas_.update_bands(false, false, 0.f, 0.f, now);
+  this->publish_areas_();
 }
 
 void LD2410BComponent::readline_(int readch) {
@@ -607,6 +609,7 @@ void LD2410BComponent::handle_periodic_data_() {
     }
   }
 
+  bool in_boundary = false;
   // Coordinate Transformation
   if (detected) {
     auto pos = Transform3D::transform(0.0f, (float) detection_distance, 0.0f, this->cal_);
@@ -623,6 +626,7 @@ void LD2410BComponent::handle_periodic_data_() {
     // Order is parse -> transform -> filter -> publish: presence is decided
     // after the range gate, so a target beyond distance_max stays visible on
     // detection_distance while presence reports nobody in the room.
+    in_boundary = pos.in_boundary;
     presence = !this->boundary_gates_presence_ || pos.in_boundary;
   } else {
     if (this->room_x_sensor_ != nullptr)
@@ -640,6 +644,21 @@ void LD2410BComponent::handle_periodic_data_() {
   if (this->presence_sensor_ != nullptr &&
       (!this->presence_sensor_->has_state() || this->presence_sensor_->state != presence)) {
     this->presence_sensor_->publish_state(presence);
+  }
+
+  const float range_cm = detected ? static_cast<float>(detection_distance) : 0.f;
+  const float speed = (target_state == 0x01) ? 999.f : 0.f;
+  this->areas_.update_bands(detected, in_boundary, range_cm, speed, millis());
+  this->publish_areas_();
+}
+
+void LD2410BComponent::publish_areas_() {
+  for (uint8_t i = 0; i < mmwave_area::Occupancy::kAreas; i++) {
+    if (area_occupied_[i] == nullptr)
+      continue;
+    const bool on = areas_.occupied(i);
+    if (!area_occupied_[i]->has_state() || area_occupied_[i]->state != on)
+      area_occupied_[i]->publish_state(on);
   }
 }
 

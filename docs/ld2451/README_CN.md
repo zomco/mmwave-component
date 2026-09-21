@@ -16,6 +16,9 @@
 | YAML Key | Entity 类型 | 数据类型 | 数值范围 | 说明 |
 |---|---|---|---|---|
 | `presence` | `binary_sensor` | `bool` | `true`/`false` | 检测到目标**且**目标在房间多边形内（见 `boundary_gates_presence`） |
+| `area_1_occupied` | `binary_sensor` | `bool` | `true`/`false` | 界内目标被分到区域 1 时为占用（`device_class: occupancy`） |
+| `area_2_occupied` | `binary_sensor` | `bool` | `true`/`false` | 界内目标被分到区域 2 时为占用 |
+| `area_3_occupied` | `binary_sensor` | `bool` | `true`/`false` | 界内目标被分到区域 3 时为占用 |
 | `target_count` | `sensor` | `int` | `0` ~ `max` | 雷达当前检测到的总目标数量 |
 | `alarm` | `binary_sensor` | `bool` | `true`/`false` | 映射雷达内置的“有靠近目标报警”标志位 |
 | `target_frame` | `text_sensor` | `json` | — | 10 Hz 原子帧，`{"v":1,"f":…,"ts":…,"t":[[x,y,speed],…]}`，单位 cm 与 cm/s。融合集成读的就是这一条；逐目标实体会在帧边界上撕裂，这条不会 |

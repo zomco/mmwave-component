@@ -5,6 +5,7 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "area_occupancy.h"
 #include "ld2410_transform.h"
 
 #include <vector>
@@ -35,6 +36,16 @@ class LD2410Component : public Component, public uart::UARTDevice {
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
   void set_distance_min(float v) { cal_.distance_min = v; }
   void set_distance_max(float v) { cal_.distance_max = v; }
+  void set_area_split(float cm) { areas_.set_split(cm); }
+  void set_area_hysteresis(float cm) { areas_.set_hysteresis(cm); }
+  void set_area_still_speed(float cm_s) { areas_.set_still_speed(cm_s); }
+  void set_area_confirm_ms(uint32_t ms) { areas_.set_confirm_ms(ms); }
+  void set_area_clear_ms(uint32_t ms) { areas_.set_clear_ms(ms); }
+  void set_area_pass_speed(float cm_s) { areas_.set_pass_speed(cm_s); }
+  void set_area_occupied_sensor(uint8_t i, binary_sensor::BinarySensor *s) {
+    if (i < mmwave_area::Occupancy::kAreas)
+      area_occupied_[i] = s;
+  }
   void set_distance_resolution(float v) { distance_resolution_ = v; }
 
   // ── Sensor setters ──
@@ -63,6 +74,7 @@ class LD2410Component : public Component, public uart::UARTDevice {
   void handle_periodic_data_();
   bool handle_ack_data_();
   void send_command_(uint8_t command_str, const uint8_t *command_value, uint8_t command_value_len);
+  void publish_areas_();
 
   uint32_t mock_active_until_{0};
   uint8_t buffer_pos_{0};
@@ -71,6 +83,8 @@ class LD2410Component : public Component, public uart::UARTDevice {
 
   CalibrationParams cal_;
 
+  mmwave_area::Occupancy areas_;
+  binary_sensor::BinarySensor *area_occupied_[mmwave_area::Occupancy::kAreas]{};
   binary_sensor::BinarySensor *presence_sensor_ = nullptr;
 
   // UART 静默看门狗：记录最后一次收到串口字节的时刻。

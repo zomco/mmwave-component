@@ -12,6 +12,10 @@
 
 回归测试：`python tests/test_ld2454_protocol.py`（需要 g++）。
 
+### 占位区域
+
+`area_1_occupied` / `area_2_occupied` / `area_3_occupied`（`device_class: occupancy`）跟随分到各区域的界内目标。见 [DIY_CN.md — 占位区域](../../DIY_CN.md#方案-3占位区域)。
+
 ### 仅使用多边形的软件边界过滤
 
 提供定位坐标的雷达仅按房间多边形执行软件边界过滤。共享固件移除了 Zone Min/Max Distance 控件及对应持久化变量。为兼容旧配置仍接受 `distance_min`/`distance_max`，但旧值即使非零也不再参与检测判定。多边形为空时不执行软件边界过滤。雷达原生设置与坐标变换保持不变。

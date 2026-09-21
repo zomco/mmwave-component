@@ -6,6 +6,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
+#include "area_occupancy.h"
 #include "r60abd1_transform.h"
 
 #include <vector>
@@ -80,6 +81,17 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
 
   /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
+  void clear_area(uint8_t i) { areas_.clear(i); }
+  void add_area_point(uint8_t i, float x, float y) { areas_.add_point(i, x, y); }
+  void set_area_hysteresis(float cm) { areas_.set_hysteresis(cm); }
+  void set_area_still_speed(float cm_s) { areas_.set_still_speed(cm_s); }
+  void set_area_confirm_ms(uint32_t ms) { areas_.set_confirm_ms(ms); }
+  void set_area_clear_ms(uint32_t ms) { areas_.set_clear_ms(ms); }
+  void set_area_pass_speed(float cm_s) { areas_.set_pass_speed(cm_s); }
+  void set_area_occupied_sensor(uint8_t i, binary_sensor::BinarySensor *s) {
+    if (i < mmwave_area::Occupancy::kAreas)
+      area_occupied_[i] = s;
+  }
 
   // ── 传感器 setters（由 __init__.py 注册传感器对象）────────────────────
   void set_presence_sensor(binary_sensor::BinarySensor *s) { presence_sensor_ = s; }
@@ -167,6 +179,10 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   bool boundary_gates_presence_{true};
   bool last_raw_presence_{false};
   bool last_in_boundary_{true};
+  void publish_areas_();
+  mmwave_area::Occupancy areas_;
+  mmwave_area::Sample area_sample_{};
+  binary_sensor::BinarySensor *area_occupied_[mmwave_area::Occupancy::kAreas]{};
 
   CalibrationParams cal_;
 

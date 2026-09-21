@@ -1,0 +1,102 @@
+# 1-D occupancy bands. Included by ranging cores that expose
+# set_area_split / set_area_confirm_ms / set_area_clear_ms / set_area_pass_speed.
+#
+# Zone Min/Max Distance still gates presence. Area 1 is near (≤ split),
+# Area 2 is far (> split, still in-boundary). No polygons.
+
+esphome:
+  on_boot:
+    priority: -90
+    then:
+      - lambda: |-
+          id(radar).set_area_split(id(g_area_split));
+          id(radar).set_area_confirm_ms(static_cast<uint32_t>(id(g_area_confirm) * 1000.f + 0.5f));
+          id(radar).set_area_clear_ms(static_cast<uint32_t>(id(g_area_clear) * 1000.f + 0.5f));
+          id(radar).set_area_pass_speed(id(g_area_pass_speed));
+
+globals:
+  - id: g_area_split
+    type: float
+    restore_value: true
+    initial_value: "150.0"
+  - id: g_area_confirm
+    type: float
+    restore_value: true
+    initial_value: "0.4"
+  - id: g_area_clear
+    type: float
+    restore_value: true
+    initial_value: "2.0"
+  - id: g_area_pass_speed
+    type: float
+    restore_value: true
+    initial_value: "80.0"
+
+number:
+  - platform: template
+    name: "Area Split"
+    id: num_area_split
+    entity_category: config
+    unit_of_measurement: "cm"
+    min_value: 0
+    max_value: 800
+    step: 10
+    mode: box
+    icon: mdi:arrow-split-vertical
+    lambda: "return id(g_area_split);"
+    set_action:
+      - lambda: |-
+          id(g_area_split) = x;
+          id(radar).set_area_split(x);
+          id(num_area_split).publish_state(x);
+
+  - platform: template
+    name: "Area Confirm"
+    id: num_area_confirm
+    entity_category: config
+    unit_of_measurement: "s"
+    min_value: 0
+    max_value: 3
+    step: 0.1
+    mode: box
+    icon: mdi:timer-plus-outline
+    lambda: "return id(g_area_confirm);"
+    set_action:
+      - lambda: |-
+          id(g_area_confirm) = x;
+          id(radar).set_area_confirm_ms(static_cast<uint32_t>(x * 1000.f + 0.5f));
+          id(num_area_confirm).publish_state(x);
+
+  - platform: template
+    name: "Area Clear"
+    id: num_area_clear
+    entity_category: config
+    unit_of_measurement: "s"
+    min_value: 0
+    max_value: 15
+    step: 0.1
+    mode: box
+    icon: mdi:timer-minus-outline
+    lambda: "return id(g_area_clear);"
+    set_action:
+      - lambda: |-
+          id(g_area_clear) = x;
+          id(radar).set_area_clear_ms(static_cast<uint32_t>(x * 1000.f + 0.5f));
+          id(num_area_clear).publish_state(x);
+
+  - platform: template
+    name: "Area Pass Speed"
+    id: num_area_pass_speed
+    entity_category: config
+    unit_of_measurement: "cm/s"
+    min_value: 0
+    max_value: 200
+    step: 5
+    mode: box
+    icon: mdi:run-fast
+    lambda: "return id(g_area_pass_speed);"
+    set_action:
+      - lambda: |-
+          id(g_area_pass_speed) = x;
+          id(radar).set_area_pass_speed(x);
+          id(num_area_pass_speed).publish_state(x);

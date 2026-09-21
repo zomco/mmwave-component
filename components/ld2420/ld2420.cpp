@@ -366,6 +366,8 @@ void LD2420Component::loop() {
     if (this->presence_sensor_ && this->presence_sensor_->state != false) {
       this->presence_sensor_->publish_state(false);
     }
+    this->areas_.update_bands(false, false, 0.f, 0.f, now);
+    this->publish_areas_();
   }
 }
 
@@ -549,6 +551,10 @@ void LD2420Component::handle_energy_mode_(uint8_t *buffer, int len) {
   if (this->in_boundary_sensor_)
     this->in_boundary_sensor_->publish_state(t1d.in_boundary);
 
+  const float range_cm = this->presence_ ? static_cast<float>(this->distance_) : 0.f;
+  this->areas_.update_bands(this->presence_, t1d.in_boundary, range_cm, 0.f, millis());
+  this->publish_areas_();
+
   if (this->current_operating_mode == OP_CALIBRATE_MODE) {
     this->auto_calibrate_sensitivity();
     if (current_millis - this->report_periodic_millis > REFRESH_RATE_MS * CALIBRATE_REPORT_INTERVAL) {
@@ -622,6 +628,20 @@ void LD2420Component::handle_simple_mode_(const uint8_t *inbuf, int len) {
       this->room_z_sensor_->publish_state(t1d.z);
     if (this->in_boundary_sensor_)
       this->in_boundary_sensor_->publish_state(t1d.in_boundary);
+
+    const float range_cm = this->presence_ ? static_cast<float>(this->distance_) : 0.f;
+    this->areas_.update_bands(this->presence_, t1d.in_boundary, range_cm, 0.f, millis());
+    this->publish_areas_();
+  }
+}
+
+void LD2420Component::publish_areas_() {
+  for (uint8_t i = 0; i < mmwave_area::Occupancy::kAreas; i++) {
+    if (area_occupied_[i] == nullptr)
+      continue;
+    const bool on = areas_.occupied(i);
+    if (!area_occupied_[i]->has_state() || area_occupied_[i]->state != on)
+      area_occupied_[i]->publish_state(on);
   }
 }
 

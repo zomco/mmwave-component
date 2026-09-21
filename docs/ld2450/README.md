@@ -22,6 +22,11 @@ HLK-LD2450 24 GHz mmWave multi-target tracking radar — ESPHome component.
 | YAML Key | Entity Type | Data Type | Values / States | Unit | Update Frequency | Description |
 |---|---|---|---|---|---|---|
 | `presence` | `binary_sensor` | `bool` | `true` / `false` | — | On state change | Human presence detection (`device_class: presence`). True if any of the 3 targets is active. |
+| `area_1_occupied` | `binary_sensor` | `bool` | `true` / `false` | — | On state change | Occupied if an in-boundary target is assigned to Area 1 (`device_class: occupancy`) |
+| `area_2_occupied` | `binary_sensor` | `bool` | `true` / `false` | — | On state change | Occupied if an in-boundary target is assigned to Area 2 |
+| `area_3_occupied` | `binary_sensor` | `bool` | `true` / `false` | — | On state change | Occupied if an in-boundary target is assigned to Area 3 |
+
+Room `presence` is unchanged. Areas only count in-boundary targets. Draw polygons via `Area N Polygon`; defaults are 50 cm leave hysteresis, 15 cm/s still-speed lock, 0.4 s Occupied confirm and 2 s Occupied clear. See [DIY.md — Occupancy areas](../../DIY.md#solution-3-occupancy-areas).
 
 ### Per-Target Tracking (Targets 1, 2, 3)
 
@@ -48,7 +53,7 @@ For each target `n` (1, 2, or 3), the following entities are available:
 
 | Update Mode | Sensors |
 |---|---|
-| **On state change** | `presence`, `target_n_active` |
+| **On state change** | `presence`, `target_n_active`, `area_n_occupied` |
 | **Every 100ms (10Hz)** | All positional, speed, distance, angle, and boundary sensors |
 
 ---

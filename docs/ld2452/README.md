@@ -30,6 +30,11 @@ HLK-LD2452 24 GHz mmWave multi-target tracking radar — ESPHome component.
 | YAML Key | Entity Type | Data Type | Values / States | Unit | Update Frequency | Description |
 |---|---|---|---|---|---|---|
 | `presence` | `binary_sensor` | `bool` | `true` / `false` | — | On state change | Human presence detection (`device_class: presence`). True if any of the 3 targets is active. |
+| `area_1_occupied` | `binary_sensor` | `bool` | `true` / `false` | — | On state change | Occupied if an in-boundary target is assigned to Area 1 (`device_class: occupancy`) |
+| `area_2_occupied` | `binary_sensor` | `bool` | `true` / `false` | — | On state change | Occupied if an in-boundary target is assigned to Area 2 |
+| `area_3_occupied` | `binary_sensor` | `bool` | `true` / `false` | — | On state change | Occupied if an in-boundary target is assigned to Area 3 |
+
+Room `presence` is unchanged. Areas only count in-boundary targets. See [DIY.md — Occupancy areas](../../DIY.md#solution-3-occupancy-areas).
 
 ### Per-Target Tracking (Targets 1, 2, 3)
 

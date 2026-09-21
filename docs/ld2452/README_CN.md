@@ -28,6 +28,11 @@
 | YAML 键名 | 实体类型 | 数据类型 | 数值 / 状态 | 单位 | 更新频率 | 说明 |
 |---|---|---|---|---|---|---|
 | `presence` | `binary_sensor` | `bool` | `true` / `false` | — | 状态变化时 | 有人存在检测（`device_class: presence`）。任一目标活动时即为 true |
+| `area_1_occupied` | `binary_sensor` | `bool` | `true` / `false` | — | 状态变化时 | 界内目标被分到区域 1 时为占用（`device_class: occupancy`） |
+| `area_2_occupied` | `binary_sensor` | `bool` | `true` / `false` | — | 状态变化时 | 界内目标被分到区域 2 时为占用 |
+| `area_3_occupied` | `binary_sensor` | `bool` | `true` / `false` | — | 状态变化时 | 界内目标被分到区域 3 时为占用 |
+
+房间 `presence` 不变。见 [DIY_CN.md — 占位区域](../../DIY_CN.md#方案-3占位区域)。
 
 ### 多目标追踪（目标 1、2、3）
 

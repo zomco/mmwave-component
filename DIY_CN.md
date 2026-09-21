@@ -165,13 +165,36 @@ r60abd1:
 
 **解决了什么：**
 - ✅ 消除跨房间误报（走廊、相邻房间、室外）。
-- ✅ 支持房间内分区（如仅监测床区域，不包含卫生间）。
+- ✅ 隔墙鬼影不再算房间有人。书桌/床/门口这种占位是**方案 3**，不是这个房间多边形。
 - ✅ 支持任意房间形状——不限于矩形。
 
 **局限性：**
 - ❌ 过滤仅基于 2D（XY 投影）。无法按高度（Z 轴）过滤。不同楼层正上方/正下方的目标如果 XY 投影落在多边形内，仍会通过。
 - ❌ 至少需要 3 个多边形顶点才能激活。少于 3 个顶点时过滤功能禁用（直通）。
 - ❌ 无法过滤由多径反射引起的"软"误报，即看起来来源于多边形内部的虚假目标。
+
+---
+
+### 方案 3：占位区域
+
+房间 `presence` 回答「屋里有没有人」。占位区域回答「书桌/床/门口有没有人」，只在单台二维/三维雷达上工作。
+
+房间多边形仍然门控 presence。Areas 只看**界内**目标。融合逻辑不变。
+
+ESP 上的防抖：
+
+- 离开迟滞（默认 **50 cm**）：走出多边形这么远才取消分配。
+- 互斥：一个目标只占一个区域。还在迟滞带内就留在上次区域，否则取包含该点的区域里质心最近的一个。
+- 静止锁（默认 **15 cm/s**）：速度低于此值时，即使出了多边形也保持上次区域。
+- Occupied 确认（默认 **0.4 s**）：分配持续这么久 Occupied 才变 on。穿过门口、一两帧鬼影不会亮灯。
+- Occupied 保持（默认 **2 s**）：分配掉了之后再等这么久才变 off，空一帧不会停排风。
+- 路过速度（默认 **80 cm/s**）：更快的目标不会把 Occupied 拉高——穿过门口不等于坐在书桌前。已经占用的保持。0 关闭。
+
+最多三个区域。质心 ≥ 2 m，短边 ≥ 1.5 m。
+
+一维型号（LD2410 系列、LD2420、RD-03E 等）提供 **Area 1 Occupied**（近，≤ `Area Split`）和 **Area 2 Occupied**（远，仍在 Zone Min/Max 内）。同一套 Confirm / Clear / 路过速度。没有多边形。
+
+实体：`Area 1/2/3 Occupied`（`device_class: occupancy`）、`Area N Polygon`、`Area Hysteresis`、`Area Still Speed`、`Area Confirm`、`Area Clear`。共享 YAML：`tests/common/_areas.yaml`。自动化 blueprint：`blueprints/automation/mmwave/area_occupied_light.yaml`。ESP Clear 是防抖，blueprint 的 grace 是额外保险，固件有 Clear 之后可以把 grace 降到 0–2 s。
 
 ---
 
@@ -186,9 +209,10 @@ flowchart LR
     DEC["解码字段<br>(存在, 坐标,<br>呼吸, 心率, 睡眠)"]
     XFM["坐标<br>变换"]
     BND["边界<br>过滤"]
+    AREA["占位<br>区域"]
     PUB["发布到<br>Home Assistant"]
 
-    UART --> SM --> DEC --> XFM --> BND --> PUB
+    UART --> SM --> DEC --> XFM --> BND --> AREA --> PUB
 
     style SM fill:#2d3436,stroke:#00cec9,color:#dfe6e9
     style XFM fill:#2d3436,stroke:#fdcb6e,color:#dfe6e9

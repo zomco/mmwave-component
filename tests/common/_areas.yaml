@@ -1,0 +1,267 @@
+# Single-radar occupancy areas. Included by 2-D/3-D cores that expose
+# clear_area / add_area_point / set_area_hysteresis / set_area_still_speed
+# / set_area_confirm_ms / set_area_clear_ms.
+#
+# Room polygon (Zone Polygon) still gates presence. These areas only answer
+# "is someone at the desk / bed / door" with hysteresis, exclusive assignment,
+# confirm delay and leave hold so Occupied does not flicker.
+
+esphome:
+  on_boot:
+    priority: -90
+    then:
+      - lambda: |-
+          if (!id(g_area_1).empty()) id(text_area_1).publish_state(id(g_area_1));
+          if (!id(g_area_2).empty()) id(text_area_2).publish_state(id(g_area_2));
+          if (!id(g_area_3).empty()) id(text_area_3).publish_state(id(g_area_3));
+      - script.execute: apply_area_1
+      - script.execute: apply_area_2
+      - script.execute: apply_area_3
+      - lambda: |-
+          id(radar).set_area_hysteresis(id(g_area_hysteresis));
+          id(radar).set_area_still_speed(id(g_area_still_speed));
+          id(radar).set_area_confirm_ms(static_cast<uint32_t>(id(g_area_confirm) * 1000.f + 0.5f));
+          id(radar).set_area_clear_ms(static_cast<uint32_t>(id(g_area_clear) * 1000.f + 0.5f));
+          id(radar).set_area_pass_speed(id(g_area_pass_speed));
+
+script:
+  - id: apply_area_1
+    mode: restart
+    then:
+      - lambda: |-
+          id(radar).clear_area(0);
+          const std::string s = id(g_area_1);
+          size_t start = 0;
+          uint8_t added = 0;
+          while (start <= s.size() && added < 12) {
+            const size_t sep = s.find(';', start);
+            const std::string pt = (sep == std::string::npos) ? s.substr(start) : s.substr(start, sep - start);
+            start = (sep == std::string::npos) ? s.size() + 1 : sep + 1;
+            if (pt.empty()) continue;
+            const size_t comma = pt.find(',');
+            if (comma == std::string::npos) continue;
+            const std::string xs = pt.substr(0, comma);
+            const std::string ys = pt.substr(comma + 1);
+            char *xend = nullptr;
+            char *yend = nullptr;
+            const float px = strtof(xs.c_str(), &xend);
+            const float py = strtof(ys.c_str(), &yend);
+            if (xend == xs.c_str() || yend == ys.c_str() || !std::isfinite(px) || !std::isfinite(py)) continue;
+            id(radar).add_area_point(0, px, py);
+            added++;
+          }
+
+  - id: apply_area_2
+    mode: restart
+    then:
+      - lambda: |-
+          id(radar).clear_area(1);
+          const std::string s = id(g_area_2);
+          size_t start = 0;
+          uint8_t added = 0;
+          while (start <= s.size() && added < 12) {
+            const size_t sep = s.find(';', start);
+            const std::string pt = (sep == std::string::npos) ? s.substr(start) : s.substr(start, sep - start);
+            start = (sep == std::string::npos) ? s.size() + 1 : sep + 1;
+            if (pt.empty()) continue;
+            const size_t comma = pt.find(',');
+            if (comma == std::string::npos) continue;
+            const std::string xs = pt.substr(0, comma);
+            const std::string ys = pt.substr(comma + 1);
+            char *xend = nullptr;
+            char *yend = nullptr;
+            const float px = strtof(xs.c_str(), &xend);
+            const float py = strtof(ys.c_str(), &yend);
+            if (xend == xs.c_str() || yend == ys.c_str() || !std::isfinite(px) || !std::isfinite(py)) continue;
+            id(radar).add_area_point(1, px, py);
+            added++;
+          }
+
+  - id: apply_area_3
+    mode: restart
+    then:
+      - lambda: |-
+          id(radar).clear_area(2);
+          const std::string s = id(g_area_3);
+          size_t start = 0;
+          uint8_t added = 0;
+          while (start <= s.size() && added < 12) {
+            const size_t sep = s.find(';', start);
+            const std::string pt = (sep == std::string::npos) ? s.substr(start) : s.substr(start, sep - start);
+            start = (sep == std::string::npos) ? s.size() + 1 : sep + 1;
+            if (pt.empty()) continue;
+            const size_t comma = pt.find(',');
+            if (comma == std::string::npos) continue;
+            const std::string xs = pt.substr(0, comma);
+            const std::string ys = pt.substr(comma + 1);
+            char *xend = nullptr;
+            char *yend = nullptr;
+            const float px = strtof(xs.c_str(), &xend);
+            const float py = strtof(ys.c_str(), &yend);
+            if (xend == xs.c_str() || yend == ys.c_str() || !std::isfinite(px) || !std::isfinite(py)) continue;
+            id(radar).add_area_point(2, px, py);
+            added++;
+          }
+
+globals:
+  - id: g_area_1
+    type: std::string
+    restore_value: true
+    max_restore_data_length: 254
+    initial_value: '""'
+  - id: g_area_2
+    type: std::string
+    restore_value: true
+    max_restore_data_length: 254
+    initial_value: '""'
+  - id: g_area_3
+    type: std::string
+    restore_value: true
+    max_restore_data_length: 254
+    initial_value: '""'
+  - id: g_area_hysteresis
+    type: float
+    restore_value: true
+    initial_value: "50.0"
+  - id: g_area_still_speed
+    type: float
+    restore_value: true
+    initial_value: "15.0"
+  - id: g_area_confirm
+    type: float
+    restore_value: true
+    initial_value: "0.4"
+  - id: g_area_clear
+    type: float
+    restore_value: true
+    initial_value: "2.0"
+  - id: g_area_pass_speed
+    type: float
+    restore_value: true
+    initial_value: "80.0"
+
+number:
+  - platform: template
+    name: "Area Hysteresis"
+    id: num_area_hysteresis
+    entity_category: config
+    unit_of_measurement: "cm"
+    min_value: 0
+    max_value: 150
+    step: 5
+    mode: box
+    icon: mdi:arrow-expand-horizontal
+    lambda: "return id(g_area_hysteresis);"
+    set_action:
+      - lambda: |-
+          id(g_area_hysteresis) = x;
+          id(radar).set_area_hysteresis(x);
+          id(num_area_hysteresis).publish_state(x);
+
+  - platform: template
+    name: "Area Still Speed"
+    id: num_area_still_speed
+    entity_category: config
+    unit_of_measurement: "cm/s"
+    min_value: 0
+    max_value: 80
+    step: 1
+    mode: box
+    icon: mdi:walk
+    lambda: "return id(g_area_still_speed);"
+    set_action:
+      - lambda: |-
+          id(g_area_still_speed) = x;
+          id(radar).set_area_still_speed(x);
+          id(num_area_still_speed).publish_state(x);
+
+  - platform: template
+    name: "Area Confirm"
+    id: num_area_confirm
+    entity_category: config
+    unit_of_measurement: "s"
+    min_value: 0
+    max_value: 3
+    step: 0.1
+    mode: box
+    icon: mdi:timer-plus-outline
+    lambda: "return id(g_area_confirm);"
+    set_action:
+      - lambda: |-
+          id(g_area_confirm) = x;
+          id(radar).set_area_confirm_ms(static_cast<uint32_t>(x * 1000.f + 0.5f));
+          id(num_area_confirm).publish_state(x);
+
+  - platform: template
+    name: "Area Clear"
+    id: num_area_clear
+    entity_category: config
+    unit_of_measurement: "s"
+    min_value: 0
+    max_value: 15
+    step: 0.1
+    mode: box
+    icon: mdi:timer-minus-outline
+    lambda: "return id(g_area_clear);"
+    set_action:
+      - lambda: |-
+          id(g_area_clear) = x;
+          id(radar).set_area_clear_ms(static_cast<uint32_t>(x * 1000.f + 0.5f));
+          id(num_area_clear).publish_state(x);
+
+  - platform: template
+    name: "Area Pass Speed"
+    id: num_area_pass_speed
+    entity_category: config
+    unit_of_measurement: "cm/s"
+    min_value: 0
+    max_value: 200
+    step: 5
+    mode: box
+    icon: mdi:run-fast
+    lambda: "return id(g_area_pass_speed);"
+    set_action:
+      - lambda: |-
+          id(g_area_pass_speed) = x;
+          id(radar).set_area_pass_speed(x);
+          id(num_area_pass_speed).publish_state(x);
+
+text:
+  - platform: template
+    name: "Area 1 Polygon"
+    entity_category: config
+    id: text_area_1
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: text
+    icon: mdi:vector-polygon
+    set_action:
+      - lambda: "id(g_area_1) = x;"
+      - script.execute: apply_area_1
+
+  - platform: template
+    name: "Area 2 Polygon"
+    entity_category: config
+    id: text_area_2
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: text
+    icon: mdi:vector-polygon
+    set_action:
+      - lambda: "id(g_area_2) = x;"
+      - script.execute: apply_area_2
+
+  - platform: template
+    name: "Area 3 Polygon"
+    entity_category: config
+    id: text_area_3
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: text
+    icon: mdi:vector-polygon
+    set_action:
+      - lambda: "id(g_area_3) = x;"
+      - script.execute: apply_area_3

@@ -174,13 +174,56 @@ r60abd1:
 
 **What it solves:**
 - ✅ Eliminates cross-room false positives (hallway, adjacent room, outdoor).
-- ✅ Enables sub-room zoning (e.g., monitor only the bed area, not the bathroom).
+- ✅ Stops through-wall ghosts from counting as room presence. Sub-room
+  occupancy (desk / bed / door) is **Solution 3**, not this polygon.
 - ✅ Works with arbitrary room shapes — not limited to rectangles.
 
 **Limitations:**
 - ❌ Filtering is 2-D only (XY projection). Cannot filter by height (Z axis). A target on a different floor directly above/below could still pass if the XY projection falls inside the polygon.
 - ❌ Requires at least 3 polygon vertices to activate. Fewer than 3 vertices disables filtering (pass-through).
 - ❌ Cannot filter "soft" false positives caused by multipath reflections that appear to originate from inside the polygon.
+
+---
+
+### Solution 3: Occupancy areas
+
+Room `presence` answers "is anyone in the room?". Occupancy areas answer
+"is someone at the desk / bed / door?" on a single 2-D/3-D radar.
+
+The room polygon still gates presence. Areas only consider **in-boundary**
+targets. Fusion is unchanged.
+
+Anti-flicker rules, all on the ESP:
+
+- Leave hysteresis (default **50 cm**): stay assigned until the point is that
+  far outside the polygon.
+- Exclusive assignment: one area per target. Keep the last area while inside
+  its hysteresis band, otherwise the nearest centroid among areas that contain
+  the point.
+- Still-speed lock (default **15 cm/s**): if `|speed|` is below this, keep the
+  last area even outside the polygon.
+- Occupied confirm (default **0.4 s**): the Occupied bit stays off until the
+  assignment has been true that long. Walk-throughs and 1–2 frame ghosts do
+  not trip lights.
+- Occupied clear (default **2 s**): the Occupied bit stays on that long after
+  the assignment drops, so a missing frame does not kill a bathroom fan.
+- Pass speed (default **80 cm/s**): a faster target does not turn Occupied
+  on — walking through a doorway is not sitting at the desk. Already-occupied
+  stays on. Set to 0 to disable.
+
+Draw at most three areas. Keep centroids ≥ 2 m apart and each short side
+≥ 1.5 m.
+
+1-D models (LD2410 family, LD2420, RD-03E, …) expose **Area 1 Occupied**
+(near, ≤ `Area Split`) and **Area 2 Occupied** (far, still inside Zone
+Min/Max). Same Confirm / Clear / Pass Speed. No polygons.
+
+Entities: `Area 1/2/3 Occupied` (`device_class: occupancy`), `Area N Polygon`,
+`Area Hysteresis`, `Area Still Speed`, `Area Confirm`, `Area Clear`. Shared
+YAML: `tests/common/_areas.yaml`.
+Automation blueprint: `blueprints/automation/mmwave/area_occupied_light.yaml`.
+ESP Clear is anti-flicker; the blueprint's grace period is extra insurance and
+can be 0–2 s once Clear is in firmware.
 
 ---
 
@@ -195,16 +238,17 @@ flowchart LR
     DEC["Decode Fields<br>(presence, coords,<br>breath, HR, sleep)"]
     XFM["Coordinate<br>Transform"]
     BND["Boundary<br>Filter"]
+    AREA["Occupancy<br>Areas"]
     PUB["Publish to<br>Home Assistant"]
 
-    UART --> SM --> DEC --> XFM --> BND --> PUB
+    UART --> SM --> DEC --> XFM --> BND --> AREA --> PUB
 
     style SM fill:#2d3436,stroke:#00cec9,color:#dfe6e9
     style XFM fill:#2d3436,stroke:#fdcb6e,color:#dfe6e9
     style BND fill:#2d3436,stroke:#e17055,color:#dfe6e9
 ```
 
-> **Processing order is mandatory:** Parse → Transform → Filter → Publish. The transform must happen before filtering because the polygon is defined in room coordinates.
+> **Processing order is mandatory:** Parse → Transform → Filter → Occupancy → Publish. The transform must happen before filtering because the polygon is defined in room coordinates.
 
 ---
 

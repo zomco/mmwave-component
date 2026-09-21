@@ -15,6 +15,10 @@ Protocol reference: `ld2454-通信协议.pdf`, sections 2.2.1–2.2.4 and 2.4.
 
 Regression test: `python tests/test_ld2454_protocol.py` (requires g++).
 
+### Occupancy Areas
+
+`area_1_occupied` / `area_2_occupied` / `area_3_occupied` (`device_class: occupancy`) follow in-boundary targets assigned to each area. See [DIY.md — Occupancy areas](../../DIY.md#solution-3-occupancy-areas).
+
 ### Polygon-only software filtering
 
 Position-reporting radars now use only the room polygon for software boundary filtering. Zone Min/Max Distance controls and their persisted globals have been removed from the shared firmware. Legacy `distance_min`/`distance_max` parameters remain accepted for compatibility but no longer affect detection, even with old nonzero values. An empty polygon disables software boundary filtering. Native radar settings and coordinate transforms are unchanged.

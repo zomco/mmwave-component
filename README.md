@@ -104,7 +104,7 @@ answers one question: **is this the radar's, or is it ours?**
 | --- | --- |
 | **Sensors** | What the radar measures, and the room coordinates derived from it |
 | **Controls** | Everything the radar itself owns — its settings, its operating modes, its query buttons, and its restart and factory-reset actions. The ESP's own restart buttons live here too |
-| **Configuration** | **Only what this component adds**, under two prefixes: `Mount …` (where the radar is) and `Zone …` (which region counts) |
+| **Configuration** | **Only what this component adds**, under three prefixes: `Mount …` (where the radar is), `Zone …` (which region counts as the room), and on 2-D/3-D models `Area …` (desk / bed / door occupancy) |
 | **Diagnostic** | **Only the ESP's own health**, plus the frame-injection input tests use: `ESP Temperature`, `IP Address`, `MAC Address`, `Mock Data`, `SSID`, `Status`, `Uptime`, `WiFi Signal`. Nothing model-specific belongs here |
 
 So **Configuration** is the answer to "how is this radar installed, and which
@@ -121,7 +121,9 @@ Two consequences worth knowing:
 - The prefixes say who owns the value, which is why they exist. `Mount X/Y/Z`,
   `Mount Yaw/Pitch/Roll` describe where the radar is bolted; `Zone Polygon`,
   `Zone Min Distance`, `Zone Max Distance` describe which part of the room
-  counts. Nothing named `Mount …` or `Zone …` is ever sent to the radar.
+  counts; `Area N Polygon`, `Area Hysteresis` and `Area Still Speed` (2-D/3-D
+  only) describe sub-room occupancy. Nothing named `Mount …`, `Zone …` or
+  `Area …` is ever sent to the radar.
 - `Zone Min/Max Distance` is on all sixteen models and means the same thing on
   each: a radial gate on how far the target is from the radar, measured in the
   radar's own frame. Because it is measured there, moving or re-aiming the

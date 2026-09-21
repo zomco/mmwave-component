@@ -39,6 +39,8 @@ void LD2450AComponent::loop() {
     if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
       this->presence_sensor_->publish_state(false);
     }
+    this->areas_.update_bands(false, false, 0.f, 0.f, now);
+    this->publish_areas_();
   }
 
   while (this->available()) {
@@ -135,6 +137,10 @@ void LD2450AComponent::process_packet_() {
       this->presence_sensor_->publish_state(gated);
     }
 
+    const float range_cm = (is_present && dist_val != 255) ? static_cast<float>(dist_val) : 0.f;
+    this->areas_.update_bands(is_present, in_boundary, range_cm, 0.f, millis());
+    this->publish_areas_();
+
     // Gesture reporting
     const char *gesture_str = "None";
     if (gesture_val == 0x01) {
@@ -219,6 +225,16 @@ bool LD2450AComponent::publish_position_(float range_cm) {
     }
   }
   return pos.in_boundary;
+}
+
+void LD2450AComponent::publish_areas_() {
+  for (uint8_t i = 0; i < mmwave_area::Occupancy::kAreas; i++) {
+    if (area_occupied_[i] == nullptr)
+      continue;
+    const bool on = areas_.occupied(i);
+    if (!area_occupied_[i]->has_state() || area_occupied_[i]->state != on)
+      area_occupied_[i]->publish_state(on);
+  }
 }
 
 void LD2450AComponent::inject_mock_data(std::string data) {

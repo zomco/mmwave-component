@@ -108,6 +108,8 @@ void LD2410Component::check_uart_stale_(uint32_t now) {
     this->presence_sensor_->publish_state(false);
   if (this->in_boundary_sensor_ != nullptr && this->in_boundary_sensor_->state)
     this->in_boundary_sensor_->publish_state(false);
+  this->areas_.update_bands(false, false, 0.f, 0.f, now);
+  this->publish_areas_();
 }
 
 void LD2410Component::readline_(int readch) {
@@ -259,6 +261,21 @@ void LD2410Component::handle_periodic_data_() {
   if (this->presence_sensor_ != nullptr &&
       (!this->presence_sensor_->has_state() || this->presence_sensor_->state != gated)) {
     this->presence_sensor_->publish_state(gated);
+  }
+
+  const float range_cm = presence ? static_cast<float>(detection_distance) : 0.f;
+  const float speed = (target_state == 0x01) ? 999.f : 0.f;
+  this->areas_.update_bands(presence, in_boundary, range_cm, speed, millis());
+  this->publish_areas_();
+}
+
+void LD2410Component::publish_areas_() {
+  for (uint8_t i = 0; i < mmwave_area::Occupancy::kAreas; i++) {
+    if (area_occupied_[i] == nullptr)
+      continue;
+    const bool on = areas_.occupied(i);
+    if (!area_occupied_[i]->has_state() || area_occupied_[i]->state != on)
+      area_occupied_[i]->publish_state(on);
   }
 }
 

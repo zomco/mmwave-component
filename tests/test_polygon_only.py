@@ -20,6 +20,8 @@ class PolygonOnlyTest(unittest.TestCase):
                 self.assertNotIn("Zone Min Distance", config)
                 self.assertNotIn("Zone Max Distance", config)
                 self.assertIn("apply_polygon", config)
+                self.assertIn("areas: !include _areas.yaml", config)
+                self.assertIn("area_1_occupied:", config)
 
     def test_ranging_controls_preserved(self):
         for model in ("ld2410b", "ld2410c", "ld2412", "ld2420", "rd03e"):
