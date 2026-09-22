@@ -188,7 +188,9 @@ r60abd1:
 ### Solution 3: Occupancy areas
 
 Room `presence` answers "is anyone in the room?". Occupancy areas answer
-"is someone at the desk / bed / door?" on a single 2-D/3-D radar.
+"is someone at the desk / bed / bathroom / door?" on a single 2-D/3-D radar.
+Apartment indoor rooms stay here. Lobby, corridor and stairwell crossings
+belong in mmwave-fusion, even with one 2-D radar.
 
 The room polygon still gates presence. Areas only consider **in-boundary**
 targets. Fusion is unchanged.

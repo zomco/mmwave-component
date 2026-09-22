@@ -172,6 +172,10 @@ to `Area N Polygon` on the device.
 Press **Save**, which writes the calibration to the device so it survives a
 reboot.
 
+Indoor bathrooms stay on this card: Occupied bits, no walking trails, no
+camera. A lobby, corridor or stairwell that needs crossings, replay or a
+heatmap uses fusion instead — even with a single 2-D radar.
+
 ---
 
 ## Optional — More than one radar

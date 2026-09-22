@@ -5,6 +5,10 @@ blueprint:
     once it is empty.
 
 
+    Apartment indoors: bathroom, desk, bed. Fusion (lobby / corridor) is a
+    different product — do not point this at a fusion zone sensor.
+
+
     This is not a motion-light timeout. Area Occupied reports presence at the
     desk / bed / door after hysteresis and still-speed lock on the ESP, so the
     grace period below is only insurance against a dropped frame.
