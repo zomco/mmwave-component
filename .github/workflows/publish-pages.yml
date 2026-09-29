@@ -9,7 +9,13 @@ on:
     branches: [main]
     paths:
       - "static/**"
-      - "docs/**"
+      # Wiring images only. PDFs and datasheets are not copied into the site.
+      - "docs/**/*.png"
+      - "docs/**/*.jpg"
+      - "docs/**/*.jpeg"
+      - "docs/**/*.PNG"
+      - "docs/**/*.JPG"
+      - "docs/**/*.JPEG"
   workflow_dispatch:
     inputs:
       publish_run_id:

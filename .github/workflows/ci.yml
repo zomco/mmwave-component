@@ -1,11 +1,38 @@
 name: CI
 
 # Validates that every firmware configuration in tests/ compiles on every PR.
+#
+# docs/ is the datasheet tree (~186MB) and static/ is the installer. Neither
+# is read here. tests/*.py and tests/*.cpp are not executed by this workflow;
+# ignoring them is the same trade-off as the workspace cases/ filter. If a job
+# starts running those tests, drop them from paths-ignore.
 on:
   push:
     branches:
       - main
+    paths-ignore: &firmware-ignore
+      - 'docs/**'
+      - 'static/**'
+      - 'assets/**'
+      - 'blueprints/**'
+      - '.agents/**'
+      - '.vscode/**'
+      - 'README.md'
+      - 'README_CN.md'
+      - 'DIY.md'
+      - 'DIY_CN.md'
+      - 'GETTING-STARTED.md'
+      - 'GETTING-STARTED_CN.md'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'LICENSE'
+      - 'tests/*.py'
+      - 'tests/*.cpp'
+      - 'tests/*.h'
   pull_request:
+    branches:
+      - main
+    paths-ignore: *firmware-ignore
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

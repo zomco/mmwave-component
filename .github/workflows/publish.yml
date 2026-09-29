@@ -7,6 +7,28 @@ on:
   push:
     branches:
       - main
+    # Keep in step with ci.yml. A docs-only or installer-only push must not
+    # rebuild every factory image; publish-pages.yml has its own push paths
+    # for static/ and wiring images, so Pages still updates.
+    paths-ignore:
+      - 'docs/**'
+      - 'static/**'
+      - 'assets/**'
+      - 'blueprints/**'
+      - '.agents/**'
+      - '.vscode/**'
+      - 'README.md'
+      - 'README_CN.md'
+      - 'DIY.md'
+      - 'DIY_CN.md'
+      - 'GETTING-STARTED.md'
+      - 'GETTING-STARTED_CN.md'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'LICENSE'
+      - 'tests/*.py'
+      - 'tests/*.cpp'
+      - 'tests/*.h'
   release:
     types: [published]
   workflow_dispatch:
