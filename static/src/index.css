@@ -1,6 +1,22 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-50: #effcf6;
+  --color-brand-100: #d8f8e9;
+  --color-brand-200: #b4efd5;
+  --color-brand-300: #7fe0b9;
+  --color-brand-400: #45c99a;
+  --color-brand-500: #1daf7f;
+  --color-brand-600: #0b825c;
+  --color-brand-700: #09694c;
+  --color-brand-800: #09533e;
+  --color-brand-900: #084536;
+  --font-sans: "DM Sans", "Noto Sans SC", system-ui, sans-serif;
+  --shadow-card: 0 18px 48px rgba(3, 16, 12, 0.08);
+  --shadow-glow: 0 16px 44px rgba(11, 130, 92, 0.24);
+}
 
 :root {
   color-scheme: light;
@@ -50,6 +66,10 @@ body::before {
 
 ::selection { background: rgba(11, 130, 92, 0.24); }
 
+@utility focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#06100d];
+}
+
 @layer components {
   .shell { @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8; }
   .surface { @apply rounded-2xl border border-slate-200/80 bg-white shadow-card dark:border-white/10 dark:bg-[#0d1915]; }
@@ -57,7 +77,6 @@ body::before {
   .eyebrow { @apply inline-flex items-center gap-2 rounded-full border border-brand-600/20 bg-brand-600/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-brand-700 dark:text-brand-300; }
   .section-title { @apply text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-white; }
   .muted { @apply text-slate-600 dark:text-slate-400; }
-  .focus-ring { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#06100d]; }
   .primary-button { @apply focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-glow transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none dark:disabled:bg-slate-700; }
   .secondary-button { @apply focus-ring inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-brand-600/40 hover:text-brand-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:text-brand-300; }
   .icon-button { @apply focus-ring inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-brand-600/40 hover:text-brand-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:text-brand-300; }

@@ -161,7 +161,7 @@ class Occupancy {
     apply_occupied_(next, spd, now_ms);
   }
 
-  protected:
+ protected:
   void apply_occupied_(const bool next[kAreas], const float spd[kAreas], uint32_t now_ms) {
     for (uint8_t a = 0; a < kAreas; a++) {
       bool want = next[a];

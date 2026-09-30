@@ -19,8 +19,8 @@ struct CalibrationParams {
   float yaw{0.0f};
   float pitch{0.0f};
   float roll{0.0f};
-  float distance_min{0.0f};  // Legacy compatibility only; ignored by polygon filtering.
-  float distance_max{0.0f};  // Legacy compatibility only; ignored by polygon filtering.
+  float distance_min{0.0f};   // Legacy compatibility only; ignored by polygon filtering.
+  float distance_max{0.0f};   // Legacy compatibility only; ignored by polygon filtering.
   std::vector<Vec2> polygon;  // 房间边界多边形（cm）; 少于 3 个顶点 = 不过滤
 };
 

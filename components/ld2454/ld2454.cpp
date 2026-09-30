@@ -411,7 +411,8 @@ void LD2454Component::dispatch_cmd_frame_() {
   if (config_state_ == ConfigState::IDLE)
     return;
   const uint16_t expected = config_state_ == ConfigState::ENABLE ? CMD_ENABLE_CONFIG
-                            : config_state_ == ConfigState::END ? CMD_END_CONFIG : pending_cmd_;
+                            : config_state_ == ConfigState::END  ? CMD_END_CONFIG
+                                                                 : pending_cmd_;
   if (ack_cmd != (expected | 0x0100) || !has_status)
     return;
   if (config_state_ == ConfigState::END) {

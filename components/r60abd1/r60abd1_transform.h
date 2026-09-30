@@ -52,8 +52,8 @@ struct CalibrationParams {
   float yaw = 0.f;            // 偏航角（°，顺时针为正）
   float pitch = 0.f;          // 俯仰角（°，向前倾为正）
   float roll = 0.f;           // 横滚角（°，向右倾为正）
-  float distance_min = 0.f;  // Legacy compatibility only; ignored by polygon filtering.
-  float distance_max = 0.f;  // Legacy compatibility only; ignored by polygon filtering.
+  float distance_min = 0.f;   // Legacy compatibility only; ignored by polygon filtering.
+  float distance_max = 0.f;   // Legacy compatibility only; ignored by polygon filtering.
   std::vector<Vec2> polygon;  // 房间边界多边形（cm）; 空 = 不过滤
 };
 

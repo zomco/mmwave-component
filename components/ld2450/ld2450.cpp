@@ -386,18 +386,22 @@ void LD2450Component::publish_target_frame_() {
   // Preserve UART slot identity when an earlier target disappears. Consumers
   // that do not use the optional slot array can still decode the v1 payload.
   int written = snprintf(payload + offset, sizeof(payload) - offset, "],\"s\":[");
-  if (written < 0 || static_cast<size_t>(written) >= sizeof(payload) - offset) return;
+  if (written < 0 || static_cast<size_t>(written) >= sizeof(payload) - offset)
+    return;
   offset += written;
   first = true;
   for (uint8_t i = 0; i < MAX_TARGETS; ++i) {
     const uint8_t *p = data_buf_ + i * TARGET_BYTES;
-    if (decode_coord(p[0], p[1]) == 0 && decode_coord(p[2], p[3]) == 0) continue;
+    if (decode_coord(p[0], p[1]) == 0 && decode_coord(p[2], p[3]) == 0)
+      continue;
     written = snprintf(payload + offset, sizeof(payload) - offset, "%s%u", first ? "" : ",", i);
-    if (written < 0 || static_cast<size_t>(written) >= sizeof(payload) - offset) return;
+    if (written < 0 || static_cast<size_t>(written) >= sizeof(payload) - offset)
+      return;
     offset += written;
     first = false;
   }
-  if (offset + 3 >= sizeof(payload)) return;
+  if (offset + 3 >= sizeof(payload))
+    return;
   payload[offset++] = ']';
   payload[offset++] = '}';
   payload[offset] = '\0';

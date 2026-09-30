@@ -38,10 +38,14 @@ void RD03EComponent::loop() {
   // Presence watchdog
   if (now >= this->mock_active_until_ && now - this->last_rx_ms_ > 1000) {
     if (last_target_status_ != 0 || (presence_sensor_ && presence_sensor_->state)) {
-      if (presence_sensor_) presence_sensor_->publish_state(false);
-      if (motion_state_) motion_state_->publish_state(0);
-      if (distance_) distance_->publish_state(0);
-      if (in_boundary_sensor_) in_boundary_sensor_->publish_state(false);
+      if (presence_sensor_)
+        presence_sensor_->publish_state(false);
+      if (motion_state_)
+        motion_state_->publish_state(0);
+      if (distance_)
+        distance_->publish_state(0);
+      if (in_boundary_sensor_)
+        in_boundary_sensor_->publish_state(false);
       last_target_status_ = 0;
       last_target_distance_ = 0;
     }
@@ -372,8 +376,8 @@ void RD03EComponent::handle_data_frame_() {
   this->areas_.update_bands(present, in_boundary, range_cm, speed, millis());
   this->publish_areas_();
 
-  ESP_LOGD(TAG, "Status: %u  Distance: %u cm (raw status=%u distance=%u cm)", status, distance_cm,
-           data_status_, static_cast<uint16_t>(data_dist_l_) | (static_cast<uint16_t>(data_dist_h_) << 8));
+  ESP_LOGD(TAG, "Status: %u  Distance: %u cm (raw status=%u distance=%u cm)", status, distance_cm, data_status_,
+           static_cast<uint16_t>(data_dist_l_) | (static_cast<uint16_t>(data_dist_h_) << 8));
 }
 
 void RD03EComponent::publish_areas_() {
@@ -449,11 +453,16 @@ void RD03EComponent::handle_cmd_frame_() {
             break;
           }
           // Log the five distance/vacancy parameters.
-          const uint16_t max_motion = static_cast<uint16_t>(cmd_buf_[offset + 2]) | (static_cast<uint16_t>(cmd_buf_[offset + 3]) << 8);
-          const uint16_t min_motion = static_cast<uint16_t>(cmd_buf_[offset + 4]) | (static_cast<uint16_t>(cmd_buf_[offset + 5]) << 8);
-          const uint16_t max_micro = static_cast<uint16_t>(cmd_buf_[offset + 6]) | (static_cast<uint16_t>(cmd_buf_[offset + 7]) << 8);
-          const uint16_t min_micro = static_cast<uint16_t>(cmd_buf_[offset + 8]) | (static_cast<uint16_t>(cmd_buf_[offset + 9]) << 8);
-          const uint16_t vacancy = static_cast<uint16_t>(cmd_buf_[offset + 10]) | (static_cast<uint16_t>(cmd_buf_[offset + 11]) << 8);
+          const uint16_t max_motion =
+              static_cast<uint16_t>(cmd_buf_[offset + 2]) | (static_cast<uint16_t>(cmd_buf_[offset + 3]) << 8);
+          const uint16_t min_motion =
+              static_cast<uint16_t>(cmd_buf_[offset + 4]) | (static_cast<uint16_t>(cmd_buf_[offset + 5]) << 8);
+          const uint16_t max_micro =
+              static_cast<uint16_t>(cmd_buf_[offset + 6]) | (static_cast<uint16_t>(cmd_buf_[offset + 7]) << 8);
+          const uint16_t min_micro =
+              static_cast<uint16_t>(cmd_buf_[offset + 8]) | (static_cast<uint16_t>(cmd_buf_[offset + 9]) << 8);
+          const uint16_t vacancy =
+              static_cast<uint16_t>(cmd_buf_[offset + 10]) | (static_cast<uint16_t>(cmd_buf_[offset + 11]) << 8);
           ESP_LOGI(TAG, "Params: motion=[%u-%u] micro=[%u-%u] vacancy=%u (*50ms)", min_motion, max_motion, min_micro,
                    max_micro, vacancy);
         }
