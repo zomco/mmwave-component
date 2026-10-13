@@ -73,8 +73,8 @@ globals:
 
 uart:
   id: uart_bus
-  tx_pin: GPIO4
-  rx_pin: GPIO5
+  tx_pin: GPIO21 # ESP32-C3 TX → radar RX (cross-wired)
+  rx_pin: GPIO20 # ESP32-C3 RX ← radar TX
   baud_rate: 256000
 
 number:

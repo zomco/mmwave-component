@@ -39,10 +39,11 @@ The **authoritative radar model status table** lives in `README.md`. The AI must
 │   └── {radar_model}/
 │       ├── <datasheet>.pdf            # Product documentation
 │       ├── <protocol>.pdf             # Communication protocol
-│       └── {radar_model}-*.{png|jpg}  # Wiring diagram images → published to Pages
+│       └── {radar_model}-*.{png|jpg}  # Reference images; curate before storefront use
 ├── static/
-│   ├── _config.yml                    # Jekyll site config
-│   └── index.html                     # GitHub Pages install site (ESP Web Tools)
+│   ├── device-catalog.json            # Accepted storefront models and boards
+│   ├── src/                           # React + Tailwind installer
+│   └── index.html                     # Vite entry; dist/ is deployed directly
 ├── tests/
 │   ├── common/_device.yaml                    # ← Device-level entities every model gets:
 │   │                                          #   diagnostics, restart, safe mode,
@@ -134,42 +135,44 @@ No AI-initiated changes unless explicitly requested.
 
 ## CI/CD Pipeline
 
-The three workflow files have distinct, non-overlapping responsibilities.
+The workflows separate validation, explicit firmware releases and Pages deployment.
+The current release contract and operator steps are documented in
+`docs/FLASHER.md` / `docs/FLASHER_CN.md`; do not restore daily firmware publishing.
 
 ### `ci.yml` — PR Validation
 
-- **Trigger:** Push to non-main branches; pull requests.
-- **What it does:** Compiles **all** `tests/*.yaml` files (both base and factory configs) in parallel using `esphome/build-action@v6`. Fails if any config does not compile.
+- **Trigger:** Push to main; pull requests targeting main, subject to workflow path filters.
+- **What it does:** Checks C++ formatting and compiles **all** top-level `tests/*.yaml` files (both base and factory configs) in parallel using `esphome/build-action@v7`. Fails if any config does not compile.
 - **Does not** build artifacts or deploy anything.
 
-### `publish.yml` — Firmware Build
+### `publish.yml` — Explicit Alpha / Beta releases
 
-- **Trigger:** Push to `main`; new GitHub release; `workflow_dispatch`.
+- **Trigger:** `workflow_dispatch` on `main` only. Ordinary pushes never publish firmware.
 - **What it does:**
-  1. Auto-discovers only `tests/*.factory.yaml` files.
-  2. Stamps the release tag (or `"dev"`) into each factory yaml's `version` field.
-  3. Builds each with `esphome/build-action@v6` (`complete-manifest: true`).
-  4. Uploads one artifact per model: `firmware-{name}` (e.g. `firmware-r60abd1-ESP32-C3`).
+  1. Validates `static/device-catalog.json` against README Completed status, factory configs and TX21/RX20.
+  2. Alpha: stamps `vX.Y.Z-alpha.N`, builds only catalog models with an explicitly pinned ESPHome version.
+  3. Beta: requires hardware acceptance evidence and promotes a published Alpha ZIP without rebuilding or altering bytes. Device/OTA version remains the tested Alpha binary version.
+  4. Publishes permanent `release.json` and `firmware-bundle.zip` release assets; per-build Actions artifacts are transport only.
 - **Does not** touch GitHub Pages. Base `*.yaml` files are not built here — they are for user adoption via `dashboard_import`, compiled only by CI.
 
 ### `publish-pages.yml` — GitHub Pages Deployment
 
-- **Trigger:** Completion of `publish.yml` on `main`; push to `static/**` or `docs/**`; `workflow_dispatch`.
+- **Trigger:** Successful `publish.yml` on `main`; storefront/tooling changes; `workflow_dispatch`.
 - **What it does:**
-  1. Resolves which `publish.yml` run to pull firmware artifacts from.
-  2. Downloads all `firmware-*` artifacts.
-  3. Builds the Jekyll site from `static/` → `_site/`.
-  4. Copies firmware files and wiring images into `_site/`.
-  5. Generates `_site/models.json` (name, version, chip family, manifest path, wiring image paths).
-  6. Deploys `_site/` to GitHub Pages.
+  1. Tests and builds the React + Tailwind site from `static/` to `static/dist/`.
+  2. Fetches published release bundles, validates hashes, versions and safe paths.
+  3. Preserves existing `models.json` OTA aliases and their firmware; unclassified legacy artifacts are not selectable.
+  4. Generates `releases.json` and immutable `firmware/<tag>/` paths.
+  5. Advances existing model OTA aliases only to the newest Beta, never Alpha.
+  6. Deploys the complete `static/dist/` atomically. A failed assembly leaves the current site untouched.
 - **Triggered independently** from `publish.yml`: static content (wiring images, install page) can be redeployed without rebuilding firmware.
 
-**Wiring images** are discovered automatically: any file matching `docs/{radar_model}/{radar_model}-*.{png|jpg|jpeg}` is copied to `_site/images/{radar_model}/` and listed in `models.json.wiring_images`. The install page displays them when a user opens the Wiring Guide for a model.
+**Device images** are curated in `static/device-artwork/` and referenced by the catalog. Do not treat filename “front” as antenna-face evidence or a CAD layout as universal physical pin certification. Unknown images use a visibly labeled placeholder. `web.yml` tests/builds the installer on relevant PRs and pushes without publishing firmware.
 
 ### Enabling GitHub Pages
 
 1. **Settings → Pages → Source → GitHub Actions.**
-2. Push to `main` or run `publish.yml` → `publish-pages.yml` triggers automatically.
+2. Run `publish-pages.yml` to deploy the site. Publish Alpha explicitly when hardware and build inputs are ready.
 
 ---
 
@@ -184,7 +187,7 @@ Each radar model + platform combination is represented by **two files** in `test
 
 `{platform}` is lowercase, matching the ESPHome board family: `esp32c3`, `esp32s3`, `esp32`, etc.
 
-Adding a new file pair is the only step needed to include a new model/platform in CI and firmware builds — no workflow edits required.
+Adding a file pair includes it in firmware CI. Storefront/release inclusion additionally requires human-confirmed Completed status and a validated catalog entry.
 
 ### Base config: `tests/{radar_model}-{platform}.yaml`
 
@@ -263,7 +266,7 @@ uart:
 - Declare **no** diagnostic `sensor:`, `binary_sensor:` or `text_sensor:` block of its own. Those blocks used to be copy-pasted into every model; they now live in `_device.yaml` only. A model's own `sensor:`/`button:` entries are for radar-specific things, and merge with the package's.
 - Carries **no** `esp32:`, `wifi:`, `api:` or `external_components:` block. Each consumer supplies its own, and two declarations of the same key collide with no way to drop just one.
 - `uart.baud_rate` must match the radar's protocol document exactly. Current values range from 9600 (LD2452) to 1382400 (LD6002) — never assume 115200.
-- GPIO defaults: `GPIO20` (RX), `GPIO21` (TX). LD2410 is the sole exception at `GPIO5`/`GPIO4`. Add `# TODO` if hardware is not yet confirmed.
+- All ESP32-C3 builds, including LD2410, use `GPIO20` (RX) ← radar TX and `GPIO21` (TX) → radar RX. Keep this crossed UART mapping consistent across models. Add `# TODO` if hardware is not yet confirmed.
 - Calibration restored from `globals` in `esphome.on_boot` so it survives a reboot.
 - Any polygon parsing must use `strtof` with endptr validation, never `std::stof`. The esp-idf build disables C++ exceptions, so `std::stof` on malformed input calls `std::terminate()` — one typo in the HA text box reboots the radar.
 
@@ -321,14 +324,13 @@ esp32_improv:
 
 ### Firmware artifact naming
 
-`esphome/build-action@v6` names the build output `{esphome.name}-{chipFamily}` where `chipFamily` comes from the compiled board spec (e.g., `ESP32-C3`, `ESP32-S3`). For example:
+`esphome/build-action@v7` names its output using the lower-case ESP32 variant, for example `r60abd1-esp32c3`. This is different from the manifest's `chipFamily: ESP32-C3`. `scripts/releases.py` accepts both the current lower-case output and the older `ESP32-C3` spelling, then normalizes published folders to the established OTA URL spelling. For example:
 
 | Factory YAML | `esphome.name` | Build artifact name |
 |---|---|---|
-| `r60abd1-esp32c3.factory.yaml` | `r60abd1` | `r60abd1-ESP32-C3` |
-| `r60abd1-esp32s3.factory.yaml` | `r60abd1` | `r60abd1-ESP32-S3` |
+| `r60abd1-esp32c3.factory.yaml` | `r60abd1` | `r60abd1-esp32c3` |
 
-This name is used for the uploaded artifact (`firmware-r60abd1-ESP32-C3`), the `_site/` subdirectory, and the `id` field in `models.json`. `publish-pages.yml` derives the radar model name for wiring image lookup by stripping the chip-family suffix: `r60abd1-ESP32-C3` → `r60abd1`.
+The uploaded artifact is `firmware-r60abd1-esp32c3`. The release bundle and stable OTA alias remain `r60abd1-ESP32-C3/`. Keep binary filenames inside the manifest unchanged; only the enclosing directory is normalized. Do not infer radar identities from arbitrary manifest titles.
 
 ---
 
@@ -521,13 +523,13 @@ Entity sub-schemas: `sensor.SENSOR_SCHEMA`, `binary_sensor.BINARY_SENSOR_SCHEMA`
 ## Adding a New Radar Model
 
 1. Add `docs/{radar_model}/` with the product datasheet and communication protocol.
-2. Optionally add wiring diagram images named `{radar_model}-*.png` (or `.jpg`) to the same folder — they will be automatically published to the install page.
+2. Optionally add wiring references named `{radar_model}-*.png` (or `.jpg`) to the same folder. Storefront images must be separately reviewed, curated into `static/device-artwork/`, and referenced by the accepted catalog.
 3. Add a `Planned` row to the Radar Model Status table in `README.md`.
 4. Ask the AI to generate the component. It reads the docs, generates `components/{radar_model}/` and `tests/{radar_model}-{platform}.yaml` + `tests/{radar_model}-{platform}.factory.yaml`, and updates the status to `Developing`.
 5. Flash and test on hardware; report errors to the AI.
 6. Once hardware tests pass → `Testing`. Once HA integration passes → `Completed`.
 
-The CI and publish pipelines **auto-discover** `tests/*.yaml` — no workflow edits needed.
+CI auto-discovers `tests/*.yaml`; publishing uses only the validated Completed catalog.
 
 ---
 
@@ -535,16 +537,17 @@ The CI and publish pipelines **auto-discover** `tests/*.yaml` — no workflow ed
 
 | Workflow | Trigger | Responsibility |
 |---|---|---|
-| **CI** (`ci.yml`) | PR / non-main push | Compiles all `tests/*.yaml` — validation only |
-| **Publish** (`publish.yml`) | Push to `main` / release | Builds firmware, uploads `firmware-*` artifacts |
-| **Publish Pages** (`publish-pages.yml`) | After Publish / `static/**` or `docs/**` push | Assembles site, deploys to GitHub Pages |
+| **CI** (`ci.yml`) | PR to main / main push | Formatting and all top-level `tests/*.yaml` — validation only |
+| **Publish** (`publish.yml`) | Explicit manual request on main | Builds Alpha or promotes tested Alpha to Beta |
+| **Publish Pages** (`publish-pages.yml`) | After Publish / storefront changes | Validates version history, preserves OTA aliases, deploys Pages |
+| **Web checks** (`web.yml`) | Relevant PR / main push | Tests release tooling and React app, no firmware release |
 
 Firmware build and Pages deployment are **intentionally separate**: a firmware build failure never breaks the live install site, and wiring diagram updates or install page changes deploy instantly without a full firmware rebuild.
 
 ### Enabling GitHub Pages
 
 1. Go to **Settings → Pages → Source → GitHub Actions**.
-2. Push to `main` to trigger the first deploy.
+2. Run `publish-pages.yml` for the first deploy; firmware releases are a separate explicit action.
 
 ---
 

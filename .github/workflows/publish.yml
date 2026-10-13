@@ -1,117 +1,152 @@
 name: Publish
 
-# Builds factory firmware for every radar model in tests/ and uploads artifacts.
-# Only *.factory.yaml files are built here; base *.yaml files are validated by ci.yml.
-# GitHub Pages deployment is handled separately by publish-pages.yml.
+# Daily commits are CI-only. Maintainers explicitly build Alpha or promote tested bytes.
 on:
-  push:
-    branches:
-      - main
-    # Keep in step with ci.yml. A docs-only or installer-only push must not
-    # rebuild every factory image; publish-pages.yml has its own push paths
-    # for static/ and wiring images, so Pages still updates.
-    paths-ignore:
-      - 'docs/**'
-      - 'static/**'
-      - 'assets/**'
-      - 'blueprints/**'
-      - '.agents/**'
-      - '.vscode/**'
-      - 'README.md'
-      - 'README_CN.md'
-      - 'DIY.md'
-      - 'DIY_CN.md'
-      - 'GETTING-STARTED.md'
-      - 'GETTING-STARTED_CN.md'
-      - 'AGENTS.md'
-      - 'CLAUDE.md'
-      - 'LICENSE'
-      - 'tests/*.py'
-      - 'tests/*.cpp'
-      - 'tests/*.h'
-  release:
-    types: [published]
   workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel
+        type: choice
+        options: [alpha, beta]
+        required: true
+      version:
+        description: 'New tag: vX.Y.Z-alpha.N or vX.Y.Z-beta.N'
+        type: string
+        required: true
+      esphome_version:
+        description: 'Alpha only: exact ESPHome version (YYYY.M.P), never latest'
+        type: string
+        required: false
+      source_alpha:
+        description: 'Beta only: published Alpha tag to promote without rebuilding'
+        type: string
+        required: false
+      hardware_tested:
+        description: 'Beta: I verified wiring, flashing, HA and card on real hardware'
+        type: boolean
+        default: false
+      test_evidence:
+        description: 'Beta: hardware acceptance notes or test report URL'
+        type: string
+        required: false
 
+permissions:
+  contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: firmware-release
+  cancel-in-progress: false
 
 jobs:
-  # ── Step 1: discover all factory configs ──────────────────────────────────
-  discover:
-    name: Discover factory configurations
+  prepare:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
-      configs: ${{ steps.list.outputs.configs }}
+      configs: ${{ steps.catalog.outputs.configs }}
     steps:
       - uses: actions/checkout@v7
-
-      - name: List factory YAML files
-        id: list
+      - name: Validate release request
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ inputs.version }}
+          ESPHOME: ${{ inputs.esphome_version }}
+          ALPHA: ${{ inputs.source_alpha }}
+          TESTED: ${{ inputs.hardware_tested }}
+          EVIDENCE: ${{ inputs.test_evidence }}
         run: |
-          configs=$(find tests -name "*.factory.yaml" | sort \
-            | jq -R -s -c 'split("\n") | map(select(length > 0))')
-          echo "configs=$configs" >> "$GITHUB_OUTPUT"
-          echo "Found: $configs"
+          python3 - <<'PY'
+          import os, re
+          from scripts.releases import channel
+          e = os.environ
+          assert channel(e['VERSION']) == e['CHANNEL'], 'Version/channel mismatch'
+          if e['CHANNEL'] == 'alpha':
+              assert re.fullmatch(r'\d+\.\d+\.\d+', e['ESPHOME']), 'Pin an exact ESPHome version'
+          else:
+              assert channel(e['ALPHA']) == 'alpha', 'Choose a published Alpha'
+              assert e['TESTED'] == 'true' and e['EVIDENCE'].strip(), 'Hardware acceptance required'
+          PY
+      - name: Validate release tooling
+        run: python3 -m unittest discover -s tests -p test_releases.py -v
+      - id: catalog
+        name: Discover Completed models
+        run: echo "configs=$(python3 scripts/releases.py catalog)" >> "$GITHUB_OUTPUT"
 
-  # ── Step 2: build each factory firmware in parallel ───────────────────────
   build:
-    name: Build ${{ matrix.config }}
-    needs: discover
+    if: inputs.channel == 'alpha'
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        config: ${{ fromJson(needs.discover.outputs.configs) }}
+        config: ${{ fromJson(needs.prepare.outputs.configs) }}
     steps:
       - uses: actions/checkout@v7
-
-      # Resolve the version string:
-      #   - On a GitHub release: use the tag name (e.g. "1.2.0")
-      #   - Otherwise:           use "dev"
-      - name: Resolve firmware version
-        id: version
-        run: |
-          version="${{ github.event.release.tag_name }}"
-          version="${version:-dev}"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Building version: $version"
-
-      # Stamp the resolved version into every factory yaml before building.
-      #
-      # The placeholder is written unquoted (`version: dev`) inside the
-      # `project:` block. An earlier version of this step matched `version: "dev"`
-      # and therefore silently replaced nothing, so every published build —
-      # including tagged releases — reported itself as "dev". Match both forms
-      # and fail loudly if neither is present.
-      - name: Stamp version into factory YAML
-        run: |
-          config="${{ matrix.config }}"
-          if ! grep -Eq '^\s*version:\s*"?dev"?\s*(#.*)?$' "$config"; then
-            echo "::error::No 'version: dev' placeholder found in $config"
-            grep -n 'version:' "$config" || true
-            exit 1
-          fi
-          sed -i -E 's/^(\s*version:\s*)"?dev"?(\s*(#.*)?)$/\1"${{ steps.version.outputs.version }}"\2/' "$config"
-          echo "Stamped version in $config:"
-          grep -n 'version:' "$config"
-
-      - name: Build ESPHome firmware
+      - name: Stamp Alpha version
+        env:
+          CONFIG: ${{ matrix.config }}
+          VERSION: ${{ inputs.version }}
+        run: python3 scripts/releases.py stamp "$CONFIG" "$VERSION"
+      - uses: esphome/build-action@v7
         id: build
-        uses: esphome/build-action@v7
         with:
           yaml-file: ${{ matrix.config }}
-          complete-manifest: "true"
-          release-summary: ${{ github.event.release.body }}
-          release-url: ${{ github.event.release.html_url }}
-
-      # Artifact name:     firmware-{name}  e.g. firmware-r60abd1-ESP32-C3
-      # Artifact contents: manifest.json, *.factory.bin, *.ota.bin
-      - name: Upload firmware artifact
-        uses: actions/upload-artifact@v7
+          version: ${{ inputs.esphome_version }}
+          complete-manifest: 'true'
+      - uses: actions/upload-artifact@v7
         with:
           name: firmware-${{ steps.build.outputs.name }}
           path: ${{ steps.build.outputs.name }}/
           if-no-files-found: error
-          retention-days: 90
+          retention-days: 14
+
+  release:
+    needs: [prepare, build]
+    if: always() && needs.prepare.result == 'success' && (needs.build.result == 'success' || (inputs.channel == 'beta' && needs.build.result == 'skipped'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        if: inputs.channel == 'alpha'
+        with:
+          pattern: firmware-*
+          path: firmware/
+      - name: Package Alpha or promote tested Alpha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ inputs.version }}
+          ESPHOME: ${{ inputs.esphome_version }}
+          ALPHA: ${{ inputs.source_alpha }}
+          EVIDENCE: ${{ inputs.test_evidence }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          if [ "$CHANNEL" = alpha ]; then
+            python3 scripts/releases.py package firmware release "$VERSION" "$SOURCE_COMMIT" "$ESPHOME"
+          else
+            gh release view "$ALPHA" --repo "$REPOSITORY" --json isDraft --jq '.isDraft == false' | grep -qx true
+            python3 scripts/releases.py download "$REPOSITORY" "$ALPHA" source-alpha
+            python3 scripts/releases.py promote source-alpha release "$VERSION" "$EVIDENCE"
+          fi
+      - name: Publish immutable release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('release/release.json').read_text())
+          notes = f"Channel: {m['channel']}\nSource: {m['sourceCommit']}\nBinary version: {m['binaryVersion']}\nESPHome: {m['esphomeVersion']}\n"
+          if m['channel'] == 'beta':
+              notes += f"\nPromoted unchanged from {m['promotedFrom']}. Device/OTA version remains {m['binaryVersion']}.\n\nHardware acceptance:\n{m['hardwareTestEvidence']}\n"
+          Path('release/notes.md').write_text(notes)
+          PY
+          commit=$(python3 -c "import json; print(json.load(open('release/release.json'))['sourceCommit'])")
+          flags=()
+          if [ "$CHANNEL" = alpha ]; then flags+=(--prerelease); fi
+          gh release create "$VERSION" release/release.json release/firmware-bundle.zip \
+            --repo "$REPOSITORY" --target "$commit" --title "$VERSION" --notes-file release/notes.md "${flags[@]}"

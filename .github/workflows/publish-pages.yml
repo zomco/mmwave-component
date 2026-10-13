@@ -1,271 +1,61 @@
 name: Publish GitHub Pages
-
 on:
   workflow_run:
-    workflows: ["Publish"]
+    workflows: [Publish]
     types: [completed]
     branches: [main]
   push:
     branches: [main]
     paths:
-      - "static/**"
-      # Wiring images only. PDFs and datasheets are not copied into the site.
-      - "docs/**/*.png"
-      - "docs/**/*.jpg"
-      - "docs/**/*.jpeg"
-      - "docs/**/*.PNG"
-      - "docs/**/*.JPG"
-      - "docs/**/*.JPEG"
+      - 'static/**'
+      - 'scripts/releases.py'
+      - '.github/workflows/publish-pages.yml'
+      - 'README.md'
   workflow_dispatch:
-    inputs:
-      publish_run_id:
-        description: >
-          Run ID of a successful publish.yml run to pull firmware from.
-          Leave empty to use the most recent successful run.
-        required: false
-        type: string
 
+permissions:
+  contents: read
 concurrency:
   group: github-pages
-  cancel-in-progress: true
-
+  cancel-in-progress: false
 jobs:
   deploy:
-    name: Build and deploy GitHub Pages
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-
-    if: >
-      github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success'
-
     permissions:
+      contents: read
       pages: write
       id-token: write
-      actions: read
-
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
-
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v7
-
-      # ── Resolve which publish.yml run to pull firmware from ───────────────
-      - name: Resolve firmware run ID
-        id: resolve-run
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ -n "${{ inputs.publish_run_id }}" ]; then
-            run_id="${{ inputs.publish_run_id }}"
-            echo "Source: explicit input run $run_id"
-
-          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            run_id="${{ github.event.workflow_run.id }}"
-            echo "Source: upstream workflow_run $run_id"
-
-          else
-            run_id=$(gh api \
-              "repos/${{ github.repository }}/actions/workflows/publish.yml/runs?branch=main&status=success&per_page=1" \
-              --jq '.workflow_runs[0].id')
-            echo "Source: latest successful publish.yml run $run_id"
-          fi
-
-          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
-            echo "::error::Could not resolve a publish.yml run ID. Run publish.yml first."
-            exit 1
-          fi
-
-          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
-          echo "Resolved run_id=$run_id"
-
-      # ── Download firmware artifacts ────────────────────────────────────────
-      # if-no-files-found: error makes the step fail loudly if publish.yml
-      # produced no firmware-* artifacts, instead of silently yielding an
-      # empty firmware/ directory and an empty models.json.
-      - name: Download firmware artifacts
-        uses: actions/download-artifact@v8
+      - uses: actions/checkout@v7
         with:
-          pattern: firmware-*
-          path: firmware/
-          merge-multiple: false
-          run-id: ${{ steps.resolve-run.outputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      # ── Diagnose downloaded structure ─────────────────────────────────────
-      # This step always passes; its output in the workflow log tells us the
-      # exact paths that the download step created, so we can verify the glob
-      # pattern used in the assembly script below.
-      - name: List downloaded artifact structure
-        run: |
-          echo "=== firmware/ tree ==="
-          find firmware/ -type f | sort || echo "(firmware/ is empty or does not exist)"
-
-      # ── Build React installer ──────────────────────────────────────────────
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
+          ref: main
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: static/package-lock.json
-
-      - name: Build web installer
+      - name: Test release tooling
+        run: python3 -m unittest discover -s tests -p test_releases.py -v
+      - name: Build installer
         working-directory: static
         run: |
           npm ci
+          npm test
           npm run build
-
-      # ── Assemble staging directory ─────────────────────────────────────────
-      # Assembles staging/ from:
-      #   static/dist/      → compiled React site and static assets
-      #   firmware/         → firmware files and manifest.json per model
-      #   docs/{model}/     → wiring diagram images
-      # Then generates models.json consumed by index.html at runtime.
-      #
-      # Jekyll is pointed at staging/ so it processes everything in one pass
-      # and owns _site/ entirely. We never write into _site/ ourselves, which
-      # avoids PermissionError from Jekyll's container-owned output directory.
-      - name: Assemble staging directory
+      - name: Assemble version history and preserve existing OTA URLs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
         run: |
-          python3 << 'PYEOF'
-          import os, json, shutil, glob, re, sys
-
-          # ── Seed staging from the compiled web app ─────────────────────────
-          staging = 'staging'
-          shutil.copytree('static/dist', staging)
-          print(f"[staging] copied static/dist/ → {staging}/")
-
-          # ── Discover firmware artifacts ────────────────────────────────────
-          # actions/download-artifact@v4 with merge-multiple:false creates:
-          #   firmware/{artifact-name}/           ← outer dir named after artifact
-          #     {artifact-name}/                  ← inner dir (artifact's own path)
-          #       manifest.json
-          #       *.bin
-          # OR (depending on action version / how the artifact was uploaded):
-          #   firmware/{artifact-name}/
-          #     manifest.json
-          #     *.bin
-          #
-          # We handle both layouts by searching for manifest.json anywhere
-          # under firmware/ rather than assuming a fixed depth.
-          manifest_files = glob.glob('firmware/**/manifest.json', recursive=True)
-          print(f"\n[discovery] found {len(manifest_files)} manifest(s): {manifest_files}")
-
-          if not manifest_files:
-              print("::error::No manifest.json files found under firmware/. "
-                    "Check that publish.yml produced firmware-* artifacts "
-                    "and that the run-id is correct.", file=sys.stderr)
-              sys.exit(1)
-
-          models = []
-
-          for manifest_path in sorted(manifest_files):
-              artifact_dir = os.path.dirname(manifest_path)
-
-              with open(manifest_path) as f:
-                  manifest = json.load(f)
-
-              # build-action names the ESPHome output dir "{esphome.name}-{chipFamily}"
-              # e.g. "r60abd1-ESP32-C3". That directory is the one containing
-              # manifest.json. Walk up from manifest_path to find it.
-              build_dir_name = None
-              for part in reversed(manifest_path.replace('\\', '/').split('/')):
-                  if part and part != 'manifest.json':
-                      # The build dir follows the pattern: contains a hyphen and
-                      # ends with a chip-family string like ESP32-C3, ESP32-S3, ESP32.
-                      if re.search(r'-(ESP32|ESP8266)', part, re.IGNORECASE):
-                          build_dir_name = part
-                          break
-
-              if not build_dir_name:
-                  # Fallback: use manifest name field or the direct parent dir name
-                  build_dir_name = manifest.get('name', os.path.basename(artifact_dir))
-                  build_dir_name = build_dir_name.replace(' ', '-')
-
-              model_id = build_dir_name  # e.g. "r60abd1-ESP32-C3"
-
-              chip_family = (manifest.get('builds') or [{}])[0].get('chipFamily', '')
-              
-              # Extract clean radar_model and display_name
-              raw_name = manifest.get('name', model_id)
-              parts = re.split(r'[^a-zA-Z0-9]', raw_name)
-              core_model = model_id
-              for p in parts:
-                  p_lower = p.lower()
-                  if p_lower and p_lower not in ['firmware', 'mmwave', 'radar', 'factory', 'esp32c3', 'esp32s3', 'esp8266', 'esp32', 'c3', 's3']:
-                      core_model = p_lower
-                      break
-              
-              radar_model = core_model
-              display_name = radar_model.upper()
-              if 'factory' in model_id.lower() or 'factory' in raw_name.lower():
-                  display_name += ' Factory'
-
-              print(f"\n[model] model_id={model_id} radar_model={radar_model} "
-                    f"chip_family={chip_family} display_name='{display_name}'")
-
-              # Copy firmware files into staging/{model_id}/
-              dest_dir = os.path.join(staging, model_id)
-              os.makedirs(dest_dir, exist_ok=True)
-              for fname in os.listdir(artifact_dir):
-                  src = os.path.join(artifact_dir, fname)
-                  if os.path.isfile(src):
-                      shutil.copy2(src, os.path.join(dest_dir, fname))
-                      print(f"  [firmware] {fname} → {dest_dir}/")
-
-              # Copy wiring images from docs/{radar_model}/
-              wiring_images = []
-              docs_dir = os.path.join('docs', radar_model)
-              if os.path.isdir(docs_dir):
-                  pattern = re.compile(
-                      rf'^{re.escape(radar_model)}-.+\.(png|jpg|jpeg)$',
-                      re.IGNORECASE)
-                  img_dest = os.path.join(staging, 'images', radar_model)
-                  for fname in sorted(os.listdir(docs_dir)):
-                      if pattern.match(fname):
-                          os.makedirs(img_dest, exist_ok=True)
-                          shutil.copy2(os.path.join(docs_dir, fname),
-                                       os.path.join(img_dest, fname))
-                          rel = f'images/{radar_model}/{fname}'
-                          wiring_images.append(rel)
-                          print(f"  [image] {fname} → staging/{rel}")
-              else:
-                  print(f"  [image] docs/{radar_model}/ not found, skipping images")
-
-              models.append({
-                  'id':            model_id,
-                  'radar_model':   radar_model,
-                  'name':          display_name,
-                  'version':       manifest.get('version', 'unknown'),
-                  'chip_family':   chip_family,
-                  'manifest':      f'{model_id}/manifest.json',
-                  'wiring_images': wiring_images,
-              })
-
-          models.sort(key=lambda m: (m['radar_model'], m['chip_family']))
-
-          models_path = os.path.join(staging, 'models.json')
-          with open(models_path, 'w') as f:
-              json.dump(models, f, indent=2)
-
-          print(f"\n[models.json] written with {len(models)} model(s):")
-          print(json.dumps(models, indent=2))
-          PYEOF
-
-      # ── Build Jekyll site ─────────────────────────────────────────────────
-      - name: Build Jekyll site
-        uses: actions/jekyll-build-pages@v1
+          repo_name="${REPOSITORY#*/}"
+          python3 scripts/releases.py assemble "$REPOSITORY" static/dist "https://${OWNER}.github.io/${repo_name}/"
+      - uses: actions/upload-pages-artifact@v5
         with:
-          source: ./staging
-          destination: ./_site
-
-      # ── Upload and deploy ─────────────────────────────────────────────────
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: _site/
-
-      - name: Deploy to GitHub Pages
+          path: static/dist
+      - uses: actions/deploy-pages@v5
         id: deploy
-        uses: actions/deploy-pages@v5

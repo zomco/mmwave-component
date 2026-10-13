@@ -41,8 +41,8 @@ means the two silently drift apart.
 
 ### Wiring
 
-All models use `GPIO21` → radar `RX` and `GPIO20` ← radar `TX` (crossed), with
-one exception: **LD2410** uses `GPIO4`/`GPIO5`.
+All ESP32-C3 builds, including LD2410, use `GPIO21` (TX) → radar `RX`
+and `GPIO20` (RX) ← radar `TX` (crossed).
 
 Baud rates vary widely by model and must match the protocol document exactly —
 from 9600 (LD2452) to 1382400 (LD6002). Check the table in the main README

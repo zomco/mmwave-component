@@ -43,8 +43,9 @@ a target.
 | `GPIO21` | `RX` | ESP32 transmits → radar receives |
 | `GPIO20` | `TX` | ESP32 receives ← radar transmits |
 
-> **LD2410 is the exception:** it uses `GPIO4` (TX) and `GPIO5` (RX) instead.
-> Every other supported model uses GPIO21/GPIO20 as above.
+> All ESP32-C3 builds, including LD2410, use GPIO21/GPIO20 as above.
+> When upgrading an older LD2410 build wired to GPIO4/GPIO5, disconnect power
+> and move those connections to GPIO21/GPIO20 respectively before using the new firmware.
 
 Feeding 5 V into a 3.3 V-only module destroys it. If the datasheet is
 ambiguous, 3.3 V is the safe choice — a module that wants 5 V will simply fail

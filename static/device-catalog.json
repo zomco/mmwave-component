@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "radars": [{
+    "id": "r60abd1", "name": "R60ABD1", "dimension": "2D", "status": "Completed",
+    "chipFamily": "ESP32-C3", "config": "tests/r60abd1-esp32c3.factory.yaml",
+    "image": "device-artwork/radar-placeholder.png", "imageStatus": "placeholder", "baudRate": 115200, "power": "5V",
+    "description": {"zh": "存在检测、平面位置与呼吸睡眠数据", "en": "Presence, position and breathing / sleep data"},
+    "range": null,
+    "detectionSpecs": {
+      "horizontalAngle": null,
+      "verticalAngle": null,
+      "rangeResolution": null,
+      "angleResolution": null,
+      "positionInterval": {"zh": "2 s", "en": "2 s"}
+    },
+    "specificationSource": {
+      "label": {"zh": "R60ABD1 用户手册 V3.4 · 位置上报见第 6 页 DP5", "en": "R60ABD1 manual V3.4 · position reporting: p. 6, DP5"},
+      "url": "https://github.com/zomco/mmwave-component/blob/main/docs/r60abd1/r60abd1-%E8%AF%B4%E6%98%8E%E4%B9%A6.pdf"
+    },
+    "specificationNote": {"zh": "手册未注明实际检测距离、水平/垂直检测角度及分辨率。cm 是协议输出单位，不代表测距分辨率。", "en": "The manual does not specify physical detection range, horizontal/vertical coverage angles or resolution. The cm output unit is not a range-resolution specification."},
+    "limitations": {"zh": "单人近距离场景；数据有上报延迟，不用于医疗或安全报警。", "en": "Single-person, short-range use. Delayed reporting; not for medical or safety alarms."},
+    "powerNote": {"zh": "手册第 3–4 页：4.9–6V，供电能力至少 200mA。UART 标为 TTL，但未明确逻辑电压，接线前确认实物电平与 3.3V 主控兼容。", "en": "Manual pp. 3–4: 4.9–6V, at least 200mA. UART is specified as TTL without a logic voltage; confirm compatibility with the 3.3V controller before wiring."},
+    "docs": "https://github.com/zomco/mmwave-component/tree/main/docs/r60abd1",
+    "cardDocs": "https://github.com/zomco/mmwave-card/tree/main/docs/r60abd1"
+  }],
+  "boards": [{
+    "id": "esp32-c3-supermini", "name": "ESP32-C3 Super Mini", "chipFamily": "ESP32-C3",
+    "image": "device-artwork/esp32-c3-supermini.png", "imageStatus": "reference-concept",
+    "pinMap": [
+      {"id":"uart_tx","label":"UART_TX · GPIO21","color":"#0891B2","x":0.25837321,"y":0.78070175},
+      {"id":"uart_rx","label":"UART_RX · GPIO20","color":"#7C3AED","x":0.25837321,"y":0.70015949},
+      {"id":"5v","label":"5V","color":"#DC2626","x":0.74162679,"y":0.2169059},
+      {"id":"3v3","label":"3V3","color":"#D97706","x":0.74162679,"y":0.37878788},
+      {"id":"gnd","label":"GND","color":"#475569","x":0.74162679,"y":0.29824561}
+    ],
+    "description": {"zh": "USB-C · 仅适用与参考引脚图一致的板型", "en": "USB-C · match the reference board pinout"},
+    "reference": "esp32c3/pinout.png", "frontReference": "esp32c3/front.png", "uart": {"tx": 21, "rx": 20}
+  }]
+}

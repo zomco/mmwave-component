@@ -85,8 +85,8 @@ script:
 
 uart:
   id: uart_r60abd1
-  tx_pin: GPIO21 # ESP32-C3 → R60ABD1 TXD（交叉接线）
-  rx_pin: GPIO20 # ESP32-C3 ← R60ABD1 RXD
+  tx_pin: GPIO21 # ESP32-C3 TX → R60ABD1 RXD（交叉接线）
+  rx_pin: GPIO20 # ESP32-C3 RX ← R60ABD1 TXD
   baud_rate: 115200
   data_bits: 8
   parity: NONE

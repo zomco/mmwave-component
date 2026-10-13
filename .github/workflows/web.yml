@@ -1,0 +1,26 @@
+name: Web installer checks
+on:
+  pull_request:
+    paths: ['static/**', 'scripts/**', 'tests/test_releases.py', '.github/workflows/**', 'README.md']
+  push:
+    branches: [main]
+    paths: ['static/**', 'scripts/**', 'tests/test_releases.py', '.github/workflows/**', 'README.md']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: static/package-lock.json
+      - run: python3 scripts/releases.py catalog
+      - run: python3 -m unittest discover -s tests -p test_releases.py -v
+      - working-directory: static
+        run: |
+          npm ci
+          npm test
+          npm run build

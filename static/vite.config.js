@@ -6,13 +6,10 @@ import { defineConfig } from 'vite';
 const passthroughAssets = [
   '_config.yml',
   'favicon.svg',
-  'hero.jpg',
-  'hero_rebranded.png',
-  'models.preview.json',
   'robots.txt',
   'sitemap.xml',
   'esp32c3',
-  'esp32s3',
+  'device-artwork',
 ];
 
 function copyStaticAssets() {
