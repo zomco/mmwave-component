@@ -45,16 +45,16 @@ Run **Publish** with `beta`, a new `v1.2.0-beta.1` tag, `source_alpha=v1.2.0-alp
 
 Do not promote a version merely because the website builds. This workflow does not perform hardware acceptance or create a medical/safety certification.
 
-## Pages and OTA migration
+## Pages and release-based OTA
 
 **Publish GitHub Pages** builds the site independently and enumerates published release assets, validating the complete bundle before staging:
 
 - `releases.json`: explicit Alpha/Beta history and compatibility metadata; no nightly/dev masquerading as Beta.
 - `firmware/<tag>/<model>-ESP32-C3/`: immutable versioned files.
-- `<model>-ESP32-C3/manifest.json`: existing device OTA alias; only the newest published Beta replaces it. Alpha never advances the stable alias.
-- `models.json`: legacy OTA alias inventory only, no longer the frontend's selectable firmware list.
+- `<model>-ESP32-C3/manifest.json`: stable OTA alias generated from the newest published Beta. Alpha never advances the stable alias.
+- `models.json`: inventory of these Beta aliases, not the frontend's selectable firmware list.
 
-Before deployment, the workflow downloads existing `models.json` and its referenced firmware from the current GitHub Pages URL. This preserves unclassified legacy firmware, including non-storefront models, without listing it for new DIY users. An absent index (HTTP 404) is treated as a new site; other network, path, manifest or artifact errors fail deployment, leaving the current site untouched. If Pages has been moved to a different base URL, update the assembly input before the first deployment. Take a backup of the live OTA paths before migration and verify them after deployment.
+The maintainer has explicitly waived legacy OTA retention for the pre-release test fleet. Deploy from a fresh Vite build: `python3 scripts/releases.py assemble OWNER/REPO static/dist`. Assembly does not request the existing Pages site or migrate its firmware. Old test-device OTA URLs may disappear after deployment; reflash those devices if needed. With no qualifying releases, both indexes are empty and the DIY guide still deploys. GitHub API failures and invalid release bundles still stop deployment; they are not treated as empty history.
 
 To roll back a release, do not silently mutate an immutable tag. Remove the bad release from publication under maintainer control, redeploy Pages, and check the stable alias and older device behavior. Erasing or downgrading devices is a separate, explicit hardware action.
 

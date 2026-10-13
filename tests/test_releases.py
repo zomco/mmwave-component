@@ -1,13 +1,11 @@
 """No network, GitHub writes or hardware required."""
 import importlib.util
-import io
 import json
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 import zipfile
-from urllib.error import HTTPError
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('releases', ROOT / 'scripts/releases.py')
@@ -95,16 +93,6 @@ class ReleaseTests(unittest.TestCase):
         r.write(self.build / 'manifest.json', self.manifest)
         with self.assertRaisesRegex(ValueError, 'checksum'): self.package()
 
-    def test_legacy_corrupt_ota_fails_before_writing_alias(self):
-        output = self.root / 'legacy-corrupt'
-        responses = {'models.json': json.dumps([{'manifest': 'old/manifest.json'}]).encode(),
-                     'old/manifest.json': json.dumps(self.manifest).encode(),
-                     'old/factory.bin': b'factory', 'old/ota.bin': b'corrupt'}
-        base = 'https://example.com/'
-        with patch.object(r, 'urlopen', side_effect=lambda url, timeout: io.BytesIO(responses[url.removeprefix(base)])):
-            with self.assertRaisesRegex(ValueError, 'checksum'): r.preserve_legacy(base, output)
-        self.assertFalse((output / 'old/manifest.json').exists())
-
     def test_beta_preserves_every_tested_byte_and_source(self):
         alpha = self.package()
         beta = self.root / 'beta'
@@ -141,14 +129,26 @@ class ReleaseTests(unittest.TestCase):
         r.write(self.build / 'manifest.json', self.manifest)
         with self.assertRaises(ValueError): self.package()
 
-    def test_assemble_empty_history_keeps_legacy_only(self):
+    def test_assemble_empty_history_drops_legacy_index_without_contacting_pages(self):
         output = self.root / 'site'
         output.mkdir()
         r.write(output / 'models.json', [{'id': 'old', 'manifest': 'old/manifest.json'}])
-        with patch.object(r, 'gh', return_value='[]'), patch.object(r, 'preserve_legacy'):
-            r.assemble('owner/repo', output, 'https://owner.github.io/repo/')
+        with patch.object(r, 'gh', return_value='[]') as gh, patch('urllib.request.urlopen', side_effect=AssertionError('Pages must not be requested')):
+            r.assemble('owner/repo', output)
+        gh.assert_called_once_with('api', 'repos/owner/repo/releases?per_page=100&page=1')
         self.assertEqual(r.read(output / 'releases.json')['releases'], [])
-        self.assertEqual(r.read(output / 'models.json')[0]['id'], 'old')
+        self.assertEqual(r.read(output / 'models.json'), [])
+
+    def test_assemble_release_api_errors_still_fail(self):
+        with patch.object(r, 'gh', side_effect=RuntimeError('GitHub API unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'GitHub API unavailable'):
+                r.assemble('owner/repo', self.root / 'site')
+
+    def test_pages_workflow_has_no_previous_site_argument(self):
+        workflow = (ROOT / '.github/workflows/publish-pages.yml').read_text(encoding='utf-8')
+        self.assertIn('scripts/releases.py assemble "$REPOSITORY" static/dist', workflow)
+        self.assertNotIn('github.io', workflow)
+        self.assertNotIn('preserve existing OTA', workflow)
 
     def test_stamp_changes_only_the_project_version(self):
         config = self.root / 'factory.yaml'
@@ -193,30 +193,11 @@ class ReleaseTests(unittest.TestCase):
             return r.validate_bundle(r.read(dest / 'release.json'), dest / 'firmware-bundle.zip')
         output = self.root / 'site'
         with patch.object(r, 'gh', return_value=json.dumps(history)), patch.object(r, 'download_release', side_effect=download):
-            r.assemble('owner/repo', output, '')
+            r.assemble('owner/repo', output)
         self.assertEqual(len(r.read(output / 'releases.json')['releases']), 3)
         self.assertEqual((output / 'r60abd1-ESP32-C3/factory.bin').read_bytes(), b'tested-second-factory')
         self.assertEqual(r.read(output / 'r60abd1-ESP32-C3/manifest.json')['version'], 'v1.0.0-alpha.2')
         self.assertTrue((output / 'firmware/v1.0.0-alpha.3/r60abd1-ESP32-C3/factory.bin').exists())
-
-    def test_preserve_legacy_copies_factory_and_ota_without_classifying(self):
-        base, output = 'https://owner.github.io/repo/', self.root / 'legacy'
-        model = {'id': 'old', 'manifest': 'old/manifest.json'}
-        responses = {'models.json': json.dumps([model]).encode(), 'old/manifest.json': json.dumps(self.manifest).encode(),
-                     'old/factory.bin': b'factory', 'old/ota.bin': b'ota'}
-        with patch.object(r, 'urlopen', side_effect=lambda url, timeout: io.BytesIO(responses[url.removeprefix(base)])):
-            r.preserve_legacy(base, output)
-        self.assertEqual((output / 'old/ota.bin').read_bytes(), b'ota')
-        self.assertEqual(r.read(output / 'models.json'), [model])
-        self.assertFalse((output / 'releases.json').exists())
-
-    def test_legacy_errors_fail_closed_except_missing_index(self):
-        for code in (403, 404, 500):
-            with patch.object(r, 'urlopen', side_effect=HTTPError('https://example.com/models.json', code, 'test', {}, None)):
-                if code == 404:
-                    r.preserve_legacy('https://example.com/', self.root / 'empty')
-                else:
-                    with self.assertRaises(HTTPError): r.preserve_legacy('https://example.com/', self.root / 'empty')
 
 
 if __name__ == '__main__':

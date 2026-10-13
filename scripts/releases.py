@@ -10,9 +10,6 @@ import shutil
 import subprocess
 import tempfile
 from datetime import datetime, timezone
-from urllib.error import HTTPError
-from urllib.parse import urljoin, urlparse
-from urllib.request import urlopen
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -250,50 +247,12 @@ def download_release(repo, tag, directory):
     return meta
 
 
-def preserve_legacy(base, output):
-    """Retain existing OTA paths; never present unclassified firmware as Beta."""
-    if not base:
-        return
-    if urlparse(base).scheme != "https":
-        raise ValueError("Previous Pages URL must use HTTPS")
-    base = base.rstrip("/") + "/"
-
-    def fetch(path):
-        url = urljoin(base, path)
-        if not url.startswith(base):
-            raise ValueError("Legacy path escaped Pages base")
-        with urlopen(url, timeout=30) as response:
-            return response.read()
-
-    try:
-        models = json.loads(fetch("models.json"))
-    except HTTPError as error:
-        if error.code == 404:
-            return
-        raise
-    if not isinstance(models, list):
-        raise ValueError("Invalid legacy models index")
-    for model in models:
-        path = safe_path(model["manifest"])
-        manifest_bytes = fetch(path)
-        manifest = json.loads(manifest_bytes)
-        folder = str(PurePosixPath(path).parent)
-        files = checked_manifest_files(manifest, lambda rel: fetch(f"{folder}/{rel}"))
-        for rel, content in files.items():
-            dest = Path(output) / folder / rel
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes(content)
-        dest = Path(output) / path
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(manifest_bytes)
-    write(Path(output) / "models.json", models)
-
-
-def assemble(repo, output, previous):
+def assemble(repo, output):
     models, _ = catalog()
     eligible = {m["id"] for m in models}
     output = Path(output)
-    preserve_legacy(previous, output)
+    # The pre-release test fleet has no legacy OTA retention requirement.
+    # A fresh Vite build supplies the site; GitHub Releases supplies firmware.
     releases = []
     with tempfile.TemporaryDirectory() as temp:
         page = 1
@@ -330,10 +289,9 @@ def assemble(repo, output, previous):
             assigned.add(model)
             folder = f"{model}-ESP32-C3"
             shutil.copytree(output / "firmware" / release["version"] / folder, output / folder, dirs_exist_ok=True)
-    # Keep a models.json inventory of ALL OTA aliases so later deploys can preserve them.
-    legacy = read(output / "models.json") if (output / "models.json").exists() else []
-    by_path = {m["manifest"]: m for m in legacy}
-    for model in assigned:
+    # Only validated Beta releases create stable OTA aliases.
+    by_path = {}
+    for model in sorted(assigned):
         path = f"{model}-ESP32-C3/manifest.json"
         by_path[path] = {"id": f"{model}-ESP32-C3", "manifest": path}
     write(output / "models.json", list(by_path.values()))
@@ -355,7 +313,7 @@ def main():
     for name in ("repo", "tag", "directory"):
         p.add_argument(name)
     p = sub.add_parser("assemble")
-    for name in ("repo", "output", "previous"):
+    for name in ("repo", "output"):
         p.add_argument(name)
     args = vars(parser.parse_args()); command = args.pop("command")
     if command == "catalog":

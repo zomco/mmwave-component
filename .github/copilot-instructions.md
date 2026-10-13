@@ -161,9 +161,9 @@ The current release contract and operator steps are documented in
 - **What it does:**
   1. Tests and builds the React + Tailwind site from `static/` to `static/dist/`.
   2. Fetches published release bundles, validates hashes, versions and safe paths.
-  3. Preserves existing `models.json` OTA aliases and their firmware; unclassified legacy artifacts are not selectable.
+  3. Does not fetch the old Pages site or retain legacy test firmware; the maintainer waived pre-release OTA compatibility.
   4. Generates `releases.json` and immutable `firmware/<tag>/` paths.
-  5. Advances existing model OTA aliases only to the newest Beta, never Alpha.
+  5. Generates model OTA aliases and `models.json` only from the newest Beta, never Alpha.
   6. Deploys the complete `static/dist/` atomically. A failed assembly leaves the current site untouched.
 - **Triggered independently** from `publish.yml`: static content (wiring images, install page) can be redeployed without rebuilding firmware.
 
@@ -539,7 +539,7 @@ CI auto-discovers `tests/*.yaml`; publishing uses only the validated Completed c
 |---|---|---|
 | **CI** (`ci.yml`) | PR to main / main push | Formatting and all top-level `tests/*.yaml` — validation only |
 | **Publish** (`publish.yml`) | Explicit manual request on main | Builds Alpha or promotes tested Alpha to Beta |
-| **Publish Pages** (`publish-pages.yml`) | After Publish / storefront changes | Validates version history, preserves OTA aliases, deploys Pages |
+| **Publish Pages** (`publish-pages.yml`) | After Publish / storefront changes | Validates release history, generates Beta OTA aliases, deploys Pages |
 | **Web checks** (`web.yml`) | Relevant PR / main push | Tests release tooling and React app, no firmware release |
 
 Firmware build and Pages deployment are **intentionally separate**: a firmware build failure never breaks the live install site, and wiring diagram updates or install page changes deploy instantly without a full firmware rebuild.

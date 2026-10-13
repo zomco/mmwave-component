@@ -46,14 +46,11 @@ jobs:
           npm ci
           npm test
           npm run build
-      - name: Assemble version history and preserve existing OTA URLs
+      - name: Assemble version history from GitHub Releases
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          OWNER: ${{ github.repository_owner }}
-        run: |
-          repo_name="${REPOSITORY#*/}"
-          python3 scripts/releases.py assemble "$REPOSITORY" static/dist "https://${OWNER}.github.io/${repo_name}/"
+        run: python3 scripts/releases.py assemble "$REPOSITORY" static/dist
       - uses: actions/upload-pages-artifact@v5
         with:
           path: static/dist

@@ -49,16 +49,16 @@ Beta **不重新构建**，沿用被测试 Alpha 的完整 ZIP、二进制及 ma
 
 网页构建通过不等于真机验收通过，此流程也不提供医疗或安全认证。
 
-## 网页部署与旧 OTA 迁移
+## 网页部署与基于 Release 的 OTA
 
 **Publish GitHub Pages** 独立构建网页，读取已发布 Release 附件，完整校验后生成：
 
 - `releases.json`：明确 Alpha/Beta 的版本历史与兼容条件，dev/nightly 不混入。
 - `firmware/<tag>/<model>-ESP32-C3/`：按版本固定的固件。
-- `<model>-ESP32-C3/manifest.json`：已部署设备使用的旧 OTA 地址，只由最新 Beta 更新；Alpha 不推进稳定地址。
-- `models.json`：仅作为旧 OTA 地址清单，不再作为网页固件选择数据。
+- `<model>-ESP32-C3/manifest.json`：由最新已发布 Beta 生成的稳定 OTA 地址；Alpha 不推进稳定地址。
+- `models.json`：这些 Beta OTA 地址的清单，不作为网页固件选择数据。
 
-部署前从现有 GitHub Pages URL 读取 models.json 和其引用的固件，保留未分类旧版本以及未上架型号的旧 OTA 地址，但不向新用户提供这些版本。索引返回 404 按新站点处理；其他网络、路径、manifest 或产物问题会使部署失败，不替换当前网站。若已迁移 Pages 基地址，首次部署前修改组装参数。迁移前备份在线 OTA 路径，部署后逐一核验。
+维护者已明确允许丢弃正式发布前测试设备的旧 OTA 文件。从全新 Vite 构建目录运行：`python3 scripts/releases.py assemble OWNER/REPO static/dist`。组装不再访问现有 Pages 网站，也不迁移旧固件；部署后旧测试设备的 OTA 地址可能失效，必要时重新烧录。没有符合新格式的 Release 时，两个索引均为空，DIY 指南仍可部署。GitHub API 错误或 Release 产物校验失败仍会阻止部署，不会被当作空历史忽略。
 
 回滚时不要偷偷改写固定 tag。由维护者撤下错误发布版本并重新部署页面，检查稳定 OTA 地址和旧设备行为；设备擦除或降级属于另外的明确硬件操作。
 
