@@ -1,0 +1,64 @@
+# G0 host profile. Compile placeholder board is not identified hardware.
+# Not under tests/, so firmware CI does not compile it.
+# Do not flash until the user names the board, port, and erase permission.
+
+substitutions:
+  name: mwcp-g0-host
+  friendly_name: "MWCP G0 Host"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    # hardware_uart UART0 must not select the USB console. None leaves the
+    # driver uninstalled so mmwave_host can take it exclusively.
+    sdkconfig_options:
+      CONFIG_ESP_CONSOLE_NONE: y
+      CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG: n
+
+external_components:
+  - source:
+      type: local
+      path: ./components
+    components: [mmwave_host]
+  - source:
+      type: local
+      path: ../../../../components
+    components: [r60abd1]
+
+logger:
+  # UART0 is not the PC USB path. baud_rate 0 does not install that driver.
+  # USB Serial/JTAG is owned by mmwave_host; the IDF console is disabled below.
+  baud_rate: 0
+  hardware_uart: UART0
+  level: INFO
+
+api:
+  reboot_timeout: 0s
+
+wifi:
+  reboot_timeout: 0s
+  networks:
+    - ssid: "mwcp-g0-absent-ssid"
+      password: "unused-offline-probe"
+
+ota:
+  platform: esphome
+
+uart:
+  id: uart_r60abd1
+  tx_pin: GPIO21
+  rx_pin: GPIO20
+  baud_rate: 115200
+
+r60abd1:
+  id: radar
+  uart_id: uart_r60abd1
+
+mmwave_host:
+  radar_id: radar

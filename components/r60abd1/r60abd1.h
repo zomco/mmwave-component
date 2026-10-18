@@ -8,6 +8,7 @@
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "area_occupancy.h"
 #include "r60abd1_transform.h"
+#include "r60_probe_stats.h"
 
 #include <vector>
 #include <cstdint>
@@ -81,6 +82,8 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
 
   /// 边界过滤是否门控 presence：true 时界外目标不计入存在检测（默认 true）
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
+  const R60ProbeStats &probe_stats() const { return probe_stats_; }
+  bool last_raw_presence() const { return last_raw_presence_; }
   void clear_area(uint8_t i) { areas_.clear(i); }
   void add_area_point(uint8_t i, float x, float y) { areas_.add_point(i, x, y); }
   void set_area_hysteresis(float cm) { areas_.set_hysteresis(cm); }
@@ -171,6 +174,7 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   uint32_t last_rx_ms_{0};
   uint32_t last_publish_ms_{0};
   uint32_t frame_id_{0};
+  R60ProbeStats probe_stats_{};
   text_sensor::TextSensor *target_frame_{nullptr};
   void publish_target_frame_(int16_t rx, int16_t ry, int16_t rz);
 

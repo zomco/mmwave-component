@@ -19,6 +19,7 @@ void R60ABD1Component::setup() {
 void R60ABD1Component::loop() {
   while (available()) {
     const uint8_t byte = read();
+    probe_stats_.note_uart_byte();
     last_rx_ms_ = millis();
     if (millis() < this->mock_active_until_) {
       continue;
@@ -137,6 +138,7 @@ void R60ABD1Component::process_byte_(uint8_t byte) {
       data_idx_ = 0;
       if (data_len_ > MAX_DATA_LEN) {
         ESP_LOGW(TAG, "Frame data too long (%u bytes), discarding", data_len_);
+        probe_stats_.note_parse_error();
         parse_state_ = ParseState::IDLE;
       } else {
         parse_state_ = (data_len_ == 0) ? ParseState::CHECKSUM : ParseState::DATA;
@@ -155,19 +157,27 @@ void R60ABD1Component::process_byte_(uint8_t byte) {
         parse_state_ = ParseState::TAIL1;
       } else {
         ESP_LOGW(TAG, "Checksum error: got 0x%02X expected 0x%02X", byte, checksum_accum_);
+        probe_stats_.note_parse_error();
         parse_state_ = ParseState::IDLE;
       }
       break;
 
     case ParseState::TAIL1:
-      parse_state_ = (byte == FRAME_TAIL1) ? ParseState::TAIL2 : ParseState::IDLE;
+      if (byte == FRAME_TAIL1) {
+        parse_state_ = ParseState::TAIL2;
+      } else {
+        probe_stats_.note_parse_error();
+        parse_state_ = ParseState::IDLE;
+      }
       break;
 
     case ParseState::TAIL2:
-      if (byte == FRAME_TAIL2)
+      if (byte == FRAME_TAIL2) {
         dispatch_frame_();
-      else
+      } else {
+        probe_stats_.note_parse_error();
         ESP_LOGW(TAG, "Bad tail2: 0x%02X", byte);
+      }
       parse_state_ = ParseState::IDLE;
       break;
   }
@@ -178,6 +188,7 @@ void R60ABD1Component::process_byte_(uint8_t byte) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 void R60ABD1Component::dispatch_frame_() {
+  probe_stats_.note_valid_frame(millis());
   ESP_LOGV(TAG, "RX: ctrl=0x%02X cmd=0x%02X len=%u", ctrl_, cmd_, data_len_);
 
   switch (ctrl_) {
@@ -280,6 +291,7 @@ void R60ABD1Component::handle_presence_frame_() {
       const int16_t ry = decode_coord(rx_buf_[2], rx_buf_[3]);
       const int16_t rz = decode_coord(rx_buf_[4], rx_buf_[5]);
       ESP_LOGD(TAG, "Raw pos: x=%d y=%d z=%d cm", rx, ry, rz);
+      probe_stats_.note_target();
 
       if (raw_x_)
         raw_x_->publish_state(static_cast<float>(rx));

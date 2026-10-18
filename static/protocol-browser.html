@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8" />
+<body>
+<script type="module">
+import { runProtocolBrowserCheck } from './protocol-browser-entry.js';
+try {
+  document.body.textContent = JSON.stringify(await runProtocolBrowserCheck());
+} catch (error) {
+  document.body.textContent = JSON.stringify({ ok: false, error: String(error && error.stack || error) });
+}
+</script>
+</body>

@@ -1,10 +1,10 @@
 name: Web installer checks
 on:
   pull_request:
-    paths: ['static/**', 'scripts/**', 'tests/test_releases.py', '.github/workflows/**', 'README.md']
+    paths: ['static/**', 'scripts/**', 'tests/test_releases.py', 'protocol/**', 'components/r60abd1/**', 'docs/reviews/web-console/g0/**', '.github/workflows/**', 'README.md']
   push:
     branches: [main]
-    paths: ['static/**', 'scripts/**', 'tests/test_releases.py', '.github/workflows/**', 'README.md']
+    paths: ['static/**', 'scripts/**', 'tests/test_releases.py', 'protocol/**', 'components/r60abd1/**', 'docs/reviews/web-console/g0/**', '.github/workflows/**', 'README.md']
 permissions:
   contents: read
 jobs:
@@ -19,8 +19,19 @@ jobs:
           cache-dependency-path: static/package-lock.json
       - run: python3 scripts/releases.py catalog
       - run: python3 -m unittest discover -s tests -p test_releases.py -v
+      - name: Install C++ compiler for firmware contract tests
+        run: sudo apt-get update && sudo apt-get install -y g++
+      - uses: browser-actions/setup-chrome@v2
+        id: setup-chrome
+        with:
+          chrome-version: stable
       - working-directory: static
+        env:
+          MWCP_CHROME: ${{ steps.setup-chrome.outputs.chrome-path }}
+          # MWCP_GPP supports an executable path or a command name resolved via PATH
+          MWCP_GPP: g++
         run: |
           npm ci
-          npm test
+          npm run test:unit
+          npm run test:browser
           npm run build

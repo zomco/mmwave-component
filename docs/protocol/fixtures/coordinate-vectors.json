@@ -1,0 +1,20 @@
+{
+  "status": "draft_shared_vectors",
+  "convention": "R = Rz(yaw) * Rx(pitch) * Ry(roll); yaw 0 aims +Y; positive yaw is clockwise; room_z = radar_z - world_z; 1D input is (0, range, 0)",
+  "tolerance_cm": 0.01,
+  "cases": [
+    {"id": "identity", "local_cm": [0, 100, 0], "calibration": {"radar_x": 10, "radar_y": 20, "radar_z": 220, "yaw": 0, "pitch": 0, "roll": 0}, "room_cm": [10, 120, 220]},
+    {"id": "yaw-90-clockwise", "local_cm": [0, 100, 0], "calibration": {"radar_x": 0, "radar_y": 0, "radar_z": 0, "yaw": 90, "pitch": 0, "roll": 0}, "room_cm": [100, 0, 0]},
+    {"id": "pitch-90", "local_cm": [0, 100, 0], "calibration": {"radar_x": 0, "radar_y": 0, "radar_z": 200, "yaw": 0, "pitch": 90, "roll": 0}, "room_cm": [0, 0, 300]},
+    {"id": "roll-90-negative-height", "local_cm": [30, 0, 0], "calibration": {"radar_x": 0, "radar_y": 0, "radar_z": 220, "yaw": 0, "pitch": 0, "roll": 90}, "room_cm": [0, 0, 190]},
+    {"id": "pitch-roll-negative", "local_cm": [-40, -10, 5], "calibration": {"radar_x": 12, "radar_y": -8, "radar_z": 180, "yaw": 30, "pitch": 12, "roll": -8}, "room_cm": [-25.498558, 4.880307, 167.632462]},
+    {"id": "1d-yaw-90", "projection": "1d", "range_cm": 150, "calibration": {"radar_x": 5, "radar_y": -5, "radar_z": 100, "yaw": 90, "pitch": 0, "roll": 0}, "room_cm": [155, -5, 100]}
+  ],
+  "boundary_square_cm": [[0, 0], [100, 0], [100, 100], [0, 100]],
+  "boundary_results": [
+    {"local_cm": [50, 0, 0], "in_boundary": true, "note": "bottom edge, existing ray cast"},
+    {"local_cm": [0, 0, 0], "in_boundary": true, "note": "vertex, existing ray cast"},
+    {"local_cm": [50, 50, 0], "in_boundary": true},
+    {"local_cm": [150, 10, 0], "in_boundary": false}
+  ]
+}

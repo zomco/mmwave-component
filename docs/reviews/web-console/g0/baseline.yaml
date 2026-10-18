@@ -1,0 +1,59 @@
+# G0 baseline: same board placeholder, radar UART, and offline reboot policy.
+# No MWCP component. Keeps the current USB consumers so the resource delta is explicit.
+# Compile placeholder board is not identified hardware. Do not flash without authorization.
+
+substitutions:
+  name: mwcp-g0-baseline
+  friendly_name: "MWCP G0 Baseline"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ./components
+    components: [g0_meter]
+  - source:
+      type: local
+      path: ../../../../components
+    components: [r60abd1]
+
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+  level: INFO
+
+api:
+  reboot_timeout: 0s
+
+wifi:
+  reboot_timeout: 0s
+  networks:
+    - ssid: "mwcp-g0-absent-ssid"
+      password: "unused-offline-probe"
+
+ota:
+  platform: esphome
+
+improv_serial:
+
+uart:
+  id: uart_r60abd1
+  tx_pin: GPIO21
+  rx_pin: GPIO20
+  baud_rate: 115200
+
+r60abd1:
+  id: radar
+  uart_id: uart_r60abd1
+
+# One ESP_LOGI line every 5s on the existing USB logger. No MWCP buffers and no second radar reader.
+g0_meter:
+  radar_id: radar

@@ -1,0 +1,9 @@
+{
+  "idf": "5.5.5",
+  "target": "esp32c3",
+  "portSTACK_TYPE": "uint8_t",
+  "sizeof_stack_type": 1,
+  "high_water_unit": "bytes",
+  "source": "FreeRTOS-Kernel/portable/riscv/include/freertos/portmacro.h",
+  "scan": "prvTaskCheckFreeStackSpace counts bytes then divides by sizeof(StackType_t)"
+}

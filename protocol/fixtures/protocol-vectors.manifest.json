@@ -1,0 +1,5 @@
+﻿{
+    "sha256":  "c022b85e30fcd30800402919e2d1c984ffc20adc33e26ecd05964367f1f331f3",
+    "source":  "docs/plans/mmwave-web-console/protocol-vectors.json",
+    "note":  "Byte copy of the design golden vectors. Do not edit to match an implementation."
+}

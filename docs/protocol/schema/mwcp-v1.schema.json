@@ -1,0 +1,2031 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mwcp-v1.schema.json",
+  "title": "MWCP/1 draft JSON schemas",
+  "x-status": "draft-not-frozen",
+  "x-commands": {
+    "1": {
+      "name": "HELLO",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/helloRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/helloResult"
+      }
+    },
+    "2": {
+      "name": "PING",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/empty"
+      },
+      "result": {
+        "$ref": "#/$defs/pingResult"
+      }
+    },
+    "3": {
+      "name": "SESSION_CLOSE",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/empty"
+      },
+      "result": {
+        "$ref": "#/$defs/closedResult"
+      }
+    },
+    "16": {
+      "name": "DEVICE_INFO",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/empty"
+      },
+      "result": {
+        "$ref": "#/$defs/deviceInfo"
+      }
+    },
+    "17": {
+      "name": "CAPABILITIES_LIST",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/cursorRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/capabilityPage"
+      }
+    },
+    "18": {
+      "name": "STATUS_GET",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/empty"
+      },
+      "result": {
+        "$ref": "#/$defs/status"
+      }
+    },
+    "32": {
+      "name": "CONFIG_READ",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/cursorRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/configPage"
+      }
+    },
+    "33": {
+      "name": "CONFIG_VALIDATE",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/configValidateRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/configValidateResult"
+      }
+    },
+    "34": {
+      "name": "CONFIG_COMMIT",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/configCommitRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/configCommitResult"
+      }
+    },
+    "35": {
+      "name": "COMMIT_STATUS",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/opRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/commitStatusResult"
+      }
+    },
+    "48": {
+      "name": "SUBSCRIBE",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/subscribeRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/subscribeResult"
+      }
+    },
+    "49": {
+      "name": "UNSUBSCRIBE",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/unsubscribeRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/unsubscribeResult"
+      }
+    },
+    "64": {
+      "name": "ACTIONS_LIST",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/cursorRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/actionPage"
+      }
+    },
+    "65": {
+      "name": "ACTION_START",
+      "level": "C",
+      "request": {
+        "$ref": "#/$defs/actionStartRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/jobAccepted"
+      }
+    },
+    "66": {
+      "name": "JOB_GET",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/jobGetRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/job"
+      }
+    },
+    "80": {
+      "name": "WIFI_STATUS",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/empty"
+      },
+      "result": {
+        "$ref": "#/$defs/wifiStatus"
+      }
+    },
+    "81": {
+      "name": "WIFI_SCAN",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/opRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/jobAccepted"
+      }
+    },
+    "82": {
+      "name": "WIFI_PROVISION",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/wifiProvisionRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/jobAccepted"
+      }
+    },
+    "83": {
+      "name": "WIFI_SCAN_RESULTS",
+      "level": "M",
+      "request": {
+        "$ref": "#/$defs/scanResultsRequest"
+      },
+      "result": {
+        "$ref": "#/$defs/scanResults"
+      }
+    },
+    "32769": {
+      "name": "TELEMETRY",
+      "event": {
+        "$ref": "#/$defs/telemetry"
+      }
+    },
+    "32770": {
+      "name": "STATUS_CHANGED",
+      "event": {
+        "$ref": "#/$defs/status"
+      }
+    },
+    "32771": {
+      "name": "CONFIG_CHANGED",
+      "event": {
+        "$ref": "#/$defs/configChanged"
+      }
+    },
+    "32772": {
+      "name": "JOB_CHANGED",
+      "event": {
+        "$ref": "#/$defs/job"
+      }
+    },
+    "32773": {
+      "name": "LOG",
+      "event": {
+        "$ref": "#/$defs/logEvent"
+      }
+    }
+  },
+  "$defs": {
+    "empty": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 0
+    },
+    "hex32": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "x-maxUtf8Bytes": 20
+    },
+    "cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "x-maxUtf8Bytes": 128
+    },
+    "quality": {
+      "enum": [
+        "valid",
+        "unknown",
+        "stale",
+        "invalid",
+        "unsupported"
+      ]
+    },
+    "errorCode": {
+      "enum": [
+        "VERSION_UNSUPPORTED",
+        "LIMIT_UNSUPPORTED",
+        "UNSUPPORTED",
+        "INVALID_ARGUMENT",
+        "UNKNOWN_FIELD",
+        "OUT_OF_RANGE",
+        "PAYLOAD_TOO_LARGE",
+        "ID_REUSE",
+        "OP_ID_REUSE",
+        "REQUEST_EXPIRED",
+        "REVISION_CONFLICT",
+        "BUSY",
+        "RADAR_UNAVAILABLE",
+        "RADAR_TIMEOUT",
+        "VERIFY_FAILED",
+        "STORAGE_FAILED",
+        "RATE_LIMITED",
+        "INTERNAL_ERROR"
+      ]
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/errorCode"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "x-maxUtf8Bytes": 160
+        },
+        "field": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        },
+        "details": {
+          "type": "object",
+          "maxProperties": 16
+        }
+      },
+      "x-open-object": true
+    },
+    "errorEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ok",
+        "error"
+      ],
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "error": {
+          "$ref": "#/$defs/error"
+        }
+      }
+    },
+    "helloRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "client",
+        "nonce",
+        "protocol",
+        "max_payload"
+      ],
+      "properties": {
+        "client": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "x-maxUtf8Bytes": 64
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "x-maxUtf8Bytes": 32
+            }
+          }
+        },
+        "nonce": {
+          "$ref": "#/$defs/hex32"
+        },
+        "protocol": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "major",
+            "minor_max"
+          ],
+          "properties": {
+            "major": {
+              "const": 1
+            },
+            "minor_max": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            }
+          }
+        },
+        "max_payload": {
+          "const": 4096
+        }
+      }
+    },
+    "helloResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nonce",
+        "protocol",
+        "boot_id",
+        "session_ttl_ms",
+        "limits",
+        "identity",
+        "cap_revision"
+      ],
+      "properties": {
+        "nonce": {
+          "$ref": "#/$defs/hex32"
+        },
+        "protocol": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "major",
+            "minor"
+          ],
+          "properties": {
+            "major": {
+              "const": 1
+            },
+            "minor": {
+              "const": 0
+            }
+          }
+        },
+        "boot_id": {
+          "$ref": "#/$defs/hex32"
+        },
+        "session_ttl_ms": {
+          "const": 15000
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_payload",
+            "rpc_inflight",
+            "max_targets",
+            "event_budget_bps"
+          ],
+          "properties": {
+            "max_payload": {
+              "const": 4096
+            },
+            "rpc_inflight": {
+              "const": 1
+            },
+            "max_targets": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 8
+            },
+            "event_budget_bps": {
+              "type": "integer",
+              "minimum": 1000,
+              "maximum": 8000
+            }
+          }
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "cap_revision": {
+          "type": "string",
+          "minLength": 1,
+          "x-maxUtf8Bytes": 64
+        }
+      },
+      "x-open-object": true
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_id",
+        "configured_model",
+        "dimension",
+        "firmware_version"
+      ],
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 1,
+          "x-maxUtf8Bytes": 64
+        },
+        "configured_model": {
+          "type": "string",
+          "minLength": 1,
+          "x-maxUtf8Bytes": 32
+        },
+        "dimension": {
+          "enum": [
+            "1D",
+            "2D"
+          ]
+        },
+        "firmware_version": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        }
+      }
+    },
+    "deviceInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_id",
+        "boot_id",
+        "configured_model",
+        "dimension",
+        "firmware_version",
+        "git_sha",
+        "release_channel",
+        "build_profile",
+        "host_protocol",
+        "radar_identity"
+      ],
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        },
+        "boot_id": {
+          "$ref": "#/$defs/hex32"
+        },
+        "configured_model": {
+          "type": "string",
+          "x-maxUtf8Bytes": 32
+        },
+        "dimension": {
+          "enum": [
+            "1D",
+            "2D"
+          ]
+        },
+        "firmware_version": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        },
+        "git_sha": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-maxUtf8Bytes": 40
+        },
+        "release_channel": {
+          "enum": [
+            "alpha",
+            "beta",
+            "development"
+          ]
+        },
+        "build_profile": {
+          "type": "string",
+          "x-maxUtf8Bytes": 32
+        },
+        "host_protocol": {
+          "const": "MWCP/1"
+        },
+        "radar_identity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-maxUtf8Bytes": 64
+        },
+        "hardware_revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "chip_flash_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "x-open-object": true
+    },
+    "pingResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "uptime_ms"
+      ],
+      "properties": {
+        "uptime_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "x-open-object": true
+    },
+    "closedResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "closed"
+      ],
+      "properties": {
+        "closed": {
+          "const": true
+        }
+      },
+      "x-open-object": true
+    },
+    "cursorRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cursor"
+      ],
+      "properties": {
+        "cursor": {
+          "$ref": "#/$defs/cursor"
+        }
+      }
+    },
+    "capability": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/featureCapability"
+        },
+        {
+          "$ref": "#/$defs/configCapability"
+        },
+        {
+          "$ref": "#/$defs/metricCapability"
+        }
+      ]
+    },
+    "featureCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "supported"
+      ],
+      "properties": {
+        "kind": {
+          "const": "feature"
+        },
+        "id": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        },
+        "supported": {
+          "type": "boolean"
+        },
+        "max_targets": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "target_id_stable": {
+          "type": "boolean"
+        },
+        "expected_interval_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "stale_after_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "unit": {
+          "type": "string",
+          "x-maxUtf8Bytes": 16
+        },
+        "minimum": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "maximum": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "medical": {
+          "const": false
+        }
+      }
+    },
+    "configCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "type",
+        "writable",
+        "domain",
+        "restart_required"
+      ],
+      "properties": {
+        "kind": {
+          "const": "config"
+        },
+        "id": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        },
+        "type": {
+          "enum": [
+            "number",
+            "object",
+            "null",
+            "array"
+          ]
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-maxUtf8Bytes": 16
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "step": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "writable": {
+          "type": "boolean"
+        },
+        "domain": {
+          "enum": [
+            "host"
+          ]
+        },
+        "label_key": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        },
+        "restart_required": {
+          "type": "boolean"
+        },
+        "schema_id": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        },
+        "min_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_items": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "number"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "minimum",
+              "maximum",
+              "step",
+              "unit"
+            ]
+          }
+        }
+      ]
+    },
+    "metricCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "supported",
+        "unit"
+      ],
+      "properties": {
+        "kind": {
+          "const": "metric"
+        },
+        "id": {
+          "type": "string"
+        },
+        "supported": {
+          "type": "boolean"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "minimum": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "maximum": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "expected_interval_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "medical": {
+          "const": false
+        }
+      }
+    },
+    "capabilityPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "items",
+        "next_cursor"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "x-maxUtf8Bytes": 64
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/capability"
+          }
+        },
+        "next_cursor": {
+          "$ref": "#/$defs/cursor"
+        }
+      },
+      "x-open-object": true
+    },
+    "status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "uptime_ms",
+        "radar_link",
+        "last_radar_frame_ms",
+        "config_revision",
+        "config_storage",
+        "active_jobs",
+        "counters"
+      ],
+      "properties": {
+        "uptime_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "radar_link": {
+          "enum": [
+            "unknown",
+            "waiting",
+            "healthy",
+            "stale",
+            "error"
+          ]
+        },
+        "last_radar_frame_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "config_revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "config_storage": {
+          "enum": [
+            "healthy",
+            "degraded",
+            "recovery_required"
+          ]
+        },
+        "active_jobs": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string"
+          }
+        },
+        "counters": {
+          "$ref": "#/$defs/counters"
+        },
+        "reset_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "free_heap": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "x-open-object": true
+    },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rx_frames",
+        "rx_crc_errors",
+        "rx_oversize",
+        "invalid_requests",
+        "radar_frames",
+        "radar_errors",
+        "telemetry_coalesced",
+        "logs_dropped",
+        "tx_overflow"
+      ],
+      "properties": {
+        "rx_frames": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rx_crc_errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rx_oversize": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid_requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "radar_frames": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "radar_errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "telemetry_coalesced": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "logs_dropped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tx_overflow": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "configValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "value"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        },
+        "value": {}
+      }
+    },
+    "configPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "items",
+        "next_cursor"
+      ],
+      "properties": {
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/configValue"
+          }
+        },
+        "next_cursor": {
+          "$ref": "#/$defs/cursor"
+        }
+      },
+      "x-open-object": true
+    },
+    "changes": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 32
+    },
+    "configValidateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_revision",
+        "changes"
+      ],
+      "properties": {
+        "base_revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "changes": {
+          "$ref": "#/$defs/changes"
+        }
+      }
+    },
+    "configValidateResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valid",
+        "base_revision",
+        "restart_required"
+      ],
+      "properties": {
+        "valid": {
+          "const": true
+        },
+        "base_revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "restart_required": {
+          "const": false
+        }
+      },
+      "x-open-object": true
+    },
+    "configCommitRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_revision",
+        "op_id",
+        "changes"
+      ],
+      "properties": {
+        "base_revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "op_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "changes": {
+          "$ref": "#/$defs/changes"
+        }
+      }
+    },
+    "configCommitResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op_id",
+        "revision",
+        "persisted",
+        "restart_required"
+      ],
+      "properties": {
+        "op_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "persisted": {
+          "const": true
+        },
+        "restart_required": {
+          "const": false
+        }
+      },
+      "x-open-object": true
+    },
+    "opRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op_id"
+      ],
+      "properties": {
+        "op_id": {
+          "$ref": "#/$defs/uuid"
+        }
+      }
+    },
+    "commitStatusResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "found",
+        "revision",
+        "current_revision"
+      ],
+      "properties": {
+        "found": {
+          "type": "boolean"
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "current_revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "x-open-object": true
+    },
+    "streamId": {
+      "enum": [
+        "telemetry",
+        "status",
+        "config",
+        "jobs",
+        "logs"
+      ]
+    },
+    "subscribeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "streams",
+        "event_budget_bps"
+      ],
+      "properties": {
+        "streams": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "max_rate_hz"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/streamId"
+              },
+              "max_rate_hz": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 20
+              }
+            }
+          }
+        },
+        "event_budget_bps": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 8000
+        }
+      }
+    },
+    "subscribeResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "streams",
+        "event_budget_bps"
+      ],
+      "properties": {
+        "streams": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "event_budget_bps": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 8000
+        }
+      },
+      "x-open-object": true
+    },
+    "unsubscribeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "streams"
+      ],
+      "properties": {
+        "streams": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/streamId"
+          }
+        }
+      }
+    },
+    "unsubscribeResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "removed"
+      ],
+      "properties": {
+        "removed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/streamId"
+          }
+        }
+      },
+      "x-open-object": true
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "verification",
+        "confirm",
+        "resource"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        },
+        "verification": {
+          "enum": [
+            "ack",
+            "readback",
+            "none"
+          ]
+        },
+        "confirm": {
+          "type": "boolean"
+        },
+        "resource": {
+          "enum": [
+            "wifi",
+            "radar",
+            "restart"
+          ]
+        },
+        "deadline_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "actionPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "items",
+        "next_cursor"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        },
+        "next_cursor": {
+          "$ref": "#/$defs/cursor"
+        }
+      },
+      "x-open-object": true
+    },
+    "actionStartRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "op_id",
+        "params",
+        "confirm"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string"
+        },
+        "op_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "params": {
+          "type": "object"
+        },
+        "confirm": {
+          "type": [
+            "string",
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "jobAccepted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id"
+      ],
+      "properties": {
+        "job_id": {
+          "type": "string",
+          "minLength": 1,
+          "x-maxUtf8Bytes": 32
+        }
+      },
+      "x-open-object": true
+    },
+    "jobGetRequest": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "job_id"
+          ],
+          "properties": {
+            "job_id": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op_id"
+          ],
+          "properties": {
+            "op_id": {
+              "$ref": "#/$defs/uuid"
+            }
+          }
+        }
+      ]
+    },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id",
+        "op_id",
+        "action_id",
+        "state",
+        "stage",
+        "progress",
+        "started_ms",
+        "finished_ms",
+        "result",
+        "error"
+      ],
+      "properties": {
+        "job_id": {
+          "type": "string"
+        },
+        "op_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "action_id": {
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "unknown"
+          ]
+        },
+        "stage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "progress": {
+          "type": "null"
+        },
+        "started_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "finished_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "result": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/error"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "x-open-object": true
+    },
+    "wifiStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "ssid",
+        "ip",
+        "rssi_dbm",
+        "last_error"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "disconnected",
+            "scanning",
+            "connecting",
+            "connected"
+          ]
+        },
+        "ssid": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-maxUtf8Bytes": 32
+        },
+        "ip": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-maxUtf8Bytes": 64
+        },
+        "rssi_dbm": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "last_error": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-maxUtf8Bytes": 64
+        }
+      },
+      "x-open-object": true
+    },
+    "wifiAuth": {
+      "enum": [
+        "open",
+        "wpa2_psk"
+      ]
+    },
+    "wifiProvisionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op_id",
+        "ssid",
+        "auth",
+        "password"
+      ],
+      "properties": {
+        "op_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "ssid": {
+          "type": "string",
+          "minLength": 1,
+          "x-maxUtf8Bytes": 32
+        },
+        "auth": {
+          "$ref": "#/$defs/wifiAuth"
+        },
+        "password": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "auth"
+            ],
+            "properties": {
+              "auth": {
+                "const": "open"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "password": {
+                "maxLength": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "auth"
+            ],
+            "properties": {
+              "auth": {
+                "const": "wpa2_psk"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "password": {
+                "minLength": 8,
+                "maxLength": 64
+              }
+            }
+          }
+        }
+      ]
+    },
+    "scanResultsRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id",
+        "cursor"
+      ],
+      "properties": {
+        "job_id": {
+          "type": "string"
+        },
+        "cursor": {
+          "$ref": "#/$defs/cursor"
+        }
+      }
+    },
+    "scanItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ssid",
+        "rssi_dbm",
+        "auth",
+        "hidden"
+      ],
+      "properties": {
+        "ssid": {
+          "type": "string",
+          "x-maxUtf8Bytes": 32
+        },
+        "rssi_dbm": {
+          "type": "integer"
+        },
+        "auth": {
+          "type": "string"
+        },
+        "hidden": {
+          "type": "boolean"
+        }
+      }
+    },
+    "scanResults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "next_cursor",
+        "truncated"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/scanItem"
+          }
+        },
+        "next_cursor": {
+          "$ref": "#/$defs/cursor"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "x-open-object": true
+    },
+    "configChanged": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "changed_keys",
+        "origin",
+        "op_id"
+      ],
+      "properties": {
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "changed_keys": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string"
+          }
+        },
+        "origin": {
+          "enum": [
+            "host",
+            "ha",
+            "web",
+            "boot"
+          ]
+        },
+        "op_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "x-open-object": true
+    },
+    "logEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sample_ms",
+        "level",
+        "source",
+        "message",
+        "dropped_before"
+      ],
+      "properties": {
+        "sample_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "level": {
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "x-maxUtf8Bytes": 32
+        },
+        "message": {
+          "type": "string",
+          "x-maxUtf8Bytes": 512
+        },
+        "dropped_before": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "x-open-object": true
+    },
+    "fieldSample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "quality",
+        "sample_ms"
+      ],
+      "properties": {
+        "value": {},
+        "quality": {
+          "$ref": "#/$defs/quality"
+        },
+        "sample_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "quality"
+            ],
+            "properties": {
+              "quality": {
+                "enum": [
+                  "unknown",
+                  "unsupported",
+                  "invalid"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "presenceSample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "quality",
+        "sample_ms"
+      ],
+      "properties": {
+        "value": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "quality": {
+          "$ref": "#/$defs/quality"
+        },
+        "sample_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "quality"
+            ],
+            "properties": {
+              "quality": {
+                "enum": [
+                  "unknown",
+                  "unsupported",
+                  "invalid"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "target2d": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "local_cm",
+        "room_cm",
+        "position_quality",
+        "position_ms",
+        "boundary",
+        "speed_cm_s"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "x-maxUtf8Bytes": 16
+        },
+        "local_cm": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number"
+          }
+        },
+        "room_cm": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number"
+          }
+        },
+        "position_quality": {
+          "$ref": "#/$defs/quality"
+        },
+        "position_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "boundary": {
+          "enum": [
+            "inside",
+            "outside",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "speed_cm_s": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "target1d": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "range_cm",
+        "position_quality",
+        "position_ms",
+        "boundary",
+        "speed_cm_s"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "x-maxUtf8Bytes": 16
+        },
+        "range_cm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "position_quality": {
+          "$ref": "#/$defs/quality"
+        },
+        "position_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "boundary": {
+          "enum": [
+            "inside",
+            "outside",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "speed_cm_s": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_seq",
+        "sent_ms",
+        "origin",
+        "presence",
+        "targets_quality",
+        "targets_ms",
+        "targets"
+      ],
+      "properties": {
+        "source_seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sent_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "origin": {
+          "enum": [
+            "hardware",
+            "simulation",
+            "replay"
+          ]
+        },
+        "presence": {
+          "$ref": "#/$defs/presenceSample"
+        },
+        "targets_quality": {
+          "$ref": "#/$defs/quality"
+        },
+        "targets_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "targets": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "maxItems": 8,
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/target1d"
+                  },
+                  {
+                    "$ref": "#/$defs/target2d"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "metrics": {
+          "type": "object",
+          "maxProperties": 16
+        },
+        "ext": {
+          "type": "object",
+          "maxProperties": 8
+        }
+      },
+      "x-open-object": true
+    },
+    "success": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ok",
+        "result"
+      ],
+      "properties": {
+        "ok": {
+          "const": true
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "x-open-object": true
+    }
+  }
+}

@@ -9,6 +9,9 @@ on:
     paths:
       - 'static/**'
       - 'scripts/releases.py'
+      - 'protocol/**'
+      - 'components/r60abd1/**'
+      - 'docs/reviews/web-console/g0/**'
       - '.github/workflows/publish-pages.yml'
       - 'README.md'
   workflow_dispatch:
@@ -40,11 +43,22 @@ jobs:
           cache-dependency-path: static/package-lock.json
       - name: Test release tooling
         run: python3 -m unittest discover -s tests -p test_releases.py -v
+      - name: Install C++ compiler for firmware contract tests
+        run: sudo apt-get update && sudo apt-get install -y g++
+      - uses: browser-actions/setup-chrome@v2
+        id: setup-chrome
+        with:
+          chrome-version: stable
       - name: Build installer
         working-directory: static
+        env:
+          MWCP_CHROME: ${{ steps.setup-chrome.outputs.chrome-path }}
+          # MWCP_GPP supports an executable path or a command name resolved via PATH
+          MWCP_GPP: g++
         run: |
           npm ci
-          npm test
+          npm run test:unit
+          npm run test:browser
           npm run build
       - name: Assemble version history from GitHub Releases
         env:

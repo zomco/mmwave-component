@@ -1,0 +1,47 @@
+# Isolated G0 probe. Review artifact only.
+# Not under tests/, so firmware CI will not compile it.
+# Not compiled, not flashed, not run. 2026-10-18.
+#
+# Do not include tests/common/r60abd1.yaml here: that package pulls _device.yaml,
+# which enables improv_serial on the USB port this probe must not share.
+# Do not copy secrets into this file. Do not flash until the user names the board and port.
+
+substitutions:
+  name: mwcp-g0-probe
+  friendly_name: "MWCP G0 Probe"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [r60abd1]
+
+logger:
+  baud_rate: 0
+  level: INFO
+
+api:
+  reboot_timeout: 0s
+
+wifi:
+  reboot_timeout: 0s
+
+uart:
+  id: uart_r60abd1
+  tx_pin: GPIO21
+  rx_pin: GPIO20
+  baud_rate: 115200
+
+r60abd1:
+  id: radar
+  uart_id: uart_r60abd1
