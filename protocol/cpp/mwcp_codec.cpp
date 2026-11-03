@@ -9,10 +9,12 @@ uint32_t table[256];
 bool table_ready = false;
 
 void init_table() {
-  if (table_ready) return;
+  if (table_ready)
+    return;
   for (uint32_t n = 0; n < 256; n++) {
     uint32_t crc = n;
-    for (int i = 0; i < 8; i++) crc = (crc >> 1) ^ (0x82f63b78u & (0u - (crc & 1u)));
+    for (int i = 0; i < 8; i++)
+      crc = (crc >> 1) ^ (0x82f63b78u & (0u - (crc & 1u)));
     table[n] = crc;
   }
   table_ready = true;
@@ -35,7 +37,8 @@ uint16_t read_u16(const uint8_t *buf, size_t offset) {
 }
 
 uint32_t read_u32(const uint8_t *buf, size_t offset) {
-  return static_cast<uint32_t>(buf[offset] | (buf[offset + 1] << 8) | (buf[offset + 2] << 16) | (buf[offset + 3] << 24));
+  return static_cast<uint32_t>(buf[offset] | (buf[offset + 1] << 8) | (buf[offset + 2] << 16) |
+                               (buf[offset + 3] << 24));
 }
 
 }  // namespace
@@ -43,12 +46,14 @@ uint32_t read_u32(const uint8_t *buf, size_t offset) {
 uint32_t crc32c(const uint8_t *data, size_t len) {
   init_table();
   uint32_t crc = 0xffffffffu;
-  for (size_t i = 0; i < len; i++) crc = table[(crc ^ data[i]) & 0xff] ^ (crc >> 8);
+  for (size_t i = 0; i < len; i++)
+    crc = table[(crc ^ data[i]) & 0xff] ^ (crc >> 8);
   return crc ^ 0xffffffffu;
 }
 
 Status cobs_encode(const uint8_t *in, size_t in_len, uint8_t *out, size_t out_cap, size_t *out_len) {
-  if (out_cap < in_len + in_len / 254 + 1) return kBufferTooSmall;
+  if (out_cap < in_len + in_len / 254 + 1)
+    return kBufferTooSmall;
   size_t n = 1;
   size_t code_index = 0;
   uint8_t code = 1;
@@ -75,35 +80,53 @@ Status cobs_encode(const uint8_t *in, size_t in_len, uint8_t *out, size_t out_ca
 }
 
 Status cobs_decode(const uint8_t *in, size_t in_len, uint8_t *out, size_t out_cap, size_t *out_len) {
-  if (in_len == 0) return kBadCobs;
+  if (in_len == 0)
+    return kBadCobs;
   size_t n = 0;
   size_t i = 0;
   while (i < in_len) {
     const uint8_t code = in[i];
-    if (code == 0) return kBadCobs;
+    if (code == 0)
+      return kBadCobs;
     i++;
     const size_t end = i + code - 1;
-    if (end > in_len) return kBadCobs;
+    if (end > in_len)
+      return kBadCobs;
     while (i < end) {
-      if (in[i] == 0) return kBadCobs;
-      if (n >= out_cap) return kBufferTooSmall;
+      if (in[i] == 0)
+        return kBadCobs;
+      if (n >= out_cap)
+        return kBufferTooSmall;
       out[n++] = in[i++];
     }
-    if (code != 0xff) {
-      if (n >= out_cap) return kBufferTooSmall;
+    // The block-separating zero is part of the RECONSTRUCTED data only
+    // when more blocks follow. Appending it after the final block added a
+    // phantom byte, so a maximal frame (decoded exactly kMaxDecoded bytes)
+    // hit kBufferTooSmall and the parser answered kBadCobs: the device
+    // could not receive the very 4096-byte frames its own encoder emits
+    // (found by the r3d exact-4096 receiver test; the Python golden
+    // decoder already guards this with `if i < len(data)`).
+    if (code != 0xff && i < in_len) {
+      if (n >= out_cap)
+        return kBufferTooSmall;
       out[n++] = 0;
     }
   }
-  if (n == 0 || out[n - 1] != 0) return kBadCobs;
-  *out_len = n - 1;
+  // The original data may legitimately be empty (a lone 0x01 code byte
+  // decodes to zero bytes - the golden "empty" vector).
+  *out_len = n;
   return kOk;
 }
 
-Status encode_frame(const EncodeInput &in, uint8_t *wire, size_t wire_cap, size_t *wire_len, uint8_t *decoded, size_t decoded_cap, size_t *decoded_len) {
-  if (in.payload_len > kMaxPayload) return kPayloadTooLarge;
-  if (in.check_json && !json_check(in.payload, in.payload_len)) return kBadJson;
+Status encode_frame(const EncodeInput &in, uint8_t *wire, size_t wire_cap, size_t *wire_len, uint8_t *decoded,
+                    size_t decoded_cap, size_t *decoded_len) {
+  if (in.payload_len > kMaxPayload)
+    return kPayloadTooLarge;
+  if (in.check_json && !json_check(in.payload, in.payload_len))
+    return kBadJson;
   const size_t raw_len = kHeaderLen + in.payload_len + 4;
-  if (decoded_cap < raw_len) return kBufferTooSmall;
+  if (decoded_cap < raw_len)
+    return kBufferTooSmall;
   decoded[0] = 'M';
   decoded[1] = 'W';
   decoded[2] = 'C';
@@ -117,13 +140,17 @@ Status encode_frame(const EncodeInput &in, uint8_t *wire, size_t wire_cap, size_
   write_u16(decoded, 16, in.code);
   write_u16(decoded, 18, static_cast<uint16_t>(in.payload_len));
   write_u32(decoded, 20, in.wire_seq);
-  for (size_t i = 0; i < in.payload_len; i++) decoded[kHeaderLen + i] = in.payload[i];
+  for (size_t i = 0; i < in.payload_len; i++)
+    decoded[kHeaderLen + i] = in.payload[i];
   write_u32(decoded, kHeaderLen + in.payload_len, crc32c(decoded, kHeaderLen + in.payload_len));
-  if (wire_cap < 2) return kBufferTooSmall;
+  if (wire_cap < 2)
+    return kBufferTooSmall;
   size_t encoded_len = 0;
   const Status cobs = cobs_encode(decoded, raw_len, wire + 1, wire_cap - 2, &encoded_len);
-  if (cobs != kOk) return cobs;
-  if (encoded_len > kMaxCobs) return kOversize;
+  if (cobs != kOk)
+    return cobs;
+  if (encoded_len > kMaxCobs)
+    return kOversize;
   wire[0] = 0;
   wire[encoded_len + 1] = 0;
   *wire_len = encoded_len + 2;
@@ -132,16 +159,25 @@ Status encode_frame(const EncodeInput &in, uint8_t *wire, size_t wire_cap, size_
 }
 
 Status decode_frame(const uint8_t *decoded, size_t decoded_len, Frame *frame, bool check_json) {
-  if (decoded_len < kHeaderLen + 4 || decoded_len > kMaxDecoded) return kBadLength;
-  if (decoded[0] != 'M' || decoded[1] != 'W' || decoded[2] != 'C' || decoded[3] != 'P') return kBadHeader;
-  if (decoded[4] != kMajor || decoded[5] != kMinor || decoded[7] != 0) return kBadHeader;
-  if (decoded[6] != 1 && decoded[6] != 2 && decoded[6] != 3) return kBadHeader;
+  if (decoded_len < kHeaderLen + 4 || decoded_len > kMaxDecoded)
+    return kBadLength;
+  if (decoded[0] != 'M' || decoded[1] != 'W' || decoded[2] != 'C' || decoded[3] != 'P')
+    return kBadHeader;
+  if (decoded[4] != kMajor || decoded[5] != kMinor || decoded[7] != 0)
+    return kBadHeader;
+  if (decoded[6] != 1 && decoded[6] != 2 && decoded[6] != 3)
+    return kBadHeader;
   const uint16_t payload_len = read_u16(decoded, 18);
-  if (payload_len > kMaxPayload) return kPayloadTooLarge;
-  if (decoded_len != kHeaderLen + payload_len + 4) return kBadLength;
-  if (crc32c(decoded, kHeaderLen + payload_len) != read_u32(decoded, kHeaderLen + payload_len)) return kBadCrc;
-  if (!utf8_check(decoded + kHeaderLen, payload_len)) return kBadUtf8;
-  if (check_json && !json_check(decoded + kHeaderLen, payload_len)) return kBadJson;
+  if (payload_len > kMaxPayload)
+    return kPayloadTooLarge;
+  if (decoded_len != kHeaderLen + payload_len + 4)
+    return kBadLength;
+  if (crc32c(decoded, kHeaderLen + payload_len) != read_u32(decoded, kHeaderLen + payload_len))
+    return kBadCrc;
+  if (!utf8_check(decoded + kHeaderLen, payload_len))
+    return kBadUtf8;
+  if (check_json && !json_check(decoded + kHeaderLen, payload_len))
+    return kBadJson;
   frame->kind = decoded[6];
   frame->session_id = read_u32(decoded, 8);
   frame->request_id = read_u32(decoded, 12);
@@ -156,7 +192,8 @@ const char *json_error() { return json_error_code(); }
 
 Parser::Parser() : len_(0), discarding_(false), have_time_(false), last_ms_(0), stats_() {}
 
-void Parser::push(const uint8_t *data, size_t len, uint32_t now_ms, FrameHandler on_frame, ErrorHandler on_error, void *user) {
+void Parser::push(const uint8_t *data, size_t len, uint32_t now_ms, FrameHandler on_frame, ErrorHandler on_error,
+                  void *user) {
   for (size_t i = 0; i < len; i++) {
     const uint8_t byte = data[i];
     last_ms_ = now_ms;
@@ -167,11 +204,13 @@ void Parser::push(const uint8_t *data, size_t len, uint32_t now_ms, FrameHandler
         len_ = 0;
         continue;
       }
-      if (len_ == 0) continue;
+      if (len_ == 0)
+        continue;
       finish(on_frame, on_error, user);
       continue;
     }
-    if (discarding_) continue;
+    if (discarding_)
+      continue;
     if (len_ >= kMaxCobs) {
       discarding_ = true;
       len_ = 0;
@@ -205,18 +244,27 @@ void Parser::finish(FrameHandler on_frame, ErrorHandler on_error, void *user) {
     return;
   }
   stats_.frames++;
-  if (on_frame) on_frame(frame, user);
+  if (on_frame)
+    on_frame(frame, user);
 }
 
 void Parser::fail(Status status, ErrorHandler on_error, void *user) {
-  if (status == kBadCobs) stats_.bad_cobs++;
-  else if (status == kBadCrc) stats_.bad_crc++;
-  else if (status == kBadUtf8) stats_.bad_utf8++;
-  else if (status == kBadJson) stats_.bad_json++;
-  else if (status == kOversize || status == kPayloadTooLarge || status == kBadLength) stats_.oversize++;
-  else if (status == kTimeout) stats_.timeouts++;
-  else stats_.bad_header++;
-  if (on_error) on_error(status, user);
+  if (status == kBadCobs)
+    stats_.bad_cobs++;
+  else if (status == kBadCrc)
+    stats_.bad_crc++;
+  else if (status == kBadUtf8)
+    stats_.bad_utf8++;
+  else if (status == kBadJson)
+    stats_.bad_json++;
+  else if (status == kOversize || status == kPayloadTooLarge || status == kBadLength)
+    stats_.oversize++;
+  else if (status == kTimeout)
+    stats_.timeouts++;
+  else
+    stats_.bad_header++;
+  if (on_error)
+    on_error(status, user);
 }
 
 }  // namespace mwcp

@@ -21,7 +21,7 @@ async function open() {
 }
 
 test('real clock times out and leaves no pending request', async () => {
-  const client = new ProtocolClient({ write() {}, onData() {} }, { rpcTimeout: 20 });
+  const client = new ProtocolClient({ write() {}, onData() {} }, { rpcTimeout: 50 });
   assert.equal(client.clock.kind, 'real');
   await assert.rejects(client.ping(), /timeout/);
   assert.equal(client.pending, null);
@@ -142,6 +142,8 @@ test('schema rejects bad presence, proto keys and open responses stay compatible
   assert.equal(ping.ok, false);
   const open = validate(schema.$defs.pingResult, { uptime_ms: 1, future: true }, schema);
   assert.equal(open.ok, true);
+  assert.equal(validate(schema.$defs.scanItem, { ssid: 'Lab', rssi_dbm: -40, auth: 'unknown', hidden: false }, schema).ok, true);
+  assert.equal(validate(schema.$defs.wifiProvisionRequest, { op_id: 'd8592ab1-394a-4b1e-89ae-3de15b250015', ssid: 'Home', auth: 'unknown', password: '' }, schema).ok, false);
   assert.equal(wifiPasswordIssue({ auth: 'open', password: 'x' }).ok, false);
   assert.equal(validate(schema.$defs.wifiProvisionRequest, { op_id: 'd8592ab1-394a-4b1e-89ae-3de15b250015', ssid: 'Home', auth: 'open', password: 'x' }, schema).ok, false);
   for (const code of Object.keys(schema['x-commands'])) {

@@ -9,12 +9,30 @@
 #include "area_occupancy.h"
 #include "r60abd1_transform.h"
 #include "r60_probe_stats.h"
+#include "presence_sample.h"
 
 #include <vector>
 #include <cstdint>
 
 namespace esphome {
 namespace r60abd1 {
+
+struct R60HostObservation {
+  uint8_t kind = 0;
+  bool presence = false;
+  uint8_t motion = 0;
+  uint8_t body = 0;
+  uint16_t distance_cm = 0;
+  int16_t local_x = 0;
+  int16_t local_y = 0;
+  int16_t local_z = 0;
+  float room_x = 0;
+  float room_y = 0;
+  bool in_boundary = true;
+  float rate = 0;
+  uint32_t sample_ms = 0;
+};
+typedef void (*R60HostObserver)(const R60HostObservation &sample, void *user);
 
 // ─── 帧解析状态机 ─────────────────────────────────────────────────────────────
 
@@ -84,6 +102,12 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   void set_boundary_gates_presence(bool v) { boundary_gates_presence_ = v; }
   const R60ProbeStats &probe_stats() const { return probe_stats_; }
   bool last_raw_presence() const { return last_raw_presence_; }
+  void set_host_observer(R60HostObserver fn, void *user) {
+    host_observer_ = fn;
+    host_observer_user_ = user;
+  }
+  void set_host_applying(bool applying) { host_applying_ = applying; }
+  const CalibrationParams &calibration() const { return cal_; }
   void clear_area(uint8_t i) { areas_.clear(i); }
   void add_area_point(uint8_t i, float x, float y) { areas_.add_point(i, x, y); }
   void set_area_hysteresis(float cm) { areas_.set_hysteresis(cm); }
@@ -125,6 +149,10 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   void enable_presence() {
     const uint8_t d = 0x01;
     send_cmd(CTRL_PRESENCE, 0x00, &d, 1);
+  }
+  void query_presence() {
+    const uint8_t d = kPresenceQueryData;
+    send_cmd(CTRL_PRESENCE, kPresenceQueryCmd, &d, 1);
   }
   void enable_breath() {
     const uint8_t d = 0x01;
@@ -175,6 +203,13 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   uint32_t last_publish_ms_{0};
   uint32_t frame_id_{0};
   R60ProbeStats probe_stats_{};
+  R60HostObserver host_observer_{nullptr};
+  void *host_observer_user_{nullptr};
+  bool host_applying_{false};
+  void notify_host_(const R60HostObservation &sample) {
+    if (host_observer_ != nullptr && !host_applying_)
+      host_observer_(sample, host_observer_user_);
+  }
   text_sensor::TextSensor *target_frame_{nullptr};
   void publish_target_frame_(int16_t rx, int16_t ry, int16_t rz);
 

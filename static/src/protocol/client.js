@@ -200,7 +200,11 @@ export class ProtocolClient {
       const slot = {};
       const onTimeout = () => {
         if (settled || this.pending !== slot) return;
-        if (this.clock.now() < slot.deadline) return;
+        const remaining = slot.deadline - this.clock.now();
+        if (remaining > 0) {
+          slot.timer = arm(Math.max(1, remaining));
+          return;
+        }
         if (retry && !slot.retried) {
           slot.retried = true;
           slot.deadline = this.clock.now() + timeoutMs;

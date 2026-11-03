@@ -126,6 +126,8 @@ test('strict JSON rejects duplicate keys, depth, unsafe numbers and bad UTF-8', 
   assert.equal(checkJson(encodeUtf8('{"n":1e999}')).ok, false);
   let deep = '{"v":1}';
   for (let i = 0; i < 8; i++) deep = `{"a":${deep}}`;
+  assert.equal(checkJson(encodeUtf8(deep)).ok, true);
+  deep = `{"a":${deep}}`;
   assert.equal(checkJson(encodeUtf8(deep)).error, 'depth');
   assert.equal(utf8ByteLength('参数无效'), 12);
   const bad = new FrameParser().push(encodeFrame({
@@ -139,6 +141,55 @@ test('strict JSON rejects duplicate keys, depth, unsafe numbers and bad UTF-8', 
   }).wire);
   assert.equal(bad.frames.length, 0);
   assert.equal(bad.errors[0].error, 'bad_utf8');
+});
+
+test('10-frame sticky stream, consecutive empty delimiter frames, and 1..100 byte random chunks decode without loss (P-03)', () => {
+  const tenFrames = [];
+  for (let i = 1; i <= 10; i++) {
+    const encoded = encodeFrame({
+      kind: 1,
+      sessionId: 0x1000,
+      requestId: i,
+      code: 2,
+      wireSeq: i,
+      payload: encodeUtf8(JSON.stringify({ seq: i })),
+    });
+    assert.equal(encoded.ok, true);
+    tenFrames.push(Uint8Array.of(0, 0), encoded.wire, Uint8Array.of(0, 0, 0));
+  }
+  const stream = concat(tenFrames);
+
+  // 1-byte chunks
+  const byOne = new FrameParser();
+  const decodedOne = [];
+  for (let i = 0; i < stream.length; i++) {
+    const step = byOne.push(stream.subarray(i, i + 1), i);
+    assert.equal(step.errors.length, 0);
+    decodedOne.push(...step.frames);
+  }
+  assert.equal(decodedOne.length, 10);
+  decodedOne.forEach((f, idx) => assert.equal(f.requestId, idx + 1));
+
+  // Deterministic pseudo-random 1..100 byte chunks (seed 0x5eed1234)
+  let seed = 0x5eed1234 >>> 0;
+  const nextRand = () => {
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    return seed >>> 0;
+  };
+  const byRandom = new FrameParser();
+  const decodedRandom = [];
+  let offset = 0;
+  while (offset < stream.length) {
+    const chunkLen = (nextRand() % 100) + 1;
+    const step = byRandom.push(stream.subarray(offset, offset + chunkLen), offset);
+    assert.equal(step.errors.length, 0);
+    decodedRandom.push(...step.frames);
+    offset += chunkLen;
+  }
+  assert.equal(decodedRandom.length, 10);
+  decodedRandom.forEach((f, idx) => assert.equal(f.requestId, idx + 1));
 });
 
 function concat(parts) {

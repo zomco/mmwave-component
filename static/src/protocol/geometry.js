@@ -1,13 +1,20 @@
-export function polygonIssues(points) {
+export function polygonIssues(points, options = {}) {
   if (points == null) return [];
   if (!Array.isArray(points)) return ['type'];
-  if (points.length < 3 || points.length > 64) return ['count'];
+  const minVertices = options.minVertices ?? 3;
+  const maxVertices = options.maxVertices ?? 64;
+  const minCoord = options.minCoord ?? -2000;
+  const maxCoord = options.maxCoord ?? 2000;
+  if (points.length < minVertices || points.length > maxVertices) return ['count'];
   const issues = [];
   for (let i = 0; i < points.length; i++) {
     const point = points[i];
     if (!Array.isArray(point) || point.length !== 2 || !Number.isFinite(point[0]) || !Number.isFinite(point[1])) {
       issues.push('point');
       return issues;
+    }
+    if (point[0] < minCoord || point[0] > maxCoord || point[1] < minCoord || point[1] > maxCoord) {
+      issues.push('range');
     }
     for (let j = 0; j < i; j++) {
       if (point[0] === points[j][0] && point[1] === points[j][1]) issues.push('duplicate');

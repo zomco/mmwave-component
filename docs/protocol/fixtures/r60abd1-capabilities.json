@@ -9,7 +9,8 @@
       "components/r60abd1/__init__.py",
       "tests/common/r60abd1.yaml",
       "tests/common/_areas.yaml",
-      "docs/r60abd1/README.md"
+      "docs/r60abd1/README.md",
+      "docs/reviews/web-console/g0-evidence-index.json"
     ],
     "hardware_measured": false
   },
@@ -21,7 +22,7 @@
   "capabilities": [
     {"kind": "feature", "id": "presence", "supported": true, "expected_interval_ms": null, "stale_after_ms": null},
     {"kind": "feature", "id": "distance.cm", "supported": true, "unit": "cm", "minimum": 0, "maximum": 65535, "expected_interval_ms": null, "stale_after_ms": null},
-    {"kind": "feature", "id": "position.xy", "supported": true, "max_targets": 1, "target_id_stable": false, "expected_interval_ms": null, "stale_after_ms": null},
+    {"kind": "feature", "id": "position.xy", "supported": true, "max_targets": 1, "target_id_stable": false, "expected_interval_ms": 2000, "stale_after_ms": 6000},
     {"kind": "feature", "id": "diagnostics.local_z", "supported": true, "unit": "cm", "minimum": -32767, "maximum": 32767, "expected_interval_ms": null, "stale_after_ms": null},
     {"kind": "feature", "id": "speed.cm_s", "supported": false},
     {"kind": "feature", "id": "motion.state", "supported": true, "minimum": 0, "maximum": 2},
@@ -32,12 +33,12 @@
     {"kind": "feature", "id": "areas.occupancy", "supported": true, "max_targets": 1},
     {"kind": "config", "id": "install.x_cm", "type": "number", "unit": "cm", "minimum": -2000, "maximum": 2000, "step": 1, "writable": true, "domain": "host", "label_key": "install.x", "restart_required": false},
     {"kind": "config", "id": "install.y_cm", "type": "number", "unit": "cm", "minimum": -2000, "maximum": 2000, "step": 1, "writable": true, "domain": "host", "label_key": "install.y", "restart_required": false},
-    {"kind": "config", "id": "install.z_cm", "type": "number", "unit": "cm", "minimum": 50, "maximum": 400, "step": 1, "writable": true, "domain": "host", "label_key": "install.z", "restart_required": false},
+    {"kind": "config", "id": "install.z_cm", "type": "number", "unit": "cm", "minimum": 50, "maximum": 600, "step": 1, "writable": true, "domain": "host", "label_key": "install.z", "restart_required": false},
     {"kind": "config", "id": "install.yaw_deg", "type": "number", "unit": "deg", "minimum": -180, "maximum": 180, "step": 0.1, "writable": true, "domain": "host", "label_key": "install.yaw", "restart_required": false},
     {"kind": "config", "id": "install.pitch_deg", "type": "number", "unit": "deg", "minimum": -90, "maximum": 90, "step": 0.5, "writable": true, "domain": "host", "label_key": "install.pitch", "restart_required": false},
     {"kind": "config", "id": "install.roll_deg", "type": "number", "unit": "deg", "minimum": -90, "maximum": 90, "step": 0.5, "writable": true, "domain": "host", "label_key": "install.roll", "restart_required": false},
     {"kind": "config", "id": "geometry.boundary_cm", "type": "array", "unit": "cm", "writable": true, "domain": "host", "label_key": "geometry.boundary", "restart_required": false, "schema_id": "polygon.xy.v1", "min_items": 3, "max_items": 64},
-    {"kind": "config", "id": "areas.definitions", "type": "object", "writable": true, "domain": "host", "label_key": "areas.definitions", "restart_required": false, "schema_id": "r60.areas.v1"}
+    {"kind": "config", "id": "areas.definitions", "type": "array", "unit": "cm", "writable": true, "domain": "host", "label_key": "areas.definitions", "restart_required": false, "schema_id": "r60.areas.v1", "min_items": 0, "max_items": 3}
   ],
   "actions": [
     {"action_id": "device.restart", "verification": "none", "confirm": true, "resource": "restart", "deadline_ms": 8000},

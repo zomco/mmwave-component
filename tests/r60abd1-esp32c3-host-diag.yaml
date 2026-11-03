@@ -1,0 +1,59 @@
+# DIAGNOSTIC-ONLY build of the host profile (G2 F-2 root-cause batch).
+#
+# Purpose: the IDF console (and ESPHome logs, level DEBUG) go to USB
+# Serial/JTAG so a main-loop block, panic or watchdog during the device's
+# minutes-long silent windows can be attributed from the log trail. The
+# console owns the USB port in this build: MWCP RX starves (its driver
+# install hits INVALID_STATE and the console VFS consumes input), so this
+# image is for fault-signature capture ONLY - never protocol evidence.
+#
+# Otherwise identical to tests/r60abd1-esp32c3-host.yaml (same radar, host
+# component, absent-SSID wifi, timeouts, 8 KiB main stack).
+substitutions:
+  name: r60abd1-host-diag
+  friendly_name: "R60ABD1 Host DIAG"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG: y
+      CONFIG_ESP_MAIN_TASK_STACK_SIZE: "8192"
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [r60abd1, mmwave_host]
+
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+  level: DEBUG
+
+api:
+  reboot_timeout: 0s
+
+ota:
+  platform: esphome
+
+wifi:
+  reboot_timeout: 0s
+  networks:
+    - ssid: "mwcp-g2-absent-ssid"
+      password: "unused-offline-probe"
+
+web_server:
+  port: 80
+
+packages:
+  radar: !include common/r60abd1_mwcp.yaml
+
+mmwave_host:
+  id: host_link
+  radar_id: radar

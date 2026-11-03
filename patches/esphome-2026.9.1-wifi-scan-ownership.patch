@@ -1,0 +1,721 @@
+diff --git a/esphome/components/wifi/__init__.py b/esphome/components/wifi/__init__.py
+index 64eef46..898008f 100644
+--- a/esphome/components/wifi/__init__.py
++++ b/esphome/components/wifi/__init__.py
+@@ -858,6 +858,7 @@ RUNTIME_ROAMING_SUPPRESSION_KEY = "wifi_runtime_roaming_suppression"
+ # Keys for listener counts
+ IP_STATE_LISTENERS_KEY = "wifi_ip_state_listeners"
+ SCAN_RESULTS_LISTENERS_KEY = "wifi_scan_results_listeners"
++SCAN_COMPLETION_LISTENERS_KEY = "wifi_scan_completion_listeners"
+ CONNECT_STATE_LISTENERS_KEY = "wifi_connect_state_listeners"
+ POWER_SAVE_LISTENERS_KEY = "wifi_power_save_listeners"
+ SCAN_RESULTS_LOCK_KEY = "wifi_scan_results_lock"
+@@ -943,6 +944,17 @@ def request_wifi_scan_results_listener() -> None:
+     )
+ 
+ 
++def request_wifi_scan_completion_listener() -> None:
++    """Request a scan completion listener slot.
++
++    Components that start scans with WiFiComponent::start_scan_for_component()
++    must call this so their WiFiScanCompletionListener is registered.
++    """
++    CORE.data[SCAN_COMPLETION_LISTENERS_KEY] = (
++        CORE.data.get(SCAN_COMPLETION_LISTENERS_KEY, 0) + 1
++    )
++
++
+ def request_wifi_connect_state_listener() -> None:
+     """Request a connect state listener slot."""
+     CORE.data[CONNECT_STATE_LISTENERS_KEY] = (
+@@ -972,6 +984,7 @@ async def final_step():
+     # Generate listener defines - each listener type has its own #ifdef
+     ip_state_count = CORE.data.get(IP_STATE_LISTENERS_KEY, 0)
+     scan_results_count = CORE.data.get(SCAN_RESULTS_LISTENERS_KEY, 0)
++    scan_completion_count = CORE.data.get(SCAN_COMPLETION_LISTENERS_KEY, 0)
+     connect_state_count = CORE.data.get(CONNECT_STATE_LISTENERS_KEY, 0)
+     power_save_count = CORE.data.get(POWER_SAVE_LISTENERS_KEY, 0)
+ 
+@@ -981,6 +994,9 @@ async def final_step():
+     if scan_results_count:
+         cg.add_define("USE_WIFI_SCAN_RESULTS_LISTENERS")
+         cg.add_define("ESPHOME_WIFI_SCAN_RESULTS_LISTENERS", scan_results_count)
++    if scan_completion_count:
++        cg.add_define("USE_WIFI_SCAN_COMPLETION_LISTENERS")
++        cg.add_define("ESPHOME_WIFI_SCAN_COMPLETION_LISTENERS", scan_completion_count)
+     if connect_state_count:
+         cg.add_define("USE_WIFI_CONNECT_STATE_LISTENERS")
+         cg.add_define("ESPHOME_WIFI_CONNECT_STATE_LISTENERS", connect_state_count)
+diff --git a/esphome/components/wifi/wifi_component.cpp b/esphome/components/wifi/wifi_component.cpp
+index f290832..a80d91d 100644
+--- a/esphome/components/wifi/wifi_component.cpp
++++ b/esphome/components/wifi/wifi_component.cpp
+@@ -1346,13 +1346,65 @@ void WiFiComponent::disable() {
+   this->wifi_mode_(false, false);
+ }
+ 
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++bool WiFiComponent::scan_component_allowed_(void *self) {
++  auto *component = static_cast<WiFiComponent *>(self);
++  // One radio, one scan: the connection state machine's scan, a roaming scan
++  // or roam, and an association attempt must finish first. No station
++  // connection is required, so a never-provisioned device can list networks
++  // for first-time provisioning, and AP fallback or cooldown states do not
++  // block a user-requested scan. The coordinator's gate is authoritative for
++  // scans still outstanding even after the public state has moved on.
++  return !component->is_disabled() && component->state_ != WIFI_COMPONENT_STATE_STA_SCANNING &&
++         component->state_ != WIFI_COMPONENT_STATE_STA_CONNECTING && !component->is_roaming();
++}
++
++bool WiFiComponent::scan_driver_start_(void *self, bool passive) {
++  return static_cast<WiFiComponent *>(self)->wifi_scan_start_platform_(passive);
++}
++
++ScanHost WiFiComponent::scan_host_() {
++  return ScanHost{&WiFiComponent::scan_component_allowed_, &WiFiComponent::scan_driver_start_, this};
++}
++#endif  // USE_WIFI_SCAN_COMPLETION_LISTENERS
++
+ void WiFiComponent::start_scanning() {
+   this->action_started_ = millis();
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++  switch (this->scan_coordinator_.start_background(this->scan_host_(), this->passive_scan_)) {
++    case ScanStartResult::kStarted:
++      ESP_LOGD(TAG, "Starting scan");
++      break;
++    case ScanStartResult::kBusy:
++      // Every scan, including a component-owned or ESPHome background scan whose
++      // state machine already timed out, owns the radio until its completion.
++      // Wait for that event instead of starting a second scan whose records
++      // would race the first one.
++      ESP_LOGD(TAG, "Scan already in flight; waiting for its completion");
++      break;
++    default:
++      // Preserve ESPHome's existing timeout path when the driver refuses a scan
++      // while no scan is in flight.
++      ESP_LOGW(TAG, "Failed to start scan");
++      break;
++  }
++#else
+   ESP_LOGD(TAG, "Starting scan");
+-  this->wifi_scan_start_(this->passive_scan_);
++  this->wifi_scan_start_platform_(this->passive_scan_);
++#endif
+   this->state_ = WIFI_COMPONENT_STATE_STA_SCANNING;
+ }
+ 
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++bool WiFiComponent::start_scan_for_component(uint32_t *generation) {
++  // The coordinator reserves the radio before the driver is touched, so this
++  // scan's completion event has exactly one owner even if the public state
++  // machine later times out, reconnects, or is disabled.
++  return this->scan_coordinator_.start_component(this->scan_host_(), this->passive_scan_, generation) ==
++         ScanStartResult::kStarted;
++}
++#endif  // USE_WIFI_SCAN_COMPLETION_LISTENERS
++
+ /// Comparator for WiFi scan result sorting - determines which network should be tried first
+ /// Returns true if 'a' should be placed before 'b' in the sorted order (a is "better" than b)
+ ///
+@@ -2463,6 +2515,21 @@ void WiFiComponent::notify_scan_results_listeners_() {
+ }
+ #endif  // USE_WIFI_SCAN_RESULTS_LISTENERS
+ 
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++void WiFiComponent::notify_scan_completion_listeners_(uint32_t status, uint16_t number) {
++  uint32_t generation = 0;
++  if (this->scan_coordinator_.take_completion(&generation) != ScanOwner::kComponent) {
++    // The event consumed a background scan, a duplicate, or arrived with no
++    // reservation. It has no component request and must never be attributed
++    // to one, however recently a component scan was requested.
++    return;
++  }
++  for (auto *listener : this->scan_completion_listeners_) {
++    listener->on_wifi_scan_completion(generation, status, number);
++  }
++}
++#endif  // USE_WIFI_SCAN_COMPLETION_LISTENERS
++
+ void WiFiComponent::check_roaming_(uint32_t now) {
+   // Guard: not for hidden networks (may not appear in scan)
+   const WiFiAP *selected = this->get_selected_sta_();
+@@ -2484,7 +2551,18 @@ void WiFiComponent::check_roaming_(uint32_t now) {
+ 
+   ESP_LOGD(TAG, "Roam scan (%d dBm, attempt %u/%u)", rssi, this->roaming_attempts_, ROAMING_MAX_ATTEMPTS);
+   this->roaming_state_ = RoamingState::SCANNING;
+-  this->wifi_scan_start_(this->passive_scan_);
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++  if (this->scan_coordinator_.start_background(this->scan_host_(), this->passive_scan_) != ScanStartResult::kStarted) {
++    // A component-owned or earlier background scan still owns the radio, or
++    // the driver refused. Leave roaming idle and retry at the next check
++    // instead of starting a second driver scan whose completion could steal
++    // the outstanding scan's records.
++    this->roaming_state_ = RoamingState::IDLE;
++    ESP_LOGD(TAG, "Roam scan not started");
++  }
++#else
++  this->wifi_scan_start_platform_(this->passive_scan_);
++#endif
+ }
+ 
+ void WiFiComponent::process_roaming_scan_() {
+diff --git a/esphome/components/wifi/wifi_component.h b/esphome/components/wifi/wifi_component.h
+index 8bf4581..29e4ef3 100644
+--- a/esphome/components/wifi/wifi_component.h
++++ b/esphome/components/wifi/wifi_component.h
+@@ -15,6 +15,9 @@
+ #include "esphome/core/freertos_queue.h"
+ #endif
+ #include "esphome/core/string_ref.h"
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++#include "wifi_scan_ownership.h"
++#endif
+ 
+ #include <atomic>
+ #include <limits>
+@@ -403,6 +406,32 @@ class WiFiScanResultsListener {
+   virtual void on_wifi_scan_results(const wifi_scan_vector_t<WiFiScanResult> &results) = 0;
+ };
+ 
++/** Listener interface for component-owned scan completions.
++ *
++ * A component starts one scan with start_scan_for_component(), which reserves
++ * exclusive ownership of the radio and returns a generation for the request.
++ * The registered listener is called once for that request, with the generation
++ * returned at start time, when its scan completion event is processed. A
++ * completion that arrives with no pending component request belongs to a
++ * background scan and is not delivered.
++ *
++ * A driver refusal is reported by start_scan_for_component() returning false
++ * and produces no completion. If the completion event is lost before it is
++ * processed, the request stays pending and no later request is accepted; the
++ * component must treat that as a failed request, never as success.
++ *
++ * The callback runs from the WiFi component's main-loop event processing, so
++ * the scan records are available through get_scan_result() for the duration
++ * of the callback.
++ *
++ * @note Components must call wifi.request_wifi_scan_completion_listener() in
++ *       their Python to_code() to register for this listener type.
++ */
++class WiFiScanCompletionListener {
++ public:
++  virtual void on_wifi_scan_completion(uint32_t generation, uint32_t status, uint16_t number) = 0;
++};
++
+ /** Listener interface for WiFi connection state changes.
+  *
+  * Components can implement this interface to receive connection updates
+@@ -461,6 +490,33 @@ class WiFiComponent final : public Component {
+   bool is_disabled() { return this->state_ == WIFI_COMPONENT_STATE_DISABLED; }
+   void start_scanning();
+   void check_scanning_finished();
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++  /** Start one component-owned scan and reserve exclusive completion reporting.
++   *
++   * Works with or without a station connection, including AP fallback and
++   * never-provisioned devices. Returns false instead of starting when WiFi is
++   * disabled, when the connection state machine is already scanning or
++   * connecting, while a roaming scan or roam is in progress, while any
++   * earlier scan (background or component-owned) has not completed, or when
++   * the driver refuses.
++   *
++   * Connection, retry, roaming and component scans all reserve the same
++   * single-scan gate at the driver choke point, so every completion is
++   * classified by ownership rather than by timing or the public WiFi state.
++   * A background scan that timed out, entered cooldown, reconnected, or
++   * survived disable/enable still owns the radio until its completion event
++   * is processed; a component request is refused in the meantime.
++   *
++   * On success the caller receives a non-zero generation and the registered
++   * WiFiScanCompletionListener is called once in the main loop when that
++   * scan's completion event is processed (the records remain readable through
++   * get_scan_result() during the callback). A false result reports no
++   * completion. If the completion event is lost, no timeout releases
++   * ownership: later calls return false rather than attributing another
++   * scan's results to a new request.
++   */
++  bool start_scan_for_component(uint32_t *generation);
++#endif
+   void start_connecting(const WiFiAP &ap);
+   // Backward compatibility overload - ignores 'two' parameter
+   void start_connecting(const WiFiAP &ap, bool /* two */) { this->start_connecting(ap); }
+@@ -586,6 +642,12 @@ class WiFiComponent final : public Component {
+     this->scan_results_listeners_.push_back(listener);
+   }
+ #endif  // USE_WIFI_SCAN_RESULTS_LISTENERS
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++  /// Add a listener for component-owned scan completions
++  void add_scan_completion_listener(WiFiScanCompletionListener *listener) {
++    this->scan_completion_listeners_.push_back(listener);
++  }
++#endif  // USE_WIFI_SCAN_COMPLETION_LISTENERS
+ #ifdef USE_WIFI_CONNECT_STATE_LISTENERS
+   /** Add a listener for WiFi connection state changes.
+    * Listener receives: SSID, BSSID
+@@ -777,7 +839,8 @@ class WiFiComponent final : public Component {
+            this->wifi_sta_connect_status_() == WiFiSTAConnectStatus::CONNECTED && !this->error_from_callback_;
+   }
+   void update_connected_state_() { this->connected_ = this->is_connected_(); }
+-  bool wifi_scan_start_(bool passive);
++  /// Platform driver scan start. Only reachable through start_owned_scan().
++  bool wifi_scan_start_platform_(bool passive);
+ 
+ #ifdef USE_WIFI_AP
+   bool wifi_ap_ip_config_(const optional<ManualIP> &manual_ip);
+@@ -798,6 +861,15 @@ class WiFiComponent final : public Component {
+   void save_fast_connect_settings_(const bssid_t &bssid, uint8_t channel);
+ #endif
+ 
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++  /// Precondition checked by the coordinator before a component scan starts.
++  static bool scan_component_allowed_(void *self);
++  /// Driver choke point shared by background and component scans.
++  static bool scan_driver_start_(void *self, bool passive);
++  /// Host hooks for the shared scan coordinator.
++  ScanHost scan_host_();
++#endif
++
+   // Post-connect roaming methods
+   void check_roaming_(uint32_t now);
+   void process_roaming_scan_();
+@@ -809,8 +881,13 @@ class WiFiComponent final : public Component {
+   void handle_driver_roam_(const bssid_t &bssid, uint8_t channel);
+ #endif
+ 
+-  /// Returns true if a component has requested that roaming scans be suppressed (e.g. during audio playback).
++  /// Returns true if a component has requested that roaming scans be suppressed (e.g. during audio playback),
++  /// or while any scan is outstanding (a roaming scan must not take the radio from it).
+   bool roaming_suppressed_() const {
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++    if (this->scan_coordinator_.in_flight())
++      return true;
++#endif
+ #if defined(USE_ESP32) && defined(USE_WIFI_RUNTIME_ROAMING_SUPPRESSION)
+     return this->roaming_suppression_count_.load(std::memory_order_relaxed) != 0;
+ #else
+@@ -835,6 +912,10 @@ class WiFiComponent final : public Component {
+   /// Notify scan results listeners with current scan results
+   void notify_scan_results_listeners_();
+ #endif
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++  /// Consume the in-flight scan; notify listeners only for a component request
++  void notify_scan_completion_listeners_(uint32_t status, uint16_t number);
++#endif
+ 
+ #ifdef USE_ESP8266
+   static void wifi_event_callback(System_Event_t *event);
+@@ -877,6 +958,9 @@ class WiFiComponent final : public Component {
+ #ifdef USE_WIFI_SCAN_RESULTS_LISTENERS
+   StaticVector<WiFiScanResultsListener *, ESPHOME_WIFI_SCAN_RESULTS_LISTENERS> scan_results_listeners_;
+ #endif
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++  StaticVector<WiFiScanCompletionListener *, ESPHOME_WIFI_SCAN_COMPLETION_LISTENERS> scan_completion_listeners_;
++#endif
+ #ifdef USE_WIFI_CONNECT_STATE_LISTENERS
+   StaticVector<WiFiConnectStateListener *, ESPHOME_WIFI_CONNECT_STATE_LISTENERS> connect_state_listeners_;
+ #endif
+@@ -997,6 +1081,11 @@ class WiFiComponent final : public Component {
+   bool has_ap_{false};
+ #if defined(USE_WIFI_CONNECT_TRIGGER) || defined(USE_WIFI_DISCONNECT_TRIGGER)
+   bool handled_connected_state_{false};
++#endif
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++  /// In-flight scan ownership and completion classification shared by every
++  /// scan entry; see start_scan_for_component().
++  ScanCoordinator scan_coordinator_{};
+ #endif
+   bool scan_done_{false};
+   bool ap_setup_{false};
+diff --git a/esphome/components/wifi/wifi_component_esp8266.cpp b/esphome/components/wifi/wifi_component_esp8266.cpp
+index 60ec3f9..8e5f720 100644
+--- a/esphome/components/wifi/wifi_component_esp8266.cpp
++++ b/esphome/components/wifi/wifi_component_esp8266.cpp
+@@ -684,7 +684,7 @@ WiFiSTAConnectStatus WiFiComponent::wifi_sta_connect_status_() const {
+   return WiFiSTAConnectStatus::IDLE;
+ }
+ 
+-bool WiFiComponent::wifi_scan_start_(bool passive) {
++bool WiFiComponent::wifi_scan_start_platform_(bool passive) {
+   // enable STA
+   if (!this->wifi_mode_(true, {}))
+     return false;
+diff --git a/esphome/components/wifi/wifi_component_esp_idf.cpp b/esphome/components/wifi/wifi_component_esp_idf.cpp
+index 24bf64a..768ae09 100644
+--- a/esphome/components/wifi/wifi_component_esp_idf.cpp
++++ b/esphome/components/wifi/wifi_component_esp_idf.cpp
+@@ -911,7 +911,7 @@ void WiFiComponent::wifi_process_event_(IDFWiFiEvent *data) {
+     uint16_t number = it.number;
+     const bool filtered = this->is_scan_driver_filtered_();
+     const bool needs_full = this->needs_full_scan_results_();
+-    {
++    const auto process_scan_done = [&]() {
+       // Mutate in place under the lock; blocking a portal request is fine and
+       // avoids scratch buffers
+       ScanResultsLock lock(this);
+@@ -991,12 +991,19 @@ void WiFiComponent::wifi_process_event_(IDFWiFiEvent *data) {
+         new (weakest) WiFiScanResult(bssid, ssid_cstr, strlen(ssid_cstr), record.primary, record.rssi,
+                                      record.authmode != WIFI_AUTH_OPEN, ssid_cstr[0] == '\0');
+       }
+-    }
++    };
++    process_scan_done();
+     ESP_LOGV(TAG, "Scan complete: %u found, %zu stored%s", number, this->scan_result_.size(),
+              filtered ? LOG_STR_LITERAL(" (driver filtered)") : LOG_STR_LITERAL(""));
+ #ifdef USE_WIFI_SCAN_RESULTS_LISTENERS
+     this->notify_scan_results_listeners_();
+ #endif
++#ifdef USE_WIFI_SCAN_COMPLETION_LISTENERS
++    // Runs in the main loop (wifi_loop_ -> wifi_process_event_), after the
++    // records are stored, so the owner can snapshot get_scan_result().
++    // Attribution comes from the ownership gate, never from timing.
++    this->notify_scan_completion_listeners_(it.status, it.number);
++#endif
+ 
+   } else if (data->event_base == WIFI_EVENT && data->event_id == WIFI_EVENT_AP_START) {
+     ESP_LOGV(TAG, "AP start");
+@@ -1062,7 +1069,7 @@ WiFiSTAConnectStatus WiFiComponent::wifi_sta_connect_status_() const {
+   }
+   return WiFiSTAConnectStatus::IDLE;
+ }
+-bool WiFiComponent::wifi_scan_start_(bool passive) {
++bool WiFiComponent::wifi_scan_start_platform_(bool passive) {
+   // enable STA
+   if (!this->wifi_mode_(true, {}))
+     return false;
+@@ -1089,10 +1096,13 @@ bool WiFiComponent::wifi_scan_start_(bool passive) {
+     config.scan_time.active.min = 100;
+     config.scan_time.active.max = 300;
+   }
+-  // When scanning while connected (roaming), return to home channel between
+-  // each scanned channel to maintain the connection (helps with BLE/WiFi coexistence)
++  // When scanning while connected, return to the home channel between each
++  // scanned channel to maintain the association (helps with BLE/WiFi coexistence).
++  // This must also cover component-owned MWCP scans: with the gate limited to
++  // roaming scans, a component scan parked the radio off-channel for the whole
++  // sweep and the station dropped (G2 hardware finding F-9).
+ #ifdef CONFIG_SOC_WIFI_SUPPORTED
+-  if (this->is_roaming_scan_active()) {
++  if (this->is_roaming_scan_active() || this->is_connected()) {
+     config.coex_background_scan = true;
+   }
+ #endif
+diff --git a/esphome/components/wifi/wifi_component_libretiny.cpp b/esphome/components/wifi/wifi_component_libretiny.cpp
+index 940f2a0..4eb6244 100644
+--- a/esphome/components/wifi/wifi_component_libretiny.cpp
++++ b/esphome/components/wifi/wifi_component_libretiny.cpp
+@@ -665,7 +665,7 @@ WiFiSTAConnectStatus WiFiComponent::wifi_sta_connect_status_() const {
+       return WiFiSTAConnectStatus::IDLE;
+   }
+ }
+-bool WiFiComponent::wifi_scan_start_(bool passive) {
++bool WiFiComponent::wifi_scan_start_platform_(bool passive) {
+   // enable STA
+   if (!this->wifi_mode_(true, {}))
+     return false;
+diff --git a/esphome/components/wifi/wifi_component_pico_w.cpp b/esphome/components/wifi/wifi_component_pico_w.cpp
+index 325bcf2..d0bdc69 100644
+--- a/esphome/components/wifi/wifi_component_pico_w.cpp
++++ b/esphome/components/wifi/wifi_component_pico_w.cpp
+@@ -197,7 +197,7 @@ void WiFiComponent::wifi_scan_result_(void *env, const cyw43_ev_scan_result_t *r
+   }
+ }
+ 
+-bool WiFiComponent::wifi_scan_start_(bool passive) {
++bool WiFiComponent::wifi_scan_start_platform_(bool passive) {
+   // Compiles to nothing here; kept so every scan_result_ mutation holds the lock
+   ScanResultsLock lock(this);
+   this->scan_result_.clear();
+diff --git a/esphome/components/wifi/wifi_scan_ownership.h b/esphome/components/wifi/wifi_scan_ownership.h
+new file mode 100644
+index 0000000..0587248
+--- /dev/null
++++ b/esphome/components/wifi/wifi_scan_ownership.h
+@@ -0,0 +1,287 @@
++#pragma once
++
++#include <cstdint>
++
++namespace esphome {
++namespace wifi {
++
++/// Who owns the radio for the one scan that may be outstanding.
++enum class ScanOwner : uint8_t { kNone, kBackground, kComponent };
++
++/// Why a coordinated start did not begin a driver scan.
++enum class ScanDriverResult : uint8_t {
++  kStarted,  ///< the driver accepted the scan
++  kBusy,     ///< another scan owns the radio; the driver was not called
++  kRefused,  ///< the driver rejected the start
++};
++
++/// Ownership kind requested at the driver choke point.
++enum class ScanOrigin : uint8_t { kBackground, kComponent };
++
++/// One start request handed to the driver choke point.
++///
++/// A background request reserves the radio itself. A component request carries
++/// the generation returned by ScanOwnership::begin(); the choke point verifies
++/// that generation is still the outstanding component reservation before the
++/// driver is called, so no scan can start without the reservation that makes
++/// its SCAN_DONE event attributable.
++struct ScanTicket {
++  ScanOrigin origin{ScanOrigin::kBackground};
++  uint32_t generation{0};
++};
++
++/// The one driver callback the coordinator is allowed to invoke.
++struct ScanDriver {
++  bool (*start)(void *user, bool passive);
++  void *user;
++};
++
++/// Exclusive ownership bookkeeping for the single scan the WiFi component may
++/// have outstanding.
++///
++/// Neither the ESP-IDF driver nor ESPHome tags a SCAN_DONE event with the
++/// request that produced it. A completion can only be attributed safely while
++/// at most one scan, background or component-owned, is outstanding. Every
++/// start therefore reserves this gate at the driver choke point
++/// (start_owned_scan below), and only a component start carries a generation.
++/// An event consumes the in-flight reservation: a component event is delivered
++/// with its generation, a background event is dropped.
++///
++/// There is deliberately no time-based release. A late completion still
++/// belongs to the in-flight scan; releasing solely because a timeout, cooldown,
++/// reconnect or enable/disable transition elapsed would let the next request
++/// inherit that completion and publish the earlier scan's access points. If the
++/// completion is lost, the gate stays closed and later starts are refused:
++/// failing closed is the only option that cannot mistake another scan's results
++/// for this request's.
++class ScanOwnership {
++ public:
++  ScanOwnership() = default;
++  /// Test seam for generation wrap-around; production uses the default.
++  explicit ScanOwnership(uint32_t last_generation) : last_generation_(last_generation) {}
++
++  /// Reserve the radio for a component-owned scan and write its generation.
++  /// Returns false while any earlier scan has not reported completion.
++  bool begin(uint32_t *generation) {
++    if (generation == nullptr || this->in_flight_)
++      return false;
++    this->last_generation_++;
++    if (this->last_generation_ == 0)
++      this->last_generation_ = 1;
++    this->pending_generation_ = this->last_generation_;
++    this->pending_ = true;
++    this->in_flight_ = true;
++    *generation = this->pending_generation_;
++    return true;
++  }
++
++  /// Reserve the radio for a background scan. Returns false while any earlier
++  /// scan, component-owned or background, has not reported completion.
++  bool begin_background() {
++    if (this->in_flight_)
++      return false;
++    this->pending_ = false;
++    this->pending_generation_ = 0;
++    this->in_flight_ = true;
++    return true;
++  }
++
++  /// Whether `generation` is the outstanding component reservation. A
++  /// background scan has no generation, so it can never authorize a component
++  /// start.
++  bool owns(uint32_t generation) const {
++    return this->in_flight_ && this->pending_ && generation != 0 && generation == this->pending_generation_;
++  }
++
++  /// Consume the in-flight scan. Returns kComponent and writes the generation
++  /// only when this event belongs to a component request; a background event
++  /// returns kBackground, and an event with no reservation returns kNone.
++  /// Both of the latter still reopen the gate if it was held.
++  ScanOwner take(uint32_t *generation) {
++    if (!this->in_flight_)
++      return ScanOwner::kNone;
++    const bool component = this->pending_;
++    this->in_flight_ = false;
++    if (!component)
++      return ScanOwner::kBackground;
++    if (generation != nullptr)
++      *generation = this->pending_generation_;
++    this->pending_ = false;
++    this->pending_generation_ = 0;
++    return ScanOwner::kComponent;
++  }
++
++  /// Drop a component request whose driver start was refused, so no completion
++  /// event will be emitted. The generation check rejects a stale cancel.
++  bool cancel(uint32_t generation) {
++    if (!this->pending_ || !this->in_flight_ || generation == 0 || generation != this->pending_generation_)
++      return false;
++    this->pending_ = false;
++    this->pending_generation_ = 0;
++    this->in_flight_ = false;
++    return true;
++  }
++
++  /// Drop a background reservation whose driver start was refused.
++  void cancel_background() {
++    if (!this->in_flight_ || this->pending_)
++      return;
++    this->in_flight_ = false;
++  }
++
++  bool pending() const { return this->pending_; }
++  bool in_flight() const { return this->in_flight_; }
++  ScanOwner owner() const {
++    if (!this->in_flight_)
++      return ScanOwner::kNone;
++    return this->pending_ ? ScanOwner::kComponent : ScanOwner::kBackground;
++  }
++
++ private:
++  uint32_t last_generation_{0};
++  uint32_t pending_generation_{0};
++  bool pending_{false};
++  bool in_flight_{false};
++};
++
++/// Single choke point for every driver scan start.
++///
++/// Every platform's wifi_scan_start_platform_() is reached only through this
++/// function (checked by scripts/check_scan_ownership_sources.py). The
++/// reservation is created or verified before the driver is called, so an
++/// accepted scan always has exactly one owner for its SCAN_DONE event:
++///
++///  - background: reserve here, refuse while any scan is outstanding, and
++///    release only if the driver rejects the start;
++///  - component: require the caller's generation to be the outstanding
++///    component reservation, so a background or stale ticket cannot start a
++///    second scan.
++///
++/// A driver refusal leaves a component reservation in place; the component
++/// path cancels it by generation. There is no timeout or state-machine hook
++/// that releases ownership.
++inline ScanDriverResult start_owned_scan(ScanOwnership &gate, const ScanDriver &driver, const ScanTicket &ticket,
++                                         bool passive) {
++  if (driver.start == nullptr)
++    return ScanDriverResult::kRefused;
++
++  const bool component = ticket.origin == ScanOrigin::kComponent;
++  if (component) {
++    if (!gate.owns(ticket.generation))
++      return ScanDriverResult::kBusy;
++  } else if (!gate.begin_background()) {
++    return ScanDriverResult::kBusy;
++  }
++
++  if (!driver.start(driver.user, passive)) {
++    // The driver did not accept the scan, so no completion event will follow.
++    // A component reservation is cancelled by its owner so the cancel can be
++    // generation-checked; a background one is released here.
++    if (!component)
++      gate.cancel_background();
++    return ScanDriverResult::kRefused;
++  }
++  return ScanDriverResult::kStarted;
++}
++
++/// Host hooks the coordinator needs from the WiFi component.
++struct ScanHost {
++  /// True when a component scan may start now: Wi-Fi enabled, not associating,
++  /// not scanning and not roaming. Never consulted for background scans, which
++  /// the WiFi state machine schedules itself.
++  bool (*component_allowed)(void *user);
++  /// Start the platform driver scan. Only called with a reservation in place.
++  bool (*start_driver)(void *user, bool passive);
++  void *user;
++};
++
++/// Outcome of a coordinated start.
++enum class ScanStartResult : uint8_t {
++  kStarted,
++  kBusy,           ///< an earlier scan still owns the radio; driver untouched
++  kRefused,        ///< a precondition failed; driver untouched
++  kDriverRefused,  ///< the driver rejected the start
++};
++
++/// The one scan lifecycle every WiFi scan entry shares.
++///
++/// Connection, retry and roaming scans call start_background(); a component
++/// request calls start_component(). Both reserve the same gate before the
++/// driver is touched, so a completion can be classified as background or
++/// component without relying on timing or on the public WiFi state machine.
++/// The WiFi state machine may leave STA_SCANNING, enter cooldown, reconnect or
++/// be disabled while a scan is still outstanding; none of those transitions
++/// touches this coordinator.
++class ScanCoordinator {
++ public:
++  ScanCoordinator() = default;
++  /// Test seam for generation wrap-around; production uses the default.
++  explicit ScanCoordinator(uint32_t last_generation) : gate_(last_generation) {}
++
++  /// Reserve the radio for a background (connection, retry or roaming) scan
++  /// and start it. Returns kStarted only if the driver accepted.
++  ScanStartResult start_background(const ScanHost &host, bool passive) {
++    const ScanDriverResult result =
++        start_owned_scan(this->gate_, ScanDriver{host.start_driver, host.user}, ScanTicket{}, passive);
++    if (result == ScanDriverResult::kStarted) {
++      this->starts_++;
++      return ScanStartResult::kStarted;
++    }
++    return result == ScanDriverResult::kBusy ? ScanStartResult::kBusy : ScanStartResult::kDriverRefused;
++  }
++
++  /// Reserve the radio for one component-owned scan and start it.
++  ///
++  /// Returns kRefused without touching the driver when the host precondition
++  /// fails, kBusy while any earlier scan is outstanding, and kDriverRefused
++  /// when the driver rejects the start (the reservation is cancelled so the
++  /// next request is not stranded). On kStarted the caller receives a non-zero
++  /// generation that the completion dispatch returns only for this scan.
++  ScanStartResult start_component(const ScanHost &host, bool passive, uint32_t *generation) {
++    if (generation == nullptr || host.component_allowed == nullptr || host.start_driver == nullptr)
++      return ScanStartResult::kRefused;
++    if (!host.component_allowed(host.user))
++      return ScanStartResult::kRefused;
++
++    uint32_t component_generation = 0;
++    if (!this->gate_.begin(&component_generation))
++      return ScanStartResult::kBusy;
++
++    const ScanTicket ticket{ScanOrigin::kComponent, component_generation};
++    const ScanDriverResult result =
++        start_owned_scan(this->gate_, ScanDriver{host.start_driver, host.user}, ticket, passive);
++    if (result != ScanDriverResult::kStarted) {
++      this->gate_.cancel(component_generation);
++      return result == ScanDriverResult::kBusy ? ScanStartResult::kBusy : ScanStartResult::kDriverRefused;
++    }
++    this->starts_++;
++    *generation = component_generation;
++    return ScanStartResult::kStarted;
++  }
++
++  /// Classify and consume one SCAN_DONE event. kComponent is the only result
++  /// that may reach a component listener; a background or unmatched event must
++  /// never be attributed to the outstanding component request.
++  ScanOwner take_completion(uint32_t *generation) {
++    this->completions_++;
++    const ScanOwner owner = this->gate_.take(generation);
++    if (owner == ScanOwner::kNone)
++      this->stray_completions_++;
++    return owner;
++  }
++
++  bool in_flight() const { return this->gate_.in_flight(); }
++  bool component_pending() const { return this->gate_.pending(); }
++  uint32_t starts() const { return this->starts_; }
++  uint32_t completions() const { return this->completions_; }
++  uint32_t stray_completions() const { return this->stray_completions_; }
++
++ private:
++  ScanOwnership gate_;
++  uint32_t starts_{0};
++  uint32_t completions_{0};
++  uint32_t stray_completions_{0};
++};
++
++}  // namespace wifi
++}  // namespace esphome

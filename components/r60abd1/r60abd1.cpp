@@ -1,4 +1,5 @@
 #include "r60abd1.h"
+#include "presence_sample.h"
 #include "esphome/core/log.h"
 
 namespace esphome {
@@ -241,10 +242,13 @@ void R60ABD1Component::handle_work_state_frame_() {
     ESP_LOGI(TAG, "R60ABD1 initialized, enabling all monitoring");
 
     // 使用非阻塞的 set_timeout 代替 delay，避免阻塞串口接收导致丢包
-    this->set_timeout("init_1", 100, [this]() { this->enable_presence(); });
-    this->set_timeout("init_2", 150, [this]() { this->enable_breath(); });
-    this->set_timeout("init_3", 200, [this]() { this->enable_heart_rate(); });
-    this->set_timeout("init_4", 250, [this]() { this->enable_sleep(); });
+    this->set_timeout("init_1", kEnablePresenceDelayMs, [this]() { this->enable_presence(); });
+    this->set_timeout("init_2", kEnableBreathDelayMs, [this]() { this->enable_breath(); });
+    this->set_timeout("init_3", kEnableHeartDelayMs, [this]() { this->enable_heart_rate(); });
+    this->set_timeout("init_4", kEnableSleepDelayMs, [this]() { this->enable_sleep(); });
+    // One query after enable. Presence is change-only, so a host reboot would
+    // otherwise stay unknown until the next transition. Not periodic, no NVS.
+    this->set_timeout("init_1q", kQueryPresenceDelayMs, [this]() { this->query_presence(); });
   }
 }
 
@@ -255,15 +259,25 @@ void R60ABD1Component::handle_presence_frame_() {
     return;
 
   switch (cmd_) {
-    case 0x01:  // 存在信息: 00=无人, 01=有人
-      last_raw_presence_ = (rx_buf_[0] == 0x01);
+    case 0x01:  // 主动上报: 00=无人, 01=有人。只在状态变化时出现。
+    case 0x81:  // 查询回复: 同样是 00=无人, 01=有人。其它值不当成有人或无人。
+    {
+      const PresenceClass cls = classify_presence_report(cmd_, rx_buf_, data_len_);
+      if (cls == kPresenceIgnore)
+        break;
+      last_raw_presence_ = (cls == kPresencePresent);
+      R60HostObservation sample;
+      sample.kind = 1;
+      sample.presence = last_raw_presence_;
+      sample.sample_ms = millis();
+      notify_host_(sample);
       ESP_LOGD(TAG, "Presence (raw): %s", last_raw_presence_ ? "YES" : "NO");
       if (!last_raw_presence_) {
         area_sample_.active = false;
         publish_areas_();
       }
       publish_presence_();
-      break;
+    } break;
 
     case 0x02:  // 运动状态: 00=无, 01=静止, 02=活跃
       if (motion_sensor_)
@@ -276,9 +290,15 @@ void R60ABD1Component::handle_presence_frame_() {
       break;
 
     case 0x04: {  // 人体距离: 2B，单位 cm
-      if (body_distance_ && data_len_ >= 2) {
+      if (data_len_ >= 2) {
         const uint16_t dist = (static_cast<uint16_t>(rx_buf_[0]) << 8) | rx_buf_[1];
-        body_distance_->publish_state(static_cast<float>(dist));
+        R60HostObservation sample;
+        sample.kind = 4;
+        sample.distance_cm = dist;
+        sample.sample_ms = millis();
+        notify_host_(sample);
+        if (body_distance_)
+          body_distance_->publish_state(static_cast<float>(dist));
         ESP_LOGD(TAG, "Distance: %u cm", dist);
       }
       break;
@@ -340,8 +360,14 @@ void R60ABD1Component::handle_breath_frame_() {
     }
 
     case 0x02:  // 呼吸数值: 0-35 次/min，3s 一次
-      if (breath_value_ && data_len_ >= 1) {
-        breath_value_->publish_state(static_cast<float>(rx_buf_[0]));
+      if (data_len_ >= 1) {
+        R60HostObservation sample;
+        sample.kind = 6;
+        sample.rate = static_cast<float>(rx_buf_[0]);
+        sample.sample_ms = millis();
+        notify_host_(sample);
+        if (breath_value_)
+          breath_value_->publish_state(sample.rate);
         ESP_LOGD(TAG, "Breath rate: %u /min", rx_buf_[0]);
       }
       break;
@@ -364,8 +390,14 @@ void R60ABD1Component::handle_heart_frame_() {
 
   switch (cmd_) {
     case 0x02:  // 心率数值: 60-120 bpm，3s 一次
-      if (heart_rate_ && data_len_ >= 1) {
-        heart_rate_->publish_state(static_cast<float>(rx_buf_[0]));
+      if (data_len_ >= 1) {
+        R60HostObservation sample;
+        sample.kind = 7;
+        sample.rate = static_cast<float>(rx_buf_[0]);
+        sample.sample_ms = millis();
+        notify_host_(sample);
+        if (heart_rate_)
+          heart_rate_->publish_state(sample.rate);
         ESP_LOGD(TAG, "Heart rate: %u bpm", rx_buf_[0]);
       }
       break;
@@ -558,11 +590,21 @@ void R60ABD1Component::publish_presence_() {
 
 void R60ABD1Component::publish_position_(int16_t rx, int16_t ry, int16_t rz) {
   uint32_t now_ms = millis();
+  const auto res = apply(static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz), cal_);
+  R60HostObservation sample;
+  sample.kind = 5;
+  sample.local_x = rx;
+  sample.local_y = ry;
+  sample.local_z = rz;
+  sample.room_x = res.room.x;
+  sample.room_y = res.room.y;
+  sample.in_boundary = res.in_boundary;
+  sample.presence = last_raw_presence_;
+  sample.sample_ms = now_ms;
+  notify_host_(sample);
   if (now_ms - this->last_publish_ms_ < 1000)
     return;
   this->last_publish_ms_ = now_ms;
-
-  const auto res = apply(static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz), cal_);
 
   if (room_x_)
     room_x_->publish_state(res.room.x);

@@ -349,7 +349,7 @@ number:
     id: num_radar_z
     unit_of_measurement: cm
     min_value: 50
-    max_value: 400
+    max_value: 600
     step: 1
     mode: box
     icon: mdi:ruler-square

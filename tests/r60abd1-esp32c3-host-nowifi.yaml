@@ -1,0 +1,58 @@
+substitutions:
+  name: r60abd1-host-nwf
+  friendly_name: "R60ABD1 Host NOWIFI"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP_CONSOLE_NONE: y
+      CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG: n
+      # The IDF default (3584) cannot hold the MWCP dispatch frame plus loop
+      # depth; a dispatched request overflowed it and reset the device (G2
+      # hardware finding). 8192 leaves headroom above the static-scratch fix.
+      CONFIG_ESP_MAIN_TASK_STACK_SIZE: "8192"
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [r60abd1, mmwave_host]
+
+logger:
+  baud_rate: 0
+  hardware_uart: UART0
+  level: INFO
+
+api:
+  reboot_timeout: 0s
+
+ota:
+  platform: esphome
+
+web_server:
+  port: 80
+
+wifi:
+  reboot_timeout: 0s
+  # TEST PROFILE (F-2 discriminator): fast_connect skips scanning entirely and
+  # connects straight to the SSID. The SSID is absent, so the connect fails,
+  # but no scan churn ever runs. If USB RPC stays alive on this build, the
+  # scan path (software or RF bursts) is the killer of the absent-SSID build.
+  fast_connect: true
+  networks:
+    - ssid: "mwcp-g2-absent-ssid"
+      password: "unused-offline-probe"
+
+packages:
+  radar: !include common/r60abd1_mwcp.yaml
+
+mmwave_host:
+  id: host_link
+  radar_id: radar

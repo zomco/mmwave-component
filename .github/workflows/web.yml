@@ -1,10 +1,10 @@
 name: Web installer checks
 on:
   pull_request:
-    paths: ['static/**', 'scripts/**', 'tests/test_releases.py', 'protocol/**', 'components/r60abd1/**', 'docs/reviews/web-console/g0/**', '.github/workflows/**', 'README.md']
+    paths: ['static/**', 'scripts/**', 'patches/**', 'tests/test_releases.py', 'protocol/**', 'components/mmwave_host/**', 'components/r60abd1/**', 'docs/reviews/web-console/g0/**', '.github/workflows/**', 'README.md']
   push:
     branches: [main]
-    paths: ['static/**', 'scripts/**', 'tests/test_releases.py', 'protocol/**', 'components/r60abd1/**', 'docs/reviews/web-console/g0/**', '.github/workflows/**', 'README.md']
+    paths: ['static/**', 'scripts/**', 'patches/**', 'tests/test_releases.py', 'protocol/**', 'components/mmwave_host/**', 'components/r60abd1/**', 'docs/reviews/web-console/g0/**', '.github/workflows/**', 'README.md']
 permissions:
   contents: read
 jobs:

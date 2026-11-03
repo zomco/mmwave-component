@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
+import r60Fixture from '../../../docs/protocol/fixtures/r60abd1-capabilities.json' with { type: 'json' };
 import { ProtocolClient } from './client.js';
-import { nextRevision, telemetryIssue, validateRequest, wifiPasswordIssue } from './contract.js';
+import { nextRevision, telemetryIssue, validateConfigChanges, validateRequest } from './contract.js';
 import { encodeFrame, FrameParser } from './codec.js';
 import { CODE, ERROR, KIND } from './limits.js';
-import { polygonIssues } from './geometry.js';
 import { encodeUtf8 } from './utf8.js';
 
 const PAGE = 2;
@@ -35,7 +35,19 @@ export class SimulatedDevice {
     this.releaseTimer = null;
     this.sentTelemetry = 0;
     this.sentEventBytes = 0;
-    this.jobs = [];
+    this.activeJobs = new Map();
+    this.completedJobs = [];
+    this.nextJob = 1;
+    this.bootSeq = 0;
+    this.wifi = {
+      state: 'disconnected',
+      ssid: null,
+      ip: null,
+      rssi_dbm: null,
+      last_error: null,
+    };
+    this.scanId = 'scan-1';
+    this.scanItems = defaultWifiScanItems();
     this.logs = [];
     this.telemetry = null;
     this.queue = [];
@@ -49,6 +61,7 @@ export class SimulatedDevice {
     this.uptime = 1000;
     this.capRevision = 'r60-draft-source';
     this.capabilities = options.capabilities || defaultCapabilities(this.profile);
+    this.actions = options.actions || defaultActions(this.profile);
     this.externalChanges = 0;
   }
 
@@ -316,9 +329,19 @@ export class SimulatedDevice {
       case CODE.STATUS_GET:
         return this.make(frame, ok(this.status(now)));
       case CODE.ACTIONS_LIST:
-        return this.page(frame, defaultActions(), 'actions-draft', (items, next) => ({ revision: 'actions-draft', items, next_cursor: next }));
+        return this.page(frame, this.actions, 'actions-draft', (items, next) => ({ revision: 'actions-draft', items, next_cursor: next }));
+      case CODE.ACTION_START:
+        return this.make(frame, this.actionStart(frame, body, now));
       case CODE.JOB_GET:
         return this.make(frame, ok(this.job(body)));
+      case CODE.WIFI_STATUS:
+        return this.make(frame, ok({ ...this.wifi }));
+      case CODE.WIFI_SCAN:
+        return this.make(frame, this.wifiScan(frame, body, now));
+      case CODE.WIFI_PROVISION:
+        return this.make(frame, this.wifiProvision(frame, body, now));
+      case CODE.WIFI_SCAN_RESULTS:
+        return this.scanResults(frame, body);
       default:
         this.stats.invalid++;
         return this.make(frame, errorBody(ERROR.UNSUPPORTED, 'Unsupported'));
@@ -360,6 +383,7 @@ export class SimulatedDevice {
     const result = { op_id: body.op_id, revision: this.revision, persisted: true, restart_required: false };
     this.commits.push({ opId: body.op_id, digest, result });
     if (this.commits.length > 4) this.commits.shift();
+    this.offerEvent(CODE.CONFIG_CHANGED, { revision: this.revision, changed_keys: Object.keys(body.changes), origin: 'web', op_id: body.op_id });
     return ok(result);
   }
 
@@ -368,14 +392,19 @@ export class SimulatedDevice {
     return ok({ found: Boolean(prior), revision: prior ? prior.result.revision : null, current_revision: this.revision });
   }
 
+  get jobs() {
+    return [...this.activeJobs.values(), ...this.completedJobs];
+  }
+
   status(now) {
+    const activeJobs = [...this.activeJobs.values()].map((item) => item.job_id);
     return {
       uptime_ms: this.uptime + now,
       radar_link: 'healthy',
       last_radar_frame_ms: now,
       config_revision: this.revision,
       config_storage: 'healthy',
-      active_jobs: [],
+      active_jobs: activeJobs,
       counters: {
         rx_frames: this.stats.invalid,
         rx_crc_errors: 0,
@@ -390,7 +419,265 @@ export class SimulatedDevice {
     };
   }
 
+  findConflictingJob(resource) {
+    for (const item of this.activeJobs.values()) {
+      if (resource === 'restart' || item.resource === 'restart' || item.resource === resource) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  hasJobCapacity(now = this.uptime + this.now()) {
+    this.trimCompletedJobs(now);
+    return (this.completedJobs.length + this.activeJobs.size) < 8;
+  }
+
+  trimCompletedJobs(now = this.uptime + this.now()) {
+    this.completedJobs = this.completedJobs.filter((item) => {
+      return item.finished_ms != null && (now - item.finished_ms < 300000);
+    });
+  }
+
+  findJobByOpId(opId, now = this.uptime + this.now()) {
+    this.trimCompletedJobs(now);
+    for (const item of this.activeJobs.values()) {
+      if (item.op_id === opId) return item;
+    }
+    for (let i = this.completedJobs.length - 1; i >= 0; i--) {
+      const item = this.completedJobs[i];
+      if (item.op_id === opId) return item;
+    }
+    return null;
+  }
+
+  findJobById(jobId, now = this.uptime + this.now()) {
+    this.trimCompletedJobs(now);
+    if (this.activeJobs.has(jobId)) {
+      return this.activeJobs.get(jobId);
+    }
+    for (let i = this.completedJobs.length - 1; i >= 0; i--) {
+      const item = this.completedJobs[i];
+      if (item.job_id === jobId) return item;
+    }
+    return null;
+  }
+
+  actionStart(frame, body, now) {
+    const digest = sha(frame.payload);
+    const currentNow = this.uptime + now;
+    this.trimCompletedJobs(currentNow);
+    const prior = this.findJobByOpId(body.op_id, currentNow);
+    if (prior && prior.digest === digest) return ok({ job_id: prior.job_id });
+    if (prior) return errorBody(ERROR.OP_ID_REUSE, 'Op id reuse');
+    const action = this.actions.find((item) => item.action_id === body.action_id);
+    if (!action) return errorBody(ERROR.UNSUPPORTED, 'Unsupported action', { field: 'action_id' });
+    if (action.confirm) {
+      if (body.confirm !== action.action_id) {
+        return errorBody(ERROR.INVALID_ARGUMENT, 'Confirmation must equal action_id', { field: 'confirm' });
+      }
+    } else if (body.confirm !== null && body.confirm !== action.action_id) {
+      return errorBody(ERROR.INVALID_ARGUMENT, 'Invalid confirmation value', { field: 'confirm' });
+    }
+    const busy = this.findConflictingJob(action.resource);
+    if (busy) {
+      return errorBody(ERROR.BUSY, 'Resource busy', { field: 'action_id', active_job_id: busy.job_id, resource: busy.resource });
+    }
+    if (!this.hasJobCapacity(currentNow)) {
+      return errorBody(ERROR.BUSY, 'Task capacity full', { reason: 'capacity', retry_after_ms: 1000 });
+    }
+    return this.createJob({
+      opId: body.op_id,
+      digest,
+      actionId: action.action_id,
+      resource: action.resource,
+      verification: action.verification,
+      stage: action.action_id === 'device.restart' ? 'restarting' : 'queued',
+      state: action.action_id === 'device.restart' ? 'running' : 'queued',
+      startedMs: currentNow,
+    });
+  }
+
+  wifiScan(frame, body, now) {
+    const digest = sha(frame.payload);
+    const currentNow = this.uptime + now;
+    this.trimCompletedJobs(currentNow);
+    const prior = this.findJobByOpId(body.op_id, currentNow);
+    if (prior && prior.digest === digest) return ok({ job_id: prior.job_id });
+    if (prior) return errorBody(ERROR.OP_ID_REUSE, 'Op id reuse');
+    const busy = this.findConflictingJob('wifi');
+    if (busy) return errorBody(ERROR.BUSY, 'Wi-Fi resource busy', { active_job_id: busy.job_id, resource: busy.resource });
+    if (!this.hasJobCapacity(currentNow)) {
+      return errorBody(ERROR.BUSY, 'Task capacity full', { reason: 'capacity', retry_after_ms: 1000 });
+    }
+    this.wifi.state = 'scanning';
+    return this.createJob({
+      opId: body.op_id,
+      digest,
+      actionId: 'wifi.scan',
+      resource: 'wifi',
+      verification: 'readback',
+      stage: 'scanning',
+      state: 'running',
+      startedMs: currentNow,
+    });
+  }
+
+  wifiProvision(frame, body, now) {
+    const digest = sha(frame.payload);
+    const currentNow = this.uptime + now;
+    this.trimCompletedJobs(currentNow);
+    const prior = this.findJobByOpId(body.op_id, currentNow);
+    if (prior && prior.digest === digest) return ok({ job_id: prior.job_id });
+    if (prior) return errorBody(ERROR.OP_ID_REUSE, 'Op id reuse');
+    const busy = this.findConflictingJob('wifi');
+    if (busy) return errorBody(ERROR.BUSY, 'Wi-Fi resource busy', { active_job_id: busy.job_id, resource: busy.resource });
+    if (!this.hasJobCapacity(currentNow)) {
+      return errorBody(ERROR.BUSY, 'Task capacity full', { reason: 'capacity', retry_after_ms: 1000 });
+    }
+    this.wifi.state = 'connecting';
+    this.wifi.ssid = body.ssid;
+    this.wifi.last_error = null;
+    return this.createJob({
+      opId: body.op_id,
+      digest,
+      actionId: 'wifi.provision',
+      resource: 'wifi',
+      verification: 'readback',
+      stage: 'connecting',
+      state: 'running',
+      startedMs: currentNow,
+      meta: { ssid: body.ssid, auth: body.auth },
+    });
+  }
+
+  scanResults(frame, body) {
+    const found = this.findJobById(body.job_id);
+    if (!found || found.action_id !== 'wifi.scan') return this.make(frame, errorBody(ERROR.INVALID_ARGUMENT, 'Unknown scan job', { field: 'job_id' }));
+    const sorted = [...this.scanItems].sort((a, b) => b.rssi_dbm - a.rssi_dbm);
+    const maxScan = 64;
+    const truncated = sorted.length > maxScan;
+    const bounded = sorted.slice(0, maxScan);
+    return this.page(frame, bounded, found.job_id, (items, next) => ({ items, next_cursor: next, truncated }));
+  }
+
+  createJob({ opId, digest, actionId, resource, verification, stage, state, startedMs, meta = null }) {
+    const jobId = `job-${this.nextJob++}`;
+    const record = {
+      bootId: this.bootId,
+      digest,
+      resource,
+      verification,
+      meta,
+      job_id: jobId,
+      op_id: opId,
+      action_id: actionId,
+      state,
+      stage,
+      progress: null,
+      started_ms: startedMs,
+      finished_ms: null,
+      result: null,
+      error: null,
+    };
+    this.activeJobs.set(jobId, record);
+    this.trimCompletedJobs(startedMs);
+    this.offerEvent(CODE.JOB_CHANGED, this.publicJob(record));
+    return ok({ job_id: jobId });
+  }
+
+  advanceJob(jobId, state, patch = {}) {
+    let found = this.activeJobs.get(jobId);
+    if (!found) {
+      found = this.completedJobs.find((item) => item.job_id === jobId);
+    }
+    if (!found) return null;
+    if (found.verification === 'none' && state === 'succeeded') {
+      if (found.action_id === 'device.restart') {
+        throw new Error('verification:none jobs must not report succeeded before reboot');
+      }
+      if (patch.result && patch.result.verified === true) {
+        throw new Error('verification:none jobs must not report verified:true');
+      }
+    }
+    found.state = state;
+    if ('stage' in patch) found.stage = patch.stage;
+    if ('result' in patch) {
+      found.result = found.verification === 'none' && state === 'succeeded' ? { verified: false, verification: 'none', ...patch.result } : patch.result;
+    } else if (found.verification === 'none' && state === 'succeeded') {
+      found.result = { verified: false, verification: 'none' };
+    }
+    if ('error' in patch) found.error = patch.error;
+    if (state === 'succeeded' || state === 'failed') {
+      found.finished_ms = this.uptime + this.now();
+      if (this.activeJobs.has(jobId)) {
+        this.activeJobs.delete(jobId);
+        this.completedJobs.push(found);
+      }
+    }
+    if (found.action_id === 'wifi.scan' && state === 'succeeded') {
+      this.wifi.state = this.wifi.ip ? 'connected' : 'disconnected';
+    }
+    if (found.action_id === 'wifi.provision') {
+      if (state === 'succeeded') {
+        this.wifi.state = 'connected';
+        this.wifi.ip = (patch.result && patch.result.ip) || '192.168.1.50';
+        this.wifi.rssi_dbm = -52;
+        this.wifi.last_error = null;
+      } else if (state === 'failed') {
+        this.wifi.state = 'disconnected';
+        this.wifi.ip = null;
+        this.wifi.rssi_dbm = null;
+        this.wifi.last_error = (patch.error && patch.error.code) || 'VERIFY_FAILED';
+      }
+    }
+    if (found.action_id === 'wifi.clear' && state === 'succeeded') {
+      this.wifi.state = 'disconnected';
+      this.wifi.ssid = null;
+      this.wifi.ip = null;
+      this.wifi.rssi_dbm = null;
+      this.wifi.last_error = null;
+    }
+    this.trimCompletedJobs(this.uptime + this.now());
+    const pub = this.publicJob(found);
+    this.offerEvent(CODE.JOB_CHANGED, pub);
+    return pub;
+  }
+
+  reboot(nextBootId = null) {
+    if (nextBootId) {
+      this.bootId = nextBootId;
+    } else {
+      this.bootSeq = (this.bootSeq || 0) + 1;
+      this.bootId = createHash('sha256').update(`sim-boot-${this.bootSeq}-${Date.now()}-${Math.random()}`).digest('hex').slice(0, 32);
+    }
+    this.uptime = 100;
+    this.activeJobs.clear();
+    this.completedJobs = [];
+    this.rpcTimes = [];
+    this.wifi.state = 'disconnected';
+    this.expire();
+  }
+
+  publicJob(record) {
+    return {
+      job_id: record.job_id,
+      op_id: record.op_id,
+      action_id: record.action_id,
+      state: record.state,
+      stage: record.stage,
+      progress: null,
+      started_ms: record.started_ms,
+      finished_ms: record.finished_ms,
+      result: record.result,
+      error: record.error,
+    };
+  }
+
   job(body) {
+    const now = this.uptime + this.now();
+    const found = body.job_id ? this.findJobById(body.job_id, now) : this.findJobByOpId(body.op_id, now);
+    if (found) return this.publicJob(found);
     return {
       job_id: body.job_id || 'missing',
       op_id: body.op_id || null,
@@ -627,6 +914,7 @@ function defaultConfig(profile) {
     'install.pitch_deg': 0,
     'install.roll_deg': 0,
     'geometry.boundary_cm': null,
+    'areas.definitions': [],
   };
 }
 
@@ -635,37 +923,33 @@ function defaultCapabilities(profile) {
     return [
       { kind: 'feature', id: 'distance.cm', supported: true, expected_interval_ms: null, stale_after_ms: null },
       { kind: 'feature', id: 'position.xy', supported: false },
+      { kind: 'config', id: 'range.window_cm', type: 'object', writable: true, domain: 'host', label_key: 'range.window', restart_required: false, schema_id: 'range.window.v1' },
     ];
   }
   if (profile === 'unsupported') return [{ kind: 'feature', id: 'position.xy', supported: false }];
+  return r60Fixture.capabilities.map((item) =>
+    profile === 'multi' && item.id === 'position.xy'
+      ? { ...item, max_targets: 3 }
+      : { ...item },
+  );
+}
+
+function defaultActions(profile = 'r60') {
+  if (profile === 'r60') return r60Fixture.actions.map((item) => ({ ...item }));
+  return r60Fixture.actions.map((item) => ({ ...item }));
+}
+
+function defaultWifiScanItems() {
   return [
-    { kind: 'feature', id: 'presence', supported: true, expected_interval_ms: null, stale_after_ms: null },
-    { kind: 'feature', id: 'position.xy', supported: true, max_targets: profile === 'multi' ? 3 : 1, target_id_stable: false, expected_interval_ms: null, stale_after_ms: null },
-    { kind: 'config', id: 'install.x_cm', type: 'number', unit: 'cm', minimum: -2000, maximum: 2000, step: 1, writable: true, domain: 'host', label_key: 'install.x', restart_required: false },
-    { kind: 'config', id: 'geometry.boundary_cm', type: 'array', writable: true, domain: 'host', label_key: 'geometry.boundary', restart_required: false, schema_id: 'polygon.xy.v1', min_items: 3, max_items: 64 },
+    { ssid: 'Lab-2.4G', rssi_dbm: -45, auth: 'wpa2_psk', hidden: false },
+    { ssid: 'Guest-Open', rssi_dbm: -71, auth: 'open', hidden: false },
+    { ssid: '', rssi_dbm: -80, auth: 'wpa2_psk', hidden: true },
   ];
 }
 
-function defaultActions() {
-  return [{ action_id: 'device.restart', verification: 'none', confirm: true, resource: 'restart', deadline_ms: 8000 }];
-}
-
 function configIssues(changes, capabilities) {
-  const keys = Object.keys(changes);
-  if (!keys.length || keys.length > 32) return errorBody(ERROR.INVALID_ARGUMENT, 'Bad changes');
-  for (const key of keys) {
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype') return errorBody(ERROR.UNKNOWN_FIELD, 'Bad field', { field: key });
-    const cap = capabilities.find((item) => item.kind === 'config' && item.id === key);
-    if (!cap || !cap.writable) return errorBody(ERROR.UNSUPPORTED, 'Unsupported field');
-    const value = changes[key];
-    if (cap.type === 'number' && (typeof value !== 'number' || value < cap.minimum || value > cap.maximum)) {
-      return errorBody(ERROR.OUT_OF_RANGE, 'Out of range', { field: key });
-    }
-    if (key === 'geometry.boundary_cm' && value != null) {
-      const issues = polygonIssues(value);
-      if (issues.length) return errorBody(ERROR.INVALID_ARGUMENT, 'Bad polygon', { errors: issues.slice(0, 16) });
-    }
-  }
+  const verdict = validateConfigChanges(changes, capabilities);
+  if (!verdict.ok) return errorBody(verdict.code, verdict.message, verdict.details);
   return null;
 }
 

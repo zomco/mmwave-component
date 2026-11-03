@@ -225,6 +225,17 @@
       }
     }
   },
+  "x-configSchemas": {
+    "polygon.xy.v1": {
+      "$ref": "#/$defs/polygonXyV1"
+    },
+    "range.window.v1": {
+      "$ref": "#/$defs/rangeWindowV1"
+    },
+    "r60.areas.v1": {
+      "$ref": "#/$defs/r60AreasV1"
+    }
+  },
   "$defs": {
     "empty": {
       "type": "object",
@@ -1020,10 +1031,141 @@
       },
       "x-open-object": true
     },
+    "point2dCm": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "number",
+        "minimum": -2000,
+        "maximum": 2000
+      }
+    },
+    "polygonXyV1": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "minItems": 3,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/point2dCm"
+      }
+    },
+    "rangeWindowV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min",
+        "max"
+      ],
+      "properties": {
+        "min": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 600
+        },
+        "max": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 600
+        }
+      }
+    },
+    "r60AreaSlotV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot",
+        "enabled",
+        "name",
+        "points_cm"
+      ],
+      "properties": {
+        "slot": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string",
+          "x-maxUtf8Bytes": 32
+        },
+        "points_cm": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/point2dCm"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "enabled"
+            ],
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "points_cm": {
+                "minItems": 3,
+                "maxItems": 12
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "points_cm": {
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "maxItems": 0
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 12
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "r60AreasV1": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/r60AreaSlotV1"
+      }
+    },
     "changes": {
       "type": "object",
       "minProperties": 1,
-      "maxProperties": 32
+      "maxProperties": 32,
+      "properties": {
+        "geometry.boundary_cm": {
+          "$ref": "#/$defs/polygonXyV1"
+        },
+        "range.window_cm": {
+          "$ref": "#/$defs/rangeWindowV1"
+        },
+        "areas.definitions": {
+          "$ref": "#/$defs/r60AreasV1"
+        }
+      }
     },
     "configValidateRequest": {
       "type": "object",
@@ -1320,20 +1462,23 @@
       ],
       "properties": {
         "action_id": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "x-maxUtf8Bytes": 64
         },
         "op_id": {
           "$ref": "#/$defs/uuid"
         },
         "params": {
-          "type": "object"
+          "type": "object",
+          "maxProperties": 16
         },
         "confirm": {
           "type": [
             "string",
-            "boolean",
             "null"
-          ]
+          ],
+          "x-maxUtf8Bytes": 64
         }
       }
     },
@@ -1618,7 +1763,14 @@
           "type": "integer"
         },
         "auth": {
-          "type": "string"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/wifiAuth"
+            },
+            {
+              "const": "unknown"
+            }
+          ]
         },
         "hidden": {
           "type": "boolean"

@@ -5,7 +5,7 @@ const KEYWORDS = new Set([
   'anyOf', 'allOf', 'if', 'then', 'else', 'x-maxUtf8Bytes', 'x-status', 'x-commands', 'x-open-object',
 ]);
 
-const MAPS = new Set(['$defs', 'properties', 'x-commands']);
+const MAPS = new Set(['$defs', 'properties', 'x-commands', 'x-configSchemas']);
 
 export function unsupportedKeywords(schema) {
   const found = [];

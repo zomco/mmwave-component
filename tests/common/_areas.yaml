@@ -237,7 +237,7 @@ text:
     mode: text
     icon: mdi:vector-polygon
     set_action:
-      - lambda: "id(g_area_1) = x;"
+      - lambda: 'id(g_area_1) = x;'
       - script.execute: apply_area_1
 
   - platform: template
@@ -250,7 +250,7 @@ text:
     mode: text
     icon: mdi:vector-polygon
     set_action:
-      - lambda: "id(g_area_2) = x;"
+      - lambda: 'id(g_area_2) = x;'
       - script.execute: apply_area_2
 
   - platform: template
@@ -263,5 +263,5 @@ text:
     mode: text
     icon: mdi:vector-polygon
     set_action:
-      - lambda: "id(g_area_3) = x;"
+      - lambda: 'id(g_area_3) = x;'
       - script.execute: apply_area_3

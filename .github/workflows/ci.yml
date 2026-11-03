@@ -67,6 +67,68 @@ jobs:
             exit 1
           fi
 
+  # ── Pinned ESPHome patch ────────────────────────────────────────────────────
+  # The host-enabled firmware runs on a stock ESPHome release plus exactly one
+  # reviewed patch (patches/esphome-2026.9.1-wifi-scan-ownership.patch). This
+  # job proves the patch still applies byte-exactly to the pinned release, so a
+  # release re-pin or an upstream change cannot silently strand the wifi.scan
+  # ownership guarantees.
+  patch:
+    name: Verify pinned ESPHome patch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install pinned ESPHome
+        run: pip install "esphome==2026.9.1"
+
+      - name: Verify patch applies to pristine sources
+        run: |
+          python scripts/apply_esphome_patch.py \
+            --esphome-package "$(python -c 'import esphome, os; print(os.path.dirname(esphome.__file__))')" \
+            --check
+
+  # The hash check above is necessary but not sufficient: a patch can apply and
+  # still fail to compile, or define the listener API without the component
+  # picking it up. This job applies the patch and compiles the offline host
+  # profile, then verifies the generated defines. The stock fallback is covered
+  # by the build matrix below.
+  patch-build:
+    name: Build host profile with pinned patch
+    needs: patch
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install pinned ESPHome
+        run: pip install "esphome==2026.9.1"
+
+      - name: Cache ESPHome build dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/esphome
+            ~/.esphome
+            ~/.platformio
+            .esphome-host
+          key: ${{ runner.os }}-esphome-2026.9.1-${{ hashFiles('tests/r60abd1-esp32c3-host.yaml', 'tests/common/r60abd1_mwcp.yaml', 'patches/*.patch', 'components/mmwave_host/**') }}
+
+      - name: Build patched host firmware
+        run: python scripts/build_host_profile.py --mode patched
+
+      # Compiling proves the patch is loadable, not that every scan entry uses
+      # the coordinator. This audit fails if a scan start or completion dispatch
+      # is added outside the single ownership choke point.
+      - name: Audit scan ownership call sites
+        run: |
+          python scripts/check_scan_ownership_sources.py \
+            --esphome-package "$(python -c 'import esphome, os; print(os.path.dirname(esphome.__file__))')"
+
   discover:
     name: Discover test configurations
     runs-on: ubuntu-latest
@@ -101,3 +163,4 @@ jobs:
         uses: esphome/build-action@v7
         with:
           yaml-file: ${{ matrix.config }}
+          version: "2026.9.1"

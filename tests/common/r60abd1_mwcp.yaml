@@ -1,0 +1,453 @@
+﻿# Host-enabled radar core. Same entities as r60abd1.yaml, without improv_serial.
+# Keep this file aligned with tests/common/r60abd1.yaml except the device package.
+# R60ABD1 radar definition, shared by every consumer.
+#
+# Included by tests/r60abd1-esp32c3.yaml (standalone firmware, and via
+# that the factory build users flash) and by the workspace's
+# esphome-config/r60abd1-esp32c3.yaml. Edit here once.
+#
+# Carries no board, networking or external_components block on purpose:
+# each consumer supplies its own, and two declarations of the same key
+# would collide with no way to drop just one.
+
+# Diagnostics and recovery controls are the same on every model, so they live
+# in one place rather than being copied into sixteen radar cores.
+packages:
+  areas: !include _areas_host.yaml
+
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          // 寮€鏈哄惎鍔ㄥ悗锛屽皢淇濆瓨鍦ㄩ棯瀛樹腑鐨?globals 鎭㈠缁欏簳灞傞浄杈剧粍浠?
+          id(radar).set_radar_x(id(g_radar_x));
+          id(radar).set_radar_y(id(g_radar_y));
+          id(radar).set_radar_z(id(g_radar_z));
+          id(radar).set_yaw(id(g_yaw));
+          id(radar).set_pitch(id(g_pitch));
+          id(radar).set_roll(id(g_roll));
+
+          if (!id(g_polygon).empty()) {
+            id(text_polygon).publish_state(id(g_polygon));
+          }
+      - script.execute: apply_polygon
+
+script:
+  - id: apply_polygon
+    mode: restart
+    then:
+      - lambda: |-
+          // 瑙ｆ瀽 "x1,y1;x2,y2;..." 褰㈠紡鐨勫杈瑰舰瀛楃涓层€?
+          //
+          // 杩欓噷缁濅笉鑳界敤 std::stof銆侲SPHome 鐨?esp-idf 鏋勫缓鍏抽棴浜?C++ 寮傚父
+          // (sdkconfig: CONFIG_COMPILER_CXX_EXCEPTIONS is not set)锛宻td::stof
+          // 閬囧埌闈炴硶杈撳叆浼?std::terminate() -> abort()锛屼篃灏辨槸鐢ㄦ埛鍦?HA 鐨?
+          // 鏂囨湰妗嗛噷闅忔墜鎵撻敊涓€涓瓧绗﹀氨浼氭妸闆疯揪閲嶅惎銆?
+          //
+          // 鏀圭敤 strtof + endptr 鏍￠獙锛氶潪娉曠殑鐐硅烦杩囧苟鍛婅锛屽叾浣欑収甯稿簲鐢ㄣ€?
+          id(radar).clear_polygon();
+          const std::string s = id(g_polygon);
+          size_t start = 0;
+          uint8_t added = 0;
+          uint8_t rejected = 0;
+          // 涓婇檺鍚屾椂闃蹭綇瓒呴暱杈撳叆鎾戠垎鍐呭瓨銆?
+          while (start <= s.size() && added < 64) {
+            const size_t sep = s.find(';', start);
+            const std::string pt =
+                (sep == std::string::npos) ? s.substr(start) : s.substr(start, sep - start);
+            start = (sep == std::string::npos) ? s.size() + 1 : sep + 1;
+            if (pt.empty()) continue;
+
+            const size_t comma = pt.find(',');
+            if (comma == std::string::npos) { rejected++; continue; }
+
+            const std::string xs = pt.substr(0, comma);
+            const std::string ys = pt.substr(comma + 1);
+            char *xend = nullptr;
+            char *yend = nullptr;
+            const float px = strtof(xs.c_str(), &xend);
+            const float py = strtof(ys.c_str(), &yend);
+            // endptr 鏈墠杩?= 瀹屽叏娌¤В鏋愬嚭鏁板瓧锛涘啀鎸℃帀 inf/nan銆?
+            if (xend == xs.c_str() || yend == ys.c_str() ||
+                !std::isfinite(px) || !std::isfinite(py)) {
+              rejected++;
+              continue;
+            }
+
+            id(radar).add_polygon_point(px, py);
+            added++;
+          }
+          if (rejected > 0)
+            ESP_LOGW("polygon", "Ignored %u malformed point(s) in polygon string", rejected);
+          ESP_LOGI("polygon", "Applied %u polygon point(s)", added);
+
+# Reference the component from the submodule mount.
+
+uart:
+  id: uart_r60abd1
+  tx_pin: GPIO21 # ESP32-C3 TX 鈫?R60ABD1 RXD锛堜氦鍙夋帴绾匡級
+  rx_pin: GPIO20 # ESP32-C3 RX 鈫?R60ABD1 TXD
+  baud_rate: 115200
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+
+# =============================================================================
+# 5. 鏍″噯鍙傛暟锛坓lobals锛?
+# =============================================================================
+# globals 鍦ㄨ繍琛屾椂鍙 number 瀹炰綋鐨?set_action 鏇存柊锛?
+# 鐢ㄤ簬 component 鐨?set_*() 璋冪敤浠ュ疄鐜颁笉閲嶆柊缂栬瘧灏辫兘鏍″噯銆?
+
+globals:
+  - id: g_radar_x
+    type: float
+    restore_value: true # 鎺夌數鎭㈠锛岄伩鍏嶆瘡娆￠噸鍚兘瑕侀噸鏂版牎鍑?
+    initial_value: "0.0" # 涓婄數榛樿鍊硷紝棣栨鐑у綍鍚庨€氳繃 number 瀹炰綋瑕嗙洊
+
+  - id: g_radar_y
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_radar_z
+    type: float
+    restore_value: true
+    initial_value: "220.0" # cm锛屽吀鍨嬪崸瀹ゅ惛椤跺畨瑁呴珮搴?
+
+  - id: g_yaw
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 鐢?Lovelace 鍗＄墖涓ょ偣鍋忚埅鏍″噯鍚庢洿鏂?
+
+  - id: g_pitch
+    type: float
+    restore_value: true
+    initial_value: "0.0" # 姘村钩瀹夎涓?0锛涙枩瑁呮椂濉疄娴嬪€兼垨 IMU 璇绘暟
+
+  - id: g_roll
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+
+  - id: g_polygon
+    type: std::string
+    restore_value: true
+    max_restore_data_length: 254
+    initial_value: '""'
+
+# =============================================================================
+# 6. R60ABD1 缁勪欢鏍稿績閰嶇疆
+# =============================================================================
+
+r60abd1:
+  id: radar # 渚?lambda 璋冪敤锛歩d(radar).enable_breath() 绛?
+  uart_id: uart_r60abd1
+
+  # 鈹€鈹€ 缂栬瘧鏈熸牎鍑嗗弬鏁帮紙鍒濆鍊硷紱杩愯鏃跺彲琚?number 瀹炰綋瑕嗙洊锛夆攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+  # 璇存槑锛氱粍浠?setup() 鏃剁敤杩欎簺鍊煎垵濮嬪寲锛沶umber 瀹炰綋 set_action 涔嬪悗璋冪敤
+  # id(radar).set_yaw(x) 瀹炴椂鏇存柊锛屾棤闇€閲嶅惎銆?
+  radar_x: 0.0 # 闆疯揪鍦ㄦ埧闂翠腑鐨?X 浣嶇疆锛坈m锛屾埧闂村乏涓嬭涓哄師鐐癸級
+  radar_y: 0.0 # Y 浣嶇疆锛坈m锛?
+  radar_z: 220.0 # 瀹夎楂樺害锛坈m锛?
+  yaw: 0.0 # 鍋忚埅瑙掞紙掳锛岀敱鏍″噯鍗＄墖濉啓锛?
+  pitch: 0.0 # 淇话瑙掞紙掳锛?
+  roll: 0.0 # 妯粴瑙掞紙掳锛?
+
+  # 鈹€鈹€ 鎴块棿杈圭晫澶氳竟褰紙鎴块棿鍧愭爣绯伙紝cm锛夆攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+  # 淇敼鍚庨渶閲嶆柊缂栬瘧鍥轰欢銆?
+  # Lovelace 鍗＄墖鍓嶇涔熸湁鐙珛鐨勫杈瑰舰杩囨护锛堝瓨 localStorage锛夛紝涓よ€呯嫭绔嬪伐浣溿€?
+  # 绀轰緥锛?00cm脳350cm 鐭╁舰鎴块棿锛屽幓鎺夐棬鍙?100cm 瀹界殑鍖哄煙
+  polygon:
+    - { x: 0, y: 0 }
+    - { x: 400, y: 0 }
+    - { x: 400, y: 350 }
+    - { x: 0, y: 350 }
+  # 鑻ヤ笉闇€瑕?ESPHome 渚ц竟鐣岃繃婊わ紝娓呯┖ polygon 鍒楄〃锛?
+  # polygon: []
+
+  # 鈹€鈹€ 瀛樺湪涓庤繍鍔ㄤ紶鎰熷櫒 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+
+  presence:
+    name: "Presence"
+    device_class: presence
+  area_1_occupied:
+    name: "Area 1 Occupied"
+    device_class: occupancy
+  area_2_occupied:
+    name: "Area 2 Occupied"
+    device_class: occupancy
+  area_3_occupied:
+    name: "Area 3 Occupied"
+    device_class: occupancy
+    # 鐘舵€侊細on = 鏈変汉锛宱ff = 鏃犱汉
+    # 鏃犱汉鈫掓湁浜猴細0.5s 鍐呬笂鎶ワ紱鏈変汉鈫掓棤浜猴細40s 鍚庝笂鎶ワ紙R60ABD1 鍐呴儴閫昏緫锛?
+
+  # 澶氶浄杈捐瀺鍚堝叆鍙ｏ細涓?LD2450 绯诲垪鍚屼竴涓?v1 鍘熷瓙甯т俊灏併€?
+  target_frame:
+    name: "Target Frame"
+    icon: mdi:radar
+
+  motion_state:
+    name: "Motion State"
+    # 0 = 鏃? 1 = 闈欐  2 = 娲昏穬
+    icon: mdi:motion-sensor
+
+  body_movement:
+    name: "Body Movement"
+    # 浣撳姩骞呭害鍙傛暟 0-100锛?s 鏇存柊涓€娆?
+    icon: mdi:run-fast
+
+  body_distance:
+    name: "Body Distance"
+    unit_of_measurement: cm
+    icon: mdi:ruler
+    device_class: distance
+
+  # 鈹€鈹€ 鍘熷鍧愭爣锛堥浄杈惧眬閮ㄥ潗鏍囩郴锛屼緵 Lovelace 鍗＄墖璇诲彇锛夆攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+  # Lovelace 鍗＄墖鐩存帴璇昏繖涓変釜瀹炰綋锛屽湪鍓嶇鐢?localStorage 閲岀殑鏍″噯鍙傛暟鍋氬彉鎹€?
+  # 涓嶈鍦?HA 鑷姩鍖栦腑鐩存帴浣跨敤杩欎笁涓€煎仛浣嶇疆鍒ゆ柇锛岃鐢?room_x / room_y銆?
+
+  raw_x:
+    name: "X" # HA 瀹炰綋 ID: sensor.r60abd1_radar_x
+    unit_of_measurement: cm
+    icon: mdi:axis-x-arrow
+    # internal: true           # 濡傛灉鍙兂瀵瑰鏆撮湶鍙樻崲鍚庡潗鏍囷紝鍙栨秷娉ㄩ噴姝よ
+
+  raw_y:
+    name: "Y" # HA 瀹炰綋 ID: sensor.r60abd1_radar_y
+    unit_of_measurement: cm
+    icon: mdi:axis-y-arrow
+
+  raw_z:
+    name: "Z" # HA 瀹炰綋 ID: sensor.r60abd1_radar_z
+    unit_of_measurement: cm
+    icon: mdi:axis-z-arrow
+
+  # 鈹€鈹€ 鍙樻崲鍚庡潗鏍囷紙鎴块棿鍧愭爣绯伙紝渚?HA 鑷姩鍖栦娇鐢級鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+  # 杩欎袱涓€煎凡缁忚繃 yaw/pitch/roll/浣嶇疆 鍙樻崲锛岀洿鎺ュ搴旀埧闂村钩闈㈠浘鍧愭爣銆?
+  # 杈圭晫澶栫洰鏍囷細褰撳墠瀹炵幇涓粛浼氬彂甯冿紙鍊间负鐩爣瀹為檯鎴块棿鍧愭爣锛夛紝
+  # 閰嶅悎 in_boundary 瀹炰綋鍦ㄨ嚜鍔ㄥ寲涓繃婊ゃ€?
+
+  room_x:
+    name: "Room X" # HA 瀹炰綋 ID: sensor.r60abd1_radar_room_x
+    unit_of_measurement: cm
+    icon: mdi:map-marker-radius
+    accuracy_decimals: 1
+
+  room_y:
+    name: "Room Y" # HA 瀹炰綋 ID: sensor.r60abd1_radar_room_y
+    unit_of_measurement: cm
+    icon: mdi:map-marker-radius
+    accuracy_decimals: 1
+
+  room_z:
+    name: "Height Floor" # 鐩爣璺濆湴闈㈤珮搴︼紙cm锛? radar_z - Z_transformed
+    unit_of_measurement: cm
+    icon: mdi:human-male-height
+    accuracy_decimals: 1
+
+  in_boundary:
+    name: "In Boundary" # on = 鍦ㄥ杈瑰舰鍐咃紝off = 鍦ㄥ杈瑰舰澶?
+    icon: mdi:vector-polygon
+
+  # 鈹€鈹€ 鍛煎惛 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+
+  breath_value:
+    name: "Breath Rate" # 鍛煎惛棰戠巼锛屾瘡 3s 鏇存柊涓€娆★紝鑼冨洿 0-35 娆?min
+    unit_of_measurement: "娆?min"
+    icon: mdi:lungs
+
+  breath_state:
+    name: "Breath State" # normal / high / low / none
+    icon: mdi:lungs
+
+  # 鈹€鈹€ 蹇冪巼 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+
+  heart_rate:
+    name: "Heart Rate" # 蹇冪巼锛屾瘡 3s 鏇存柊涓€娆★紝鑼冨洿 60-120 bpm
+    unit_of_measurement: bpm
+    icon: mdi:heart-pulse
+    device_class: frequency
+
+  # 鈹€鈹€ 鐫＄湢鐩戞祴 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+
+  in_bed:
+    name: "In Bed" # on = 鍏ュ簥锛宱ff = 绂诲簥
+    icon: mdi:bed
+
+  sleep_state:
+    name: "Sleep State" # deep / light / awake / none锛堟瘡 10min 鏇存柊锛?
+    icon: mdi:sleep
+
+  awake_duration:
+    name: "Awake Duration" # 娓呴啋绱鏃堕暱锛坢in锛?
+    unit_of_measurement: min
+    icon: mdi:timer-outline
+
+  light_sleep_duration:
+    name: "Light Sleep Duration"
+    unit_of_measurement: min
+    icon: mdi:sleep
+
+  deep_sleep_duration:
+    name: "Deep Sleep Duration"
+    unit_of_measurement: min
+    icon: mdi:sleep
+
+  sleep_score:
+    name: "Sleep Score" # 0-100锛岀潯鐪犵粨鏉熸椂涓婃姤
+    icon: mdi:star-circle
+
+  sleep_quality:
+    name: "Sleep Quality" # good / fair / poor / none
+    icon: mdi:star-circle-outline
+
+# =============================================================================
+# 7. Number 瀹炰綋锛堟帴鏀?Lovelace 鍗＄墖鎴?HA 鑷姩鍖栧啓鍏ョ殑鏍″噯鍙傛暟锛?
+# =============================================================================
+# Lovelace 鍗＄墖鐐瑰嚮銆屼繚瀛樸€嶆椂锛屼細璋冪敤 number.set_value 鏈嶅姟鏇存柊杩欎簺瀹炰綋銆?
+# set_action 灏嗗€煎啓鍏?globals 骞剁珛鍗虫洿鏂扮粍浠讹紝鏃犻渶閲嶅惎鍥轰欢銆?
+
+number:
+  - platform: template
+    name: "Mount X"
+    entity_category: config
+    id: num_radar_x
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(radar).calibration().radar_x;"
+    set_action:
+      - lambda: |-
+          if (id(host_link).submit_number("install.x_cm", x)) id(num_radar_x).publish_state(x);
+          else id(num_radar_x).publish_state(id(radar).calibration().radar_x);
+
+  - platform: template
+    name: "Mount Y"
+    entity_category: config
+    id: num_radar_y
+    unit_of_measurement: cm
+    min_value: -2000
+    max_value: 2000
+    step: 1
+    mode: box
+    icon: mdi:crosshairs-gps
+    lambda: "return id(radar).calibration().radar_y;"
+    set_action:
+      - lambda: |-
+          if (id(host_link).submit_number("install.y_cm", x)) id(num_radar_y).publish_state(x);
+          else id(num_radar_y).publish_state(id(radar).calibration().radar_y);
+
+  - platform: template
+    name: "Mount Z"
+    entity_category: config
+    id: num_radar_z
+    unit_of_measurement: cm
+    min_value: 50
+    max_value: 600
+    step: 1
+    mode: box
+    icon: mdi:ruler-square
+    lambda: "return id(radar).calibration().radar_z;"
+    set_action:
+      - lambda: |-
+          if (id(host_link).submit_number("install.z_cm", x)) id(num_radar_z).publish_state(x);
+          else id(num_radar_z).publish_state(id(radar).calibration().radar_z);
+
+  - platform: template
+    name: "Mount Yaw"
+    entity_category: config
+    id: num_yaw
+    unit_of_measurement: "掳"
+    min_value: -180
+    max_value: 180
+    step: 0.1
+    mode: box
+    icon: mdi:rotate-3d-variant
+    lambda: "return id(radar).calibration().yaw;"
+    set_action:
+      - lambda: |-
+          if (id(host_link).submit_number("install.yaw_deg", x)) id(num_yaw).publish_state(x);
+          else id(num_yaw).publish_state(id(radar).calibration().yaw);
+
+  - platform: template
+    name: "Mount Pitch"
+    entity_category: config
+    id: num_pitch
+    unit_of_measurement: "掳"
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(radar).calibration().pitch;"
+    set_action:
+      - lambda: |-
+          if (id(host_link).submit_number("install.pitch_deg", x)) id(num_pitch).publish_state(x);
+          else id(num_pitch).publish_state(id(radar).calibration().pitch);
+
+  - platform: template
+    name: "Mount Roll"
+    entity_category: config
+    id: num_roll
+    unit_of_measurement: "掳"
+    min_value: -90
+    max_value: 90
+    step: 0.5
+    mode: box
+    icon: mdi:angle-acute
+    lambda: "return id(radar).calibration().roll;"
+    set_action:
+      - lambda: |-
+          if (id(host_link).submit_number("install.roll_deg", x)) id(num_roll).publish_state(x);
+          else id(num_roll).publish_state(id(radar).calibration().roll);
+
+# =============================================================================
+# 8. Button 瀹炰綋锛堣繙绋嬫帶鍒堕浄杈炬ā缁勶級
+# =============================================================================
+
+button:
+  - platform: template
+    name: "Restart Module"
+    icon: mdi:restart
+    on_press:
+      - lambda: "id(radar).reset_module();"
+
+# 閫氱敤璇婃柇浼犳劅鍣紙WiFi Signal / Uptime / Status / IP / SSID / MAC锛夊拰閲嶅惎鎸夐挳
+# 宸茬Щ鍏?_device.yaml锛岀敱鏈枃浠堕《閮ㄧ殑 packages 寮曞叆銆?
+
+# =============================================================================
+# 9. Text 瀹炰綋锛堟帴鏀?Lovelace 鍗＄墖涓嬪彂鐨勫杈瑰舰瀛楃涓诧級
+# =============================================================================
+
+text:
+  - platform: template
+    name: "Zone Polygon"
+    entity_category: config
+    id: text_polygon
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: text
+    icon: mdi:vector-polygon
+    set_action:
+      - lambda: |-
+          if (id(host_link).submit_polygon(x.c_str())) id(g_polygon) = x;
+          else id(text_polygon).publish_state(id(g_polygon));
+
+  - platform: template
+    name: "Mock Data"
+    entity_category: diagnostic
+    id: text_mock_data
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: text
+    icon: mdi:test-tube
+    set_action:
+      - lambda: |-
+          id(radar).inject_mock_data(x);

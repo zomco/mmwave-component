@@ -22,7 +22,7 @@ class Parser {
 
   bool value(int depth) {
     skip();
-    if (depth > 8) return fail("depth");
+    if (depth > 10) return fail("depth");
     if (ended()) return fail("truncated");
     const uint8_t b = at(i_);
     if (b == '{') return object(depth);

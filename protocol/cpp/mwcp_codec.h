@@ -76,6 +76,15 @@ class Parser {
   void push(const uint8_t *data, size_t len, uint32_t now_ms, FrameHandler on_frame, ErrorHandler on_error, void *user);
   void poll(uint32_t now_ms, ErrorHandler on_error, void *user);
   const ParserStats &stats() const { return stats_; }
+  /// True while bytes of an incomplete frame are buffered (no delimiter yet).
+  bool partial() const { return len_ > 0 || discarding_; }
+  /// Drop a stalled partial frame. Used by the transport self-heal when the
+  /// C3 usb_serial_jtag driver stops delivering mid-frame; the host's
+  /// same-id retry re-sends the whole frame, so nothing is lost.
+  void discard_partial() {
+    len_ = 0;
+    discarding_ = false;
+  }
 
  private:
   void finish(FrameHandler on_frame, ErrorHandler on_error, void *user);
