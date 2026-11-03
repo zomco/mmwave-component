@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-03",
+  "code_baseline": "194524d173e91550a903911bee6c56ddf559bf4d",
+  "files": [
+    {
+      "original": "docs/reviews/web-console/wp0-wp1-phase-report.md",
+      "archived": "docs/reviews/web-console/archive/wp2-g2/wp0-wp1-phase-report.md",
+      "bytes": 156391,
+      "sha256": "f2eb5d39529036b4d7f12a6c81afe1889a9ba2d08a931836d657ec1647e878ad"
+    },
+    {
+      "original": "docs/reviews/web-console/wp0-wp1-phase-report_CN.md",
+      "archived": "docs/reviews/web-console/archive/wp2-g2/wp0-wp1-phase-report_CN.md",
+      "bytes": 148151,
+      "sha256": "a21b782d5b9daed2fd699f0664478b2de632582ee45ff6b877612cdc2820b06c"
+    },
+    {
+      "original": "docs/reviews/web-console/g2-hardware-report.md",
+      "archived": "docs/reviews/web-console/archive/wp2-g2/g2-hardware-report.md",
+      "bytes": 40765,
+      "sha256": "fa2e2dd5c7c861c6eaed71ea507db88aa297a2ebe2f986058058966e8784fd3d"
+    },
+    {
+      "original": "docs/reviews/web-console/g2-hardware-report_CN.md",
+      "archived": "docs/reviews/web-console/archive/wp2-g2/g2-hardware-report_CN.md",
+      "bytes": 93614,
+      "sha256": "297f84f4fa459f76f91021d60bb7b48498b25a3d1a92d557016edd3474d0cd00"
+    },
+    {
+      "original": "docs/reviews/web-console/g2-remediation-report.md",
+      "archived": "docs/reviews/web-console/archive/wp2-g2/g2-remediation-report.md",
+      "bytes": 132966,
+      "sha256": "3d8ad7153441292de729a48188b6f8234486f91ae5758558cd7b7b7aea30a7ec"
+    },
+    {
+      "original": "docs/reviews/web-console/g2-remediation-report_CN.md",
+      "archived": "docs/reviews/web-console/archive/wp2-g2/g2-remediation-report_CN.md",
+      "bytes": 137965,
+      "sha256": "c22fa1ad30944bd147d3d9af5f93cacac4accd778c3d203d3e447e93ad72996e"
+    }
+  ]
+}

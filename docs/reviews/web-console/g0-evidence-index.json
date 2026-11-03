@@ -1,0 +1,318 @@
+{
+  "schema": "mmwave.g0.hardware_evidence_index.v1",
+  "status": "hardware_verified_g0_baseline_for_g1",
+  "recorded_at": "2026-10-19T23:20:00+08:00",
+  "git_baseline": {
+    "workspace_head": "86fc3ea156a13df3410a9fec619a7a7e72203fb6",
+    "workspace_g0_hardware_run_head": "4847402",
+    "workspace_g0_compile_head": "468b4144a0653c5adde66351a2d8f7e94a0763c8",
+    "mmwave_component_head": "9a524b8e8b02ffb496d808250567d7169fe264d5",
+    "mmwave_component_g0_compile_head": "f01ac84fa72dd5b3f479cb1e674572f5cea95c1b",
+    "mmwave_card_head": "5799d5729dd8bf6ee6114038bc989c2be1a35cf0"
+  },
+  "batches": [
+    {
+      "batch_id": "batch-1-g0-t-firmware-compile",
+      "report_section": "Section 20 (G0-T Software Remediation)",
+      "workspace_head": "468b4144a0653c5adde66351a2d8f7e94a0763c8",
+      "mmwave_component_head": "f01ac84fa72dd5b3f479cb1e674572f5cea95c1b",
+      "g0_76_file_snapshot_sha256": "E673FFB3717040CACEB19835F245A1ED03C76C62336F4FCD79BC33A5D0D4E114",
+      "scope": "Compiled docs/reviews/web-console/g0/host.yaml and baseline.yaml under ESPHome 2026.9.1 / ESP-IDF 5.5.5 into C:\\Users\\zomco\\AppData\\Local\\Temp\\opencode\\esphome-data\\build\\. No serial port opened and no hardware flashed in Batch 1."
+    },
+    {
+      "batch_id": "batch-2-g0-u-hardware-execution",
+      "report_section": "Section 21 (G0-U Software Remediation & Hardware Execution)",
+      "workspace_head": "4847402",
+      "mmwave_component_head": "9a524b8e8b02ffb496d808250567d7169fe264d5",
+      "g0_76_file_snapshot_sha256_at_commit_9a524b8": "242D8366DFA15E0A45AC0F4467AD24FFE7ED3649201CCB3758C353DB0675BAA2",
+      "g0_76_file_snapshot_sha256_after_g0_04_diag_ui_fix": "F3B36DD0117BFDB53E2F494D61E5F0908A473FFCD3ECFEBC673399C24B05D1FA",
+      "scope": "Completed U1/U2/U3 JS-only fixes (no C++ firmware or YAML changes vs. Batch 1), flashed the Batch 1 firmware images onto LuatOS ESP32C3-CORE on COM9 (USB\\VID_303A&PID_1001&REV_0101&MI_00) wired to R60ABD1 on GPIO21 TX / GPIO20 RX, and executed real-hardware gates G0-01 through G0-05 including the 2-hour offline endurance run."
+    }
+  ],
+  "hardware_testbed": {
+    "board": "LuatOS ESP32C3-CORE (ESP32-C3 rev v0.4, 4 MB Flash, single-core RISC-V @ 160 MHz)",
+    "usb_interface": "ESP32-C3 Native USB Serial/JTAG (CDC ACM, D- = GPIO18, D+ = GPIO19)",
+    "serial_port": "COM9",
+    "usb_vid_pid": "USB\\VID_303A&PID_1001&REV_0101&MI_00",
+    "radar_module": "Seeed MR60BHA1 / R60ABD1 60 GHz Breathing & Heartbeat Radar",
+    "radar_uart": "UART1 (ESP32-C3 TX=GPIO21 -> Radar RX, ESP32-C3 RX=GPIO20 <- Radar TX, 115200 8N1)",
+    "host_os": "Windows 11 + WSL2 Ubuntu-22.04 LTS (Linux 6.6.87.2-microsoft-standard-WSL2 x86_64)",
+    "toolchain": {
+      "esphome": "2026.9.1",
+      "esp_idf": "5.5.5",
+      "riscv_gcc": "riscv32-esp-elf-gcc 14.2.0 (esp-14.2.0_20260121)",
+      "windows_node": "v22.13.1",
+      "linux_node": "v22.13.1",
+      "windows_gpp": "MinGW-W64 GCC 13.3.0 (D:\\Build\\mingw64\\bin\\g++.exe)",
+      "linux_gpp": "Ubuntu GCC 13.3.0 (/usr/bin/g++)",
+      "windows_browser": "Google Chrome 155.0.8059.84 / 155.0.7632.160",
+      "linux_browser": "Chromium 155.0.8059.79 snap"
+    }
+  },
+  "firmware_artifacts": {
+    "host": {
+      "config": "docs/reviews/web-console/g0/host.yaml",
+      "build_dir": "C:\\Users\\zomco\\AppData\\Local\\Temp\\opencode\\esphome-data\\build\\mwcp-g0-host\\build",
+      "firmware_ota_bin_bytes": 767856,
+      "firmware_ota_bin_sha256": "DF0DA7283D78E899B478F6092C125528964FABCED6FB4EF49F7B5ACDD8674026",
+      "firmware_factory_bin_bytes": 833392,
+      "firmware_factory_bin_sha256": "72C87C3DB3AAEF9A9C1968F2994365230D63FF33B3D0F50BE7B52A725CE56DD6",
+      "firmware_elf_bytes": 12553268,
+      "firmware_elf_sha256": "C4DF4D20F239FE9E7823793D658FBC1B332E844182AFD4E87E13A830C98C81E9",
+      "link_time_ram_used_bytes": 120112,
+      "link_time_ram_total_bytes": 321296,
+      "link_time_flash_used_bytes": 767502,
+      "link_time_flash_total_bytes": 1835008,
+      "elf_sections_bytes": {
+        ".flash.text": 591962,
+        ".flash.rodata": 102052,
+        ".iram0.text": 61644,
+        ".dram0.data": 11556,
+        ".dram0.bss": 46816
+      },
+      "single_usb_owner_verified": {
+        "improv_serial_symbols": 0,
+        "CONFIG_ESP_CONSOLE_NONE": true,
+        "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG": false,
+        "logger_hardware_uart": "UART0",
+        "logger_baud_rate": 0,
+        "api_reboot_timeout_s": 0,
+        "wifi_reboot_timeout_s": 0,
+        "radar_uart_tx_pin": "GPIO21",
+        "radar_uart_rx_pin": "GPIO20"
+      }
+    },
+    "baseline": {
+      "config": "docs/reviews/web-console/g0/baseline.yaml",
+      "build_dir": "C:\\Users\\zomco\\AppData\\Local\\Temp\\opencode\\esphome-data\\build\\mwcp-g0-baseline\\build",
+      "firmware_ota_bin_bytes": 765568,
+      "firmware_ota_bin_sha256": "7E0B7077A8D8A0594184C7F46924BC0A05969BC583F2777E96E0ADDA6CB4D1B8",
+      "firmware_factory_bin_bytes": 831104,
+      "firmware_factory_bin_sha256": "EDD243713F65C6B86DDA7642AF140898A24EABAD804A23E54B17AF14186BB21D",
+      "firmware_elf_bytes": 12754700,
+      "firmware_elf_sha256": "6D1962FBD94662A5078C548F3986241F6B082B3EE54F1DA21856F4F2C131491B",
+      "link_time_ram_used_bytes": 102588,
+      "link_time_ram_total_bytes": 321296,
+      "link_time_flash_used_bytes": 765210,
+      "link_time_flash_total_bytes": 1835008,
+      "elf_sections_bytes": {
+        ".flash.text": 590426,
+        ".flash.rodata": 101116,
+        ".iram0.text": 61768,
+        ".dram0.data": 11612,
+        ".dram0.bss": 29112
+      },
+      "radar_uart_tx_pin": "GPIO21",
+      "radar_uart_rx_pin": "GPIO20"
+    }
+  },
+  "gates": {
+    "G0-01": {
+      "name": "Parallel USB Serial/JTAG & Radar UART Communication",
+      "verdict": "PASS",
+      "summary": "Native USB Serial/JTAG on COM9 (USB\\VID_303A&PID_1001) completed HELLO handshake (session_id=3, boot_id=dcda0cf8f2741d72537c31049c579aea) while R60ABD1 on UART1 (GPIO21 TX / GPIO20 RX) maintained radar_link=healthy, advancing valid radar frames from 796 to 822 over 5s (~5.7 Hz), radar_errors=0, origin!=simulation."
+    },
+    "G0-02": {
+      "name": "Single USB Owner & Zero Unsolicited Frame Interference",
+      "verdict": "PASS",
+      "summary": "Flashed host.yaml factory image (SHA-256 72C87C3D...); steady-state raw USB listen on COM9 captured 0 unsolicited ASCII/ANSI/Improv/log bytes; STATUS_GET confirmed usb_exclusive=true, usb_install_err=0, rx_crc_errors=0, rx_oversize=0, parse_errors=0, tx_overflow=0."
+    },
+    "G0-03": {
+      "name": "Offline 2-Hour Endurance Run (Wi-Fi/HA Disconnected)",
+      "verdict": "PASS",
+      "raw_evidence_file": {
+        "external_path": "C:\\Users\\zomco\\.gemini\\antigravity\\brain\\def311e0-e1d9-4cb7-a5ea-9df7a0d0ff47\\scratch\\g0-03-evidence.json",
+        "filename": "g0-03-evidence.json",
+        "size_bytes": 3498699,
+        "sha256": "075451AAAC7D63AFC0D75A88812AF85FAD0E5CEA8D64D88901D60FA7291561F8",
+        "generated_at": "2026-10-19T08:44:34Z",
+        "segment_count": 112,
+        "pending_tail_count": 30,
+        "total_samples": 7198,
+        "in_repo_summary_locations": [
+          "docs/reviews/web-console/g0-evidence-index.json#/gates/G0-03",
+          "docs/reviews/web-console/wp0-wp1-phase-report_CN.md",
+          "docs/reviews/web-console/wp0-wp1-phase-report.md"
+        ],
+        "storage_note": "The 3,498,699-byte raw sample JSON is stored in the external conversation scratch directory to avoid committing a 3.5 MB blob into the Git repository; all aggregate metrics and 5 milestone samples (seq 1, 1800, 3600, 5400, 7198) are recorded directly below."
+      },
+      "metrics": {
+        "target_duration_s": 7200,
+        "actual_duration_ms": 7200660,
+        "boot_id": "dcda0cf8f2741d72537c31049c579aea",
+        "session_id": 3,
+        "reboot_detected": false,
+        "attempts": 7198,
+        "responses_ok": 7198,
+        "responses_error": 0,
+        "success_rate": 1.0,
+        "uptime_ms_first": 28645,
+        "uptime_ms_last": 7228453,
+        "uptime_delta_ms_min": 969,
+        "uptime_delta_ms_max": 1036,
+        "rtt_ms_min": 218,
+        "rtt_ms_max": 303,
+        "rtt_ms_avg": 239.03,
+        "radar_frames_first": 148,
+        "radar_frames_last": 35026,
+        "radar_frames_delta": 34878,
+        "radar_targets_first": 14,
+        "radar_targets_last": 3613,
+        "radar_targets_delta": 3599,
+        "free_heap_first_bytes": 192864,
+        "free_heap_last_bytes": 192864,
+        "free_heap_min_bytes": 192672,
+        "free_heap_max_bytes": 194672,
+        "free_heap_net_delta_bytes": 0,
+        "stack_high_water_bytes_first": 2972,
+        "stack_high_water_bytes_min": 2844,
+        "stack_high_water_bytes_last": 2844,
+        "max_loop_us_first": 2402,
+        "max_loop_us_peak": 4535
+      },
+      "milestone_samples": [
+        {
+          "seq": 1,
+          "at_ms": 241,
+          "rtt_ms": 241,
+          "boot_id": "dcda0cf8f2741d72537c31049c579aea",
+          "session_id": 3,
+          "uptime_ms": 28645,
+          "radar_link": "healthy",
+          "radar_frames": 148,
+          "radar_targets": 14,
+          "free_heap": 192864,
+          "stack_high_water_bytes": 2972,
+          "max_loop_us": 2402,
+          "ok": true
+        },
+        {
+          "seq": 1800,
+          "at_ms": 1799820,
+          "rtt_ms": 240,
+          "boot_id": "dcda0cf8f2741d72537c31049c579aea",
+          "session_id": 3,
+          "uptime_ms": 1828263,
+          "radar_link": "healthy",
+          "radar_frames": 9012,
+          "radar_targets": 914,
+          "free_heap": 192864,
+          "stack_high_water_bytes": 2844,
+          "max_loop_us": 4477,
+          "ok": true
+        },
+        {
+          "seq": 3600,
+          "at_ms": 3600560,
+          "rtt_ms": 241,
+          "boot_id": "dcda0cf8f2741d72537c31049c579aea",
+          "session_id": 3,
+          "uptime_ms": 3629035,
+          "radar_link": "healthy",
+          "radar_frames": 17687,
+          "radar_targets": 1814,
+          "free_heap": 194648,
+          "stack_high_water_bytes": 2844,
+          "max_loop_us": 4477,
+          "ok": true
+        },
+        {
+          "seq": 5400,
+          "at_ms": 5401327,
+          "rtt_ms": 239,
+          "boot_id": "dcda0cf8f2741d72537c31049c579aea",
+          "session_id": 3,
+          "uptime_ms": 5429851,
+          "radar_link": "healthy",
+          "radar_frames": 26333,
+          "radar_targets": 2714,
+          "free_heap": 192864,
+          "stack_high_water_bytes": 2844,
+          "max_loop_us": 4484,
+          "ok": true
+        },
+        {
+          "seq": 7198,
+          "at_ms": 7199899,
+          "rtt_ms": 241,
+          "boot_id": "dcda0cf8f2741d72537c31049c579aea",
+          "session_id": 3,
+          "uptime_ms": 7228453,
+          "radar_link": "healthy",
+          "radar_frames": 35026,
+          "radar_targets": 3613,
+          "free_heap": 192864,
+          "stack_high_water_bytes": 2844,
+          "max_loop_us": 4535,
+          "ok": true
+        }
+      ]
+    },
+    "G0-04": {
+      "name": "Browser Web Serial Lifecycle & Installer Handoff Baseline",
+      "verdict": "PASS (with B-04 / G3 / G4 UI branch boundary noted)",
+      "summary": "Verified in Google Chrome 155 on COM9 via g0-diag.html: selecting -> opening -> handshaking -> online -> 1Hz live capture -> disconnecting -> closed -> immediate reconnect without page refresh or USB replug, with zero InvalidStateError."
+    },
+    "G0-05": {
+      "name": "Flash / RAM / Stack / Loop Overhead vs Baseline",
+      "verdict": "PASS",
+      "metrics": {
+        "link_time_flash_baseline_bytes": 765210,
+        "link_time_flash_host_bytes": 767502,
+        "link_time_flash_delta_bytes": 2292,
+        "ota_bin_delta_bytes": 2288,
+        "factory_bin_delta_bytes": 2288,
+        "flash_budget_max_bytes": 92160,
+        "link_time_ram_baseline_bytes": 102588,
+        "link_time_ram_host_bytes": 120112,
+        "link_time_ram_delta_bytes": 17524,
+        "dram0_bss_baseline_bytes": 29112,
+        "dram0_bss_host_bytes": 46816,
+        "dram0_bss_delta_bytes": 17704,
+        "free_heap_baseline_bytes": 212476,
+        "free_heap_host_initial_bytes": 192868,
+        "free_heap_host_2h_steady_bytes": 192864,
+        "free_heap_host_2h_min_bytes": 192672,
+        "free_heap_host_2h_max_bytes": 194672,
+        "runtime_heap_delta_bytes": 19608,
+        "runtime_ram_hard_limit_bytes": 24576,
+        "largest_free_block_baseline_bytes": 114688,
+        "largest_free_block_host_bytes": 114688,
+        "stack_high_water_baseline_bytes": 6172,
+        "stack_high_water_host_initial_bytes": 2908,
+        "stack_high_water_host_2h_min_bytes": 2844,
+        "stack_budget_min_bytes": 2048,
+        "max_loop_us_baseline": 3162,
+        "max_loop_us_host_initial": 2676,
+        "max_loop_us_host_2h_peak": 4535,
+        "loop_target_max_us": 8000,
+        "loop_hard_limit_max_us": 16000
+      }
+    }
+  },
+  "technical_caveats": {
+    "radar_frame_rate_vs_field_update_rate": "R60ProbeStats.valid_frames (+34,878 over 7,199.8s, ~4.84 Hz average, 4..8 frames/s) counts all valid R60 UART frames across all control words (heartbeat, work state, presence 0x80/0x01, motion 0x80/0x02, body movement 0x80/0x03, distance 0x80/0x04, XY position 0x80/0x05, breath, heart rate, sleep). By contrast, R60ProbeStats.target_observations (+3,599 over 7,199.8s) counts only 0x80/0x05 XY coordinate frames and increments at 0.50 Hz (1 frame every 2,000 ms), while R60ABD1Component::publish_position_ further throttles state publishing to >=1,000 ms. Therefore, total UART frame rate (~5 Hz) must NEVER be equated to per-field update intervals for position.xy, presence, breath_rate, or heart_rate.",
+    "heap_largest_free_block_vs_fragmentation": "Equal largest_free_block (114,688 B) in G0-05 point-in-time snapshots and zero net free_heap drift (start 192,864 B, end 192,864 B, range 192,672..194,672 B) in G0-03 prove that the static-buffer G0 probe does not leak heap over 2 hours, but a single-point largest_free_block comparison does not prove absence of heap fragmentation under arbitrary dynamic allocations. WP-2 production firmware must retain static/bounded buffers and zero per-frame heap allocation.",
+    "diag_page_lifecycle_vs_installer_5_branches": "G0-04 verified real-hardware Web Serial open/handshake/capture/close/reopen in Chrome 155 on g0-diag.html, and unit tests verified esp-web-tools@10.4.0 port lifecycle rules, but the 5 full esp-web-tools UI dialog branches (install success -> console, install failure, user cancel, dialog close, physical unplug during install) have not yet been executed end-to-end on real hardware in the production console UI and remain mandatory B-04 / G3 / G4 verification items."
+  },
+  "probe_to_mwcp_mapping": {
+    "frozen_in_mwcp_v1": [
+      "Binary envelope (MWCP magic, version 1.0, kind, flags=0, session_id, request_id, code, wire_seq, payload_len, CRC32C, COBS + 0x00 delimiter)",
+      "HELLO (0x0001) handshake with 32-hex nonce & boot_id, session_ttl_ms=15000, limits (max_payload=4096, rpc_inflight=1, event_budget_bps=1000..8000)",
+      "PING (0x0002), SESSION_CLOSE (0x0003), DEVICE_INFO (0x0010), STATUS_GET (0x0012), SUBSCRIBE (0x0030), UNSUBSCRIBE (0x0031)",
+      "TELEMETRY (0x8001) envelope with source_seq, sent_ms, origin, presence, targets_quality, targets_ms, targets",
+      "STATUS_GET optional diagnostic fields free_heap (bytes) and reset_reason (string|null)"
+    ],
+    "g0_probe_only_extensions": [
+      "TELEMETRY.ext.g0 = { free_heap, largest_free_block, stack_high_water_bytes, max_loop_us, radar_bytes, radar_targets } (permitted by schema.$defs.telemetry.properties.ext maxProperties=8 for G0 diagnostics; not required in production WP-2 telemetry)",
+      "G0 baseline-meter Serial/JTAG text line (MWCP_G0_BASELINE ...) used only in baseline.yaml"
+    ],
+    "wp2_firmware_implementation_pending": [
+      "CAPABILITIES_LIST (0x0011) production firmware responder",
+      "CONFIG_READ (0x0020), CONFIG_VALIDATE (0x0021), CONFIG_COMMIT (0x0022), COMMIT_STATUS (0x0023) backed by dedicated NVS snapshot (ConfigService)",
+      "ACTIONS_LIST (0x0040), ACTION_START (0x0041), JOB_GET (0x0042) backed by JobService",
+      "WIFI_STATUS (0x0050), WIFI_SCAN (0x0051), WIFI_PROVISION (0x0052), WIFI_SCAN_RESULTS (0x0053) backed by WiFiService",
+      "STATUS_CHANGED (0x8002), CONFIG_CHANGED (0x8003), JOB_CHANGED (0x8004), LOG (0x8005) production event emitters"
+    ]
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "report_id": "G2-HW-R2-TIMELINE-DIAGNOSIS-20261030",
+  "generated_at": "2026-10-30T11:15:00Z",
+  "scope": "Timeline, causality, and retry analysis for 7200s soak (b4_soak_stress_7200s, b4_soak_idle_7200s)",
+  "sanitization": {
+    "secrets_scrubbed": true,
+    "private_network_identifiers_scrubbed": true,
+    "verification": "Only protocol opcodes, timings, and aggregated telemetry metrics included"
+  },
+  "requests_analysis": {
+    "req_1099": {
+      "request_id": 1099,
+      "opcode": "0x0002 (PING)",
+      "tx_time_s": 2798.704,
+      "rx_time_s": 2799.212,
+      "measured_rtt_ms": 508.0,
+      "retransmission_attempts": 1,
+      "concurrent_traffic": [
+        {
+          "time_s": 2798.971,
+          "direction": "rx",
+          "kind": "event (3)",
+          "code": "0x8001 (TELEMETRY)",
+          "description": "Incoming radar telemetry frame while PING is in flight"
+        }
+      ],
+      "causal_classification": "single_rpc_latency_under_telemetry_burst",
+      "is_packet_loss": false,
+      "is_retry": false,
+      "is_judge_false_failure": true,
+      "root_cause_explanation": "PING was issued at t=2798.704s during an active radar telemetry burst. The MCU prioritized UART RX/USB TX queue servicing, resulting in a single-attempt round-trip latency of 508.0ms. No packet loss or retry occurred. The historical judge failed because rebuild_judge_inputs_from_evidence did not preserve the resolved rtt_ms on the attempt record, causing the judge to measure against a hardcoded 500ms window ceiling and falsely flagging that the response arrived outside the attempt window.",
+      "remediation": "Updated rebuild_judge_inputs_from_evidence to record rtt_ms on matched attempts."
+    },
+    "req_2652": {
+      "request_id": 2652,
+      "opcode": "0x0012 (STATUS_GET)",
+      "tx_time_s": 6780.219,
+      "rx_time_s": 6781.091,
+      "measured_rtt_ms": 872.0,
+      "retransmission_attempts": 1,
+      "concurrent_traffic": [
+        {
+          "time_s": 6781.091,
+          "direction": "rx",
+          "kind": "event (3)",
+          "code": "0x8001 (TELEMETRY)",
+          "description": "2x concurrent incoming radar telemetry frames arriving at the same millisecond timestamp"
+        }
+      ],
+      "causal_classification": "single_rpc_latency_under_telemetry_burst",
+      "is_packet_loss": false,
+      "is_retry": false,
+      "is_judge_false_failure": true,
+      "root_cause_explanation": "STATUS_GET was issued at t=6780.219s. Multiple telemetry frames were queued and delivered at t=6781.091s simultaneously with the STATUS_GET response (872.0ms latency). The single RPC succeeded cleanly on attempt 1 without timeout, retransmission, or CRC error. As with req 1099, the historical judge's attempt window lacked rtt_ms and defaulted to 500ms, creating an artificial 'resolved after attempt window' failure.",
+      "remediation": "Updated rebuild_judge_inputs_from_evidence to record rtt_ms on matched attempts."
+    }
+  },
+  "rehearsal_vs_soak_comparison": {
+    "idle_run": {
+      "60s_rehearsal": {
+        "result": "pass",
+        "explanation": "60s dry run did not rigorously enforce offline network state validation."
+      },
+      "7200s_soak": {
+        "result": "fail",
+        "failure_check": "offline_precondition",
+        "root_cause": "The device was running a Wi-Fi enabled firmware image and remained associated with an AP (sta_ip valid). The idle soak specification strictly requires complete offline operation with unassociated radio state. The judge correctly failed this check.",
+        "action_required": "Flash nowifi profile (r60abd1-esp32c3-host-nowifi.yaml) or perform NVS Wi-Fi credentials erase before Batch 2 re-run."
+      }
+    },
+    "stress_run": {
+      "60s_rehearsal": {
+        "result": "pass",
+        "explanation": "60s rehearsal verified basic telemetry flow but did not require 5Hz LOG pressure."
+      },
+      "7200s_soak": {
+        "result": "fail",
+        "failure_check": "log_pressure_real",
+        "root_cause": "Production firmware builds do not emit continuous 5Hz diagnostic log frames (MWCP_EVENT_LOG, 0x8002). The test suite's stress judge requires real 5Hz diagnostic log event pressure to validate bidirectional queue starvation prevention. In b4_soak_stress_7200s, zero log frames were received, triggering a legitimate fail.",
+        "action_required": "Flash diagnostic stress profile (r60abd1-stress-diag.yaml) providing controlled 5Hz log frames before Batch 2 re-run."
+      }
+    }
+  },
+  "conclusion": {
+    "historical_soak_status": "REJECTED (Both 7200s idle and stress soak legitimately failed their gate checks)",
+    "verdict": "DO NOT rewrite soak results to pass. Retain historical runs as diagnostic; execute Batch 2 re-runs under authorized conditions with proper firmware profiles."
+  }
+}
