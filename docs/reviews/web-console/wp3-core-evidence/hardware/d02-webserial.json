@@ -1,0 +1,18 @@
+{
+  "pageUrl": "http://127.0.0.1:55032/#console",
+  "first": "pid 114416 OCR http/��127��0��1��55032������檵����ж˿� | 00�������� OCR http/��127��0��1��55032������檵����ж˿� | LISBJTAG/serialdebugunit��0M3�� | LISBJTAG/serialdebugunit��OMg�� CLICK_COM9 253,197 text=LISBJTAG/serialdebugunit��OMg�� CONFIRMED_COM9 ",
+  "disconnected": "clicked",
+  "second": "pid 114416 OCR http/��127��0��1��55032������檵����ж˿� | LISBJTAG/serialdebugunit��0M3�� | LISBJTAG/serialdebugunit��OMg�����䡶 CLICK_COM9 253,196 text=LISBJTAG/serialdebugunit��OMg�����䡶 CONFIRMED_COM9 ",
+  "config": {
+    "before": 30,
+    "trial": 31,
+    "saved": true,
+    "restored": true,
+    "finalValue": "30",
+    "restoredClick": "clicked"
+  },
+  "samples": [
+    "USB 调试 USB 调试 用浏览器经 USB 连接已刷 MWCP 固件的 ESP32-C3。不需要 Home Assistant，也不需要 Wi-Fi。电脑接主控 USB，雷达仍接 GPIO21/GPIO20，不要把雷达 UART 接到电脑。 断开 当前承诺的真机组合：R60ABD1 + 已验证的 ESP32-C3 原生 USB。其他组合只显示能力声明，不代表已验收。 串口 open 协议 online 雷达 healthy 数据 valid 配置 idle r60abd1 · 2D · mwcp-host configured_model 是固件里的配置，不是自动识别的雷达型号，也不会从 USB VID/PID 猜测。 快速验证 实时数据 配置 诊断 每一项只根据真实响应或观测点亮。倒计时结束不会让全部变绿。 USB 协议 通过 雷达通信 通过 存在 报告无人 配置可读 通过 先完成 USB 验证。接入 Home Assistant 是可选项，配网失败也不影响这里的调试。 absent · valid · seq 21",
+    "USB 调试 USB 调试 用浏览器经 USB 连接已刷 MWCP 固件的 ESP32-C3。不需要 Home Assistant，也不需要 Wi-Fi。电脑接主控 USB，雷达仍接 GPIO21/GPIO20，不要把雷达 UART 接到电脑。 断开 当前承诺的真机组合：R60ABD1 + 已验证的 ESP32-C3 原生 USB。其他组合只显示能力声明，不代表已验收。 串口 open 协议 online 雷达 healthy 数据 valid 配置 idle r60abd1 · 2D · mwcp-host configured_model 是固件里的配置，不是自动识别的雷达型号，也不会从 USB VID/PID 猜测。 快速验证 实时数据 配置 诊断 每一项只根据真实响应或观测点亮。倒计时结束不会让全部变绿。 USB 协议 通过 雷达通信 通过 存在 报告无人 配置可读 通过 先完成 USB 验证。接入 Home Assistant 是可选项，配网失败也不影响这里的调试。 absent · valid · seq 1"
+  ]
+}

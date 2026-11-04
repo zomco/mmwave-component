@@ -1,0 +1,50 @@
+{
+  "recordedAt": "2026-11-03T21:42:26+08:00",
+  "componentHead": "f5371156397e5c5605700c8a9d50f773278a81c5",
+  "workspaceHead": "d37aaf3f4aaf67cbdcf5a924daef54228080eda8",
+  "citedProductBaseline": "194524d",
+  "committedStaticDiffFromBaseline": "none",
+  "commands": [
+    {
+      "command": "node --test --test-timeout=20000 test/console-core.test.js",
+      "cwd": "static",
+      "exitCode": 0,
+      "result": "16 pass, 0 fail"
+    },
+    {
+      "command": "npm run test:unit",
+      "cwd": "static",
+      "exitCode": 0,
+      "result": "123 pass, 0 fail",
+      "note": "PATH prefixed with D:\\\\msys64\\\\ucrt64\\\\bin and MWCP_GPP set for this command only"
+    },
+    {
+      "command": "npm run test:browser",
+      "cwd": "static",
+      "exitCode": 0,
+      "result": "2 pass, 0 fail"
+    },
+    {
+      "command": "npm run build",
+      "cwd": "static",
+      "exitCode": 0,
+      "result": "vite build succeeded; existing lucide use-client warning is not a failure"
+    }
+  ],
+  "browser": {
+    "executable": "C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe",
+    "page": "built static/dist served on 127.0.0.1, opened at #console",
+    "serialChooserMocked": false,
+    "dom": "dom-check.json",
+    "screenshots": [
+      "zh-light-1280.png",
+      "zh-dark-1280.png",
+      "en-light-1280.png",
+      "zh-light-390.png",
+      "zh-light-config.png",
+      "zh-light-diag.png",
+      "zh-light-zoom200.png"
+    ]
+  },
+  "hardware": "not_run"
+}

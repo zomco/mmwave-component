@@ -49,6 +49,7 @@ export const copy = {
     ], oneDGuide: '1D 型号只配置最近/最远距离、灵敏度和距离区域，不使用平面方向校准。移动到已知距离验证距离和区域实体，再检查无人误报。',
     installCard: '在 HACS 中打开', cardDocs: '卡片配置说明', example: '最小 YAML 示例（实体 ID 必须替换）', copy: '复制', copied: '已复制', copyError: '复制失败，请手动选择文本。',
     theme: '切换深浅色', language: 'English', skip: '跳到 DIY 步骤', footer: 'MMWave Component + MMWave Card · 个人 DIY，本地设备',
+    consoleNav: 'USB 调试', consoleAfterFlash: '烧录完成？先做 USB 验证。接入 Home Assistant 仍是可选项。',
   },
   en: {
     title: 'Bring radar into your home', subtitle: 'Choose your hardware, wire it up, flash in your browser, then see it in Home Assistant.', badge: 'Personal DIY · ESP32-C3',
@@ -97,5 +98,6 @@ export const copy = {
       ['Live verification · walk test', 'Enter/leave boundaries and zones; check targets, in-boundary, presence and zone entities. Use the intended entity in automations. Allow departure delay (R60ABD1 about 40 s). Test the empty room for false triggers and reboot to check settings persist.'],
     ], oneDGuide: 'For 1D set near/far distance, sensitivity and distance zones, not planar calibration. Test at known distances, check zone entities, then test an empty room.',
     installCard: 'Open in HACS', cardDocs: 'Card configuration', example: 'Minimal YAML (replace entity IDs)', copy: 'Copy', copied: 'Copied', copyError: 'Copy failed. Select text manually.', theme: 'Toggle theme', language: '中文', skip: 'Skip to DIY steps', footer: 'MMWave Component + MMWave Card · Personal DIY, local devices',
+    consoleNav: 'USB debug', consoleAfterFlash: 'Finished flashing? Verify over USB first. Home Assistant stays optional.',
   },
 };

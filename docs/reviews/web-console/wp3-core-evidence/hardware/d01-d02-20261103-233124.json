@@ -1,0 +1,108 @@
+{
+  "port": "COM9",
+  "steps": [],
+  "identity": {
+    "device_id": "dcda0cf8f274",
+    "configured_model": "r60abd1",
+    "dimension": "2D",
+    "firmware_version": "mwcp-host",
+    "git_sha": "f5371156397e5c5605700c8a9d50f773278a81c5",
+    "build_profile": "host-enabled",
+    "radar_identity": null,
+    "session_ttl_ms": 15000
+  },
+  "subscribe_ok": true,
+  "telemetry_frames": 12,
+  "presence_values": [
+    {
+      "source_seq": 57,
+      "presence": {
+        "value": true,
+        "quality": "valid",
+        "sample_ms": 969
+      },
+      "targets_quality": "valid",
+      "target_count": 1
+    },
+    {
+      "source_seq": 59,
+      "presence": {
+        "value": true,
+        "quality": "valid",
+        "sample_ms": 969
+      },
+      "targets_quality": "valid",
+      "target_count": 1
+    },
+    {
+      "source_seq": 61,
+      "presence": {
+        "value": true,
+        "quality": "valid",
+        "sample_ms": 969
+      },
+      "targets_quality": "valid",
+      "target_count": 1
+    },
+    {
+      "source_seq": 62,
+      "presence": {
+        "value": true,
+        "quality": "valid",
+        "sample_ms": 969
+      },
+      "targets_quality": "valid",
+      "target_count": 1
+    },
+    {
+      "source_seq": 64,
+      "presence": {
+        "value": true,
+        "quality": "valid",
+        "sample_ms": 969
+      },
+      "targets_quality": "valid",
+      "target_count": 1
+    },
+    {
+      "source_seq": 66,
+      "presence": {
+        "value": true,
+        "quality": "valid",
+        "sample_ms": 969
+      },
+      "targets_quality": "valid",
+      "target_count": 1
+    },
+    {
+      "source_seq": 67,
+      "presence": {
+        "value": true,
+        "quality": "valid",
+        "sample_ms": 969
+      },
+      "targets_quality": "valid",
+      "target_count": 1
+    },
+    {
+      "source_seq": 69,
+      "presence": {
+        "value": true,
+        "quality": "valid",
+        "sample_ms": 969
+      },
+      "targets_quality": "valid",
+      "target_count": 1
+    }
+  ],
+  "presence_distinct": [
+    "{\"quality\": \"valid\", \"sample_ms\": 969, \"value\": true}"
+  ],
+  "presence_not_inferred": true,
+  "reconnect_hello": true,
+  "original_x_cm": 30,
+  "commit_ok": true,
+  "readback_x_cm": 31,
+  "readback_matches": true,
+  "restored": true
+}

@@ -74,6 +74,14 @@ export class ProtocolClient {
       this.rejected++;
       return;
     }
+    if (frame.json.ok === true && this.pending.expectedOpId) {
+      const result = frame.json.result || {};
+      const echoed = Object.prototype.hasOwnProperty.call(result, 'op_id');
+      if ((this.pending.code === CODE.CONFIG_COMMIT || echoed) && result.op_id !== this.pending.expectedOpId) {
+        this.ignored++;
+        return;
+      }
+    }
     if (this.pending.code === CODE.HELLO && frame.json.ok && frame.json.result?.nonce !== this.pending.nonce) {
       this.ignored++;
       return;
@@ -230,6 +238,7 @@ export class ProtocolClient {
       slot.requestId = requestId;
       slot.code = code;
       slot.nonce = options.nonce;
+      slot.expectedOpId = options.expectedOpId || null;
       slot.expectSession = options.sessionId ?? this.sessionId;
       slot.resolve = (frame) => settle(null, frame);
       slot.reject = (error) => settle(error);
@@ -264,7 +273,7 @@ export class ProtocolClient {
 
   async commit(changes, { baseRevision, opId }) {
     try {
-      return await this.request(CODE.CONFIG_COMMIT, { base_revision: baseRevision, op_id: opId, changes }, { timeoutMs: 2000, retry: false });
+      return await this.request(CODE.CONFIG_COMMIT, { base_revision: baseRevision, op_id: opId, changes }, { timeoutMs: 2000, retry: false, expectedOpId: opId });
     } catch (error) {
       if (error.message === 'timeout') return { unknown: true, opId };
       throw error;
@@ -272,7 +281,7 @@ export class ProtocolClient {
   }
 
   async commitStatus(opId) {
-    return this.request(CODE.COMMIT_STATUS, { op_id: opId });
+    return this.request(CODE.COMMIT_STATUS, { op_id: opId }, { expectedOpId: opId });
   }
 
   async subscribe(streams, eventBudgetBps = 8000) {

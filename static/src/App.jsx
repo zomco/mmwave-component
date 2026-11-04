@@ -4,6 +4,11 @@ import { copy } from './content';
 import FeatureShowcase from './FeatureShowcase';
 import RadarDetails from './RadarDetails';
 import { boards, radars, textFor, compatibleReleases, defaultRelease, parseReleaseIndex, verifyManifest } from './catalog';
+import ConsoleView from './console/ConsoleView';
+import { ConsoleSession } from './console/session.js';
+import { SerialCoordinator } from './console/serial-coordinator.js';
+import { WebSerialTransport } from './console/web-serial-transport.js';
+import { supportReport } from './console/session.js';
 
 const repo = 'https://github.com/zomco/mmwave-component';
 const asset = (path) => new URL(path, document.baseURI).href;
@@ -55,7 +60,7 @@ function Wiring({ radar, board, t, language }) {
     {board.pinMap && <><div className="flex flex-wrap gap-2 text-xs">{board.pinMap.map((p) => <span key={p.id}><span className="pin-dot" style={{ background: p.color }} />{p.label}</span>)}</div><p className="notice mt-3">{language === 'zh' ? 'USB 朝上、元件面朝前。仅为仓库参考布局，非通用接线认证；请核对实物丝印。每排两个孔属于同一引脚。' : 'USB at top, component side facing you. Repository reference layout only, not universal wiring certification. Match physical labels; two holes per row are one pin.'}</p></>}
     <div className="mt-3 flex flex-wrap gap-2"><a className="secondary-button" href={asset(board.reference)} target="_blank" rel="noreferrer">{t.reference}</a><a className="secondary-button" href={asset(board.frontReference)} target="_blank" rel="noreferrer">{t.frontReference}</a></div></div><div><table className="wiring-table"><thead><tr><th>{t.controller}</th><th>{t.radar}</th></tr></thead><tbody>{rows.map(([from, to, color]) => <tr key={from}><td><span className="pin-dot" style={{ background: color }} />{from}</td><td>{from.startsWith('UART_RX') ? '←' : '→'} {to}</td></tr>)}</tbody></table><p className="notice mt-3">{textFor(radar.powerNote, language)}</p><p className="muted mt-2 text-xs">UART: {radar.baudRate} bps · 8N1 · 3V3 {language === 'zh' ? '不接本型号电源' : 'not used for this radar supply'}</p></div></div></div>;
 }
-function Flash({ radar, board, wiringConfirmed, t }) {
+function Flash({ radar, board, wiringConfirmed, t, portHeld, blockedMessage }) {
   const [releases, setReleases] = useState([]);
   const [state, setState] = useState('loading');
   const [retry, setRetry] = useState(0);
@@ -89,7 +94,7 @@ function Flash({ radar, board, wiringConfirmed, t }) {
     {release && <div className="soft-surface mt-4 p-4"><div className="flex flex-wrap gap-3 text-xs"><span>{radar.name} · {board.name}</span><span>{release.publishedAt.slice(0, 10)}</span><span>{t.commit}: {release.sourceCommit.slice(0, 8)}</span><span>{t.binary}: {release.binaryVersion || release.version}</span></div><a className="text-link mt-3 inline-block" href={`${repo}/releases/tag/${encodeURIComponent(release.version)}`} target="_blank" rel="noreferrer">{t.notes} ↗</a></div>}
     {release?.channel === 'alpha' && <label className="check-row mt-4"><input type="checkbox" checked={alpha} onChange={(e) => setAlpha(e.target.checked)} />{t.alphaConfirm}</label>}
     <p className="notice mt-4">{t.erase}</p><div className="mt-5" aria-live="polite">{release && serial && (!verified.key ? <p>{t.verify}</p> : verified.error && <p role="alert">{t.verifyError} <button className="text-link" onClick={() => setRetry((n) => n + 1)}>{t.retry}</button></p>)}</div>
-    <div className="mt-5">{ready ? <esp-web-install-button key={key} manifest={verified.url}><button slot="activate" className="primary-button w-full"><Zap size={18} />{t.flash}</button><span slot="unsupported">{t.browser}</span><span slot="not-allowed">{t.browser}</span></esp-web-install-button> : <><button className="primary-button w-full" disabled><Usb size={18} />{t.flash}</button>{!wiringConfirmed && <p className="muted mt-2 text-sm">{t.prepare}</p>}</>}</div><p className="muted mt-3 text-sm leading-6">{t.flashHint}</p>
+    <div className="mt-5">{portHeld ? <><button className="primary-button w-full" disabled><Usb size={18} />{t.flash}</button><p className="notice mt-3" role="status">{blockedMessage}</p></> : ready ? <esp-web-install-button key={key} manifest={verified.url}><button slot="activate" className="primary-button w-full"><Zap size={18} />{t.flash}</button><span slot="unsupported">{t.browser}</span><span slot="not-allowed">{t.browser}</span></esp-web-install-button> : <><button className="primary-button w-full" disabled><Usb size={18} />{t.flash}</button>{!wiringConfirmed && <p className="muted mt-2 text-sm">{t.prepare}</p>}</>}</div><p className="muted mt-3 text-sm leading-6">{t.flashHint}</p>
     <details className="mt-6"><summary>{t.troubleshoot}</summary><dl className="mt-4 space-y-4">{t.trouble.map(([title, body]) => <div key={title}><dt className="font-semibold">{title}</dt><dd className="muted mt-1 text-sm leading-6">{body}</dd></div>)}</dl></details></>;
 }
 function Guide({ radar, t }) {
@@ -111,17 +116,48 @@ export default function App() {
   useEffect(() => { persist('mmwave-language', language); document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en'; }, [language]);
   useEffect(() => { persist('mmwave-theme', theme); document.documentElement.classList.toggle('dark', theme === 'dark'); }, [theme]);
   useEffect(() => { const redirect = () => { if (location.hash.startsWith('#/')) history.replaceState(null, '', `${location.pathname}${location.search}#diy`); }; redirect(); window.addEventListener('hashchange', redirect); return () => window.removeEventListener('hashchange', redirect); }, []);
+
+  const consoleRef = useRef(null);
+  if (!consoleRef.current) {
+    const session = new ConsoleSession({});
+    const serialApi = typeof navigator !== 'undefined' ? navigator.serial : null;
+    const coordinator = new SerialCoordinator({
+      serial: serialApi,
+      locks: typeof navigator !== 'undefined' ? navigator.locks : null,
+      channelFactory: typeof BroadcastChannel !== 'undefined' ? (name) => new BroadcastChannel(name) : null,
+    });
+    coordinator.onUnplug = () => { session.stop(); };
+    consoleRef.current = { session, coordinator };
+  }
+  const [consoleSnap, setConsoleSnap] = useState(() => consoleRef.current.session.snapshot());
+  useEffect(() => {
+    consoleRef.current.session.onChange = setConsoleSnap;
+  }, []);
+  const support = supportReport(typeof navigator !== 'undefined' ? navigator.serial : null, typeof window !== 'undefined' ? window.isSecureContext : false);
+  const portHeld = consoleSnap.layers.port === 'open' || consoleSnap.layers.protocol === 'online' || consoleSnap.layers.protocol === 'handshake';
+  const connectConsole = async () => {
+    const opened = await consoleRef.current.coordinator.connect({ isSecureContext: typeof window !== 'undefined' ? window.isSecureContext : false });
+    if (!opened.ok) return opened;
+    const transport = new WebSerialTransport(opened.port);
+    const result = await consoleRef.current.session.attach(transport, { mode: 'hardware', detach: opened.detach });
+    if (!result.ok) await consoleRef.current.coordinator.disconnect(consoleRef.current.session);
+    return result;
+  };
+  const disconnectConsole = async () => {
+    await consoleRef.current.coordinator.disconnect(consoleRef.current.session);
+  };
   const go = (index) => { setStep(index); requestAnimationFrame(() => { heading.current?.focus(); document.getElementById('diy')?.scrollIntoView({ block: 'start' }); }); };
   const selectRadar = (id) => { setRadar(id); confirmWiring(false); };
   const selectBoard = (id) => { setBoard(id); confirmWiring(false); };
-  return <><a className="skip-link" href="#diy">{t.skip}</a><header className="site-header"><div className="shell flex items-center justify-between gap-3 py-4"><a href="#diy" className="flex items-center gap-3 font-semibold"><Radar className="text-brand-600" />MMWave <span className="hidden text-xs font-normal sm:inline">DIY</span></a><div className="flex gap-2"><button className="secondary-button" onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}><Globe2 size={16} />{t.language}</button><button className="icon-button" aria-label={t.theme} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button><a href={repo} className="secondary-button hidden sm:inline-flex" target="_blank" rel="noreferrer">GitHub ↗</a></div></div></header>
+  return <><a className="skip-link" href="#diy">{t.skip}</a><header className="site-header"><div className="shell flex flex-wrap items-center justify-between gap-3 py-4"><a href="#diy" className="flex items-center gap-3 font-semibold"><Radar className="text-brand-600" />MMWave <span className="hidden text-xs font-normal sm:inline">DIY</span></a><div className="flex flex-wrap justify-end gap-2"><a className="secondary-button" href="#diy">DIY</a><a className="secondary-button" href="#console">{t.consoleNav}</a><a className="secondary-button hidden md:inline-flex" href="#features">{t.features.link}</a><button className="secondary-button" onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}><Globe2 size={16} />{t.language}</button><button className="icon-button" aria-label={t.theme} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button><a href={repo} className="secondary-button hidden sm:inline-flex" target="_blank" rel="noreferrer">GitHub ↗</a></div></div></header>
     <main className="shell pb-16"><section className="py-10 sm:py-14"><span className="eyebrow">{t.badge}</span><h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-5xl">{t.title}</h1><p className="muted mt-4 max-w-2xl leading-7">{t.subtitle}</p></section>
       <section id="diy" className="scroll-mt-24"><nav className="step-nav" aria-label={t.selection}>{t.steps.map((title, index) => <button key={title} className={step === index ? 'current' : ''} aria-current={step === index ? 'step' : undefined} onClick={() => go(index)}><span>{index + 1}</span>{title}</button>)}</nav><div className="mt-5 grid items-start gap-5 lg:grid-cols-[1fr_260px]"><div className="surface min-w-0 p-5 sm:p-8"><h2 ref={heading} tabIndex={-1} className="section-title outline-none">{t.steps[step]}</h2><div className="mt-4">
         {step === 0 && <><p className="muted leading-7">{t.radarHint}</p><DevicePicker kind="radar" devices={radars} selected={radar} onSelect={selectRadar} {...{ language, t }} />{radar && <RadarDetails {...{ radar, language, t }} />}</>}
         {step === 1 && <><p className="muted leading-7">{t.boardHint}</p><DevicePicker kind="board" devices={boards} selected={board} onSelect={selectBoard} {...{ language, t }} />{radar && board ? <><Wiring {...{ radar, board, t, language }} /><label className="check-row mt-5"><input type="checkbox" checked={wiringConfirmed} onChange={(e) => confirmWiring(e.target.checked)} />{t.boardConfirm}</label></> : <p className="notice mt-5">{t.prepare}</p>}</>}
-        {step === 2 && <Flash {...{ radar, board, wiringConfirmed, t }} />}{step === 3 && <Guide {...{ radar, t }} />}
+        {step === 2 && <><Flash {...{ radar, board, wiringConfirmed, t }} portHeld={portHeld} blockedMessage={t.consoleNav + ' · ' + (language === 'zh' ? '请先断开 USB 调试再烧录。' : 'Disconnect USB debug before flashing.')} /><p className="muted mt-4 text-sm leading-6"><a className="text-link" href="#console">{t.consoleAfterFlash}</a></p></>}{step === 3 && <Guide {...{ radar, t }} />}
         </div><div className="mt-8 flex flex-wrap justify-between gap-3 border-t border-slate-200 pt-5 dark:border-white/10">{step > 0 ? <button className="secondary-button" onClick={() => go(step - 1)}><ChevronLeft size={16} />{t.back}</button> : <span />}{step < 3 && <button className="primary-button" disabled={step === 0 ? !radar : step === 1 ? !radar || !board || !wiringConfirmed : false} onClick={() => go(step + 1)}>{step === 2 ? t.flashDone : t.next}<ArrowRight size={16} /></button>}</div></div>
         <aside className="soft-surface p-5"><h2 className="text-sm font-semibold">{t.selection}</h2><dl className="mt-4 space-y-4 text-sm"><div><dt className="muted text-xs">{t.steps[0]}</dt><dd className="mt-1">{radar?.name || '—'}</dd></div><div><dt className="muted text-xs">{t.steps[1]}</dt><dd className="mt-1">{board?.name || '—'}</dd></div></dl><p className="muted mt-5 border-t border-slate-200 pt-4 text-xs leading-6 dark:border-white/10">GPIO21 TX → RX<br />GPIO20 RX ← TX<br />GND ↔ GND</p><a className="text-link mt-4 inline-block text-xs" href="#features">{t.features.link}</a></aside></div></section>
+      <ConsoleView language={language} session={consoleRef.current.session} snapshot={consoleSnap} support={support} onConnect={connectConsole} onDisconnect={disconnectConsole} busy={false} selectedModel={radar?.id} />
       <FeatureShowcase t={t.features} onGuide={() => go(3)} />
     </main><footer className="shell border-t border-slate-200 py-6 text-xs text-slate-500 dark:border-white/10">{t.footer}</footer></>;
 }

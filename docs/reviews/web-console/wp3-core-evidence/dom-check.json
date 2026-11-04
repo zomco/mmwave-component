@@ -1,0 +1,208 @@
+{
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "securePage": "http://127.0.0.1:59118/#console",
+  "shots": [
+    "zh-light-1280.png",
+    "zh-dark-1280.png",
+    "en-light-1280.png",
+    "zh-light-390.png",
+    "zh-light-config.png",
+    "zh-light-diag.png",
+    "zh-light-zoom200.png"
+  ],
+  "zh-light-1280": {
+    "title": "USB 调试",
+    "tabs": [
+      {
+        "text": "快速验证",
+        "selected": "true"
+      },
+      {
+        "text": "实时数据",
+        "selected": "false"
+      },
+      {
+        "text": "配置",
+        "selected": "false"
+      },
+      {
+        "text": "诊断",
+        "selected": "false"
+      }
+    ],
+    "connectDisabled": false,
+    "connectText": "连接设备",
+    "serial": true,
+    "secure": true,
+    "mentionsSimulation": false,
+    "nav": true,
+    "headerWrap": true,
+    "width": 1280,
+    "themeDark": false,
+    "lang": "zh-CN"
+  },
+  "zh-dark-1280": {
+    "title": "USB 调试",
+    "tabs": [
+      {
+        "text": "快速验证",
+        "selected": "true"
+      },
+      {
+        "text": "实时数据",
+        "selected": "false"
+      },
+      {
+        "text": "配置",
+        "selected": "false"
+      },
+      {
+        "text": "诊断",
+        "selected": "false"
+      }
+    ],
+    "connectDisabled": false,
+    "connectText": "连接设备",
+    "serial": true,
+    "secure": true,
+    "mentionsSimulation": false,
+    "nav": true,
+    "headerWrap": true,
+    "width": 1280,
+    "themeDark": true,
+    "lang": "zh-CN"
+  },
+  "en-light-1280": {
+    "title": "USB debug",
+    "tabs": [
+      {
+        "text": "Quick check",
+        "selected": "true"
+      },
+      {
+        "text": "Live data",
+        "selected": "false"
+      },
+      {
+        "text": "Configuration",
+        "selected": "false"
+      },
+      {
+        "text": "Diagnostics",
+        "selected": "false"
+      }
+    ],
+    "connectDisabled": false,
+    "connectText": "Connect device",
+    "serial": true,
+    "secure": true,
+    "mentionsSimulation": false,
+    "nav": true,
+    "headerWrap": true,
+    "width": 1280,
+    "themeDark": false,
+    "lang": "en"
+  },
+  "zh-light-390": {
+    "title": "USB 调试",
+    "tabs": [
+      {
+        "text": "快速验证",
+        "selected": "true"
+      },
+      {
+        "text": "实时数据",
+        "selected": "false"
+      },
+      {
+        "text": "配置",
+        "selected": "false"
+      },
+      {
+        "text": "诊断",
+        "selected": "false"
+      }
+    ],
+    "connectDisabled": false,
+    "connectText": "连接设备",
+    "serial": true,
+    "secure": true,
+    "mentionsSimulation": false,
+    "nav": true,
+    "headerWrap": true,
+    "width": 390,
+    "themeDark": false,
+    "lang": "zh-CN"
+  },
+  "zh-light-config": {
+    "title": "USB 调试",
+    "tabs": [
+      {
+        "text": "快速验证",
+        "selected": "false"
+      },
+      {
+        "text": "实时数据",
+        "selected": "false"
+      },
+      {
+        "text": "配置",
+        "selected": "true"
+      },
+      {
+        "text": "诊断",
+        "selected": "false"
+      }
+    ],
+    "connectDisabled": false,
+    "connectText": "连接设备",
+    "serial": true,
+    "secure": true,
+    "mentionsSimulation": false,
+    "nav": true,
+    "headerWrap": true,
+    "width": 1280,
+    "themeDark": false,
+    "lang": "zh-CN"
+  },
+  "zh-light-diag": {
+    "title": "USB 调试",
+    "tabs": [
+      {
+        "text": "快速验证",
+        "selected": "false"
+      },
+      {
+        "text": "实时数据",
+        "selected": "false"
+      },
+      {
+        "text": "配置",
+        "selected": "false"
+      },
+      {
+        "text": "诊断",
+        "selected": "true"
+      }
+    ],
+    "connectDisabled": false,
+    "connectText": "连接设备",
+    "serial": true,
+    "secure": true,
+    "mentionsSimulation": false,
+    "nav": true,
+    "headerWrap": true,
+    "width": 1280,
+    "themeDark": false,
+    "lang": "zh-CN"
+  },
+  "zoom200": {
+    "zoom": "2",
+    "console": true,
+    "overflow": true
+  },
+  "focus": {
+    "tag": "BUTTON",
+    "text": "连接设备"
+  }
+}

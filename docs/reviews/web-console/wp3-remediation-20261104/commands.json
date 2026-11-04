@@ -1,0 +1,47 @@
+{
+  "kind": "implementer-self-check",
+  "independentReview": false,
+  "releaseApproval": false,
+  "date": "2026-11-04",
+  "workspaceHead": "d37aaf3f4aaf67cbdcf5a924daef54228080eda8",
+  "componentHead": "f5371156397e5c5605700c8a9d50f773278a81c5",
+  "hardware": {
+    "portsOpened": [],
+    "flashed": false,
+    "note": "Simulated byte transport only. The earlier COM9 short run was not repeated."
+  },
+  "commands": [
+    {
+      "cwd": "submodules/mmwave-component/static",
+      "command": "node --test --test-timeout=60000 --test-name-pattern=^(R[123]|C[1-7]) test/console-core.test.js",
+      "exitCode": 0,
+      "pass": 22,
+      "fail": 0
+    },
+    {
+      "cwd": "submodules/mmwave-component/static",
+      "command": "npm run test:browser",
+      "exitCode": 0,
+      "pass": 3,
+      "fail": 0
+    },
+    {
+      "cwd": "submodules/mmwave-component/static",
+      "command": "npm run build",
+      "exitCode": 0,
+      "note": "vite build succeeded in 2.33s. The lucide use-client warning is not a failure."
+    },
+    {
+      "cwd": "submodules/mmwave-component/static",
+      "command": "npm run test:unit",
+      "exitCode": 0,
+      "pass": 129,
+      "fail": 0
+    }
+  ],
+  "results": {
+    "R1": "pass",
+    "R2": "pass",
+    "R3": "pass"
+  }
+}
