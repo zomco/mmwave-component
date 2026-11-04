@@ -24,6 +24,11 @@ const port = {
   addEventListener() {},
   removeEventListener() {},
   async open() {
+    if (this.readable || this.writable) {
+      const error = new Error('port already open');
+      error.name = 'InvalidStateError';
+      throw error;
+    }
     this.openCalls += 1;
     this.readable = new ReadableStream({
       start(controller) { readerController = controller; },
@@ -55,6 +60,7 @@ const serial = {
   requestCount: 0,
   async requestPort() {
     this.requestCount += 1;
+    if (this.beforeGrant) await this.beforeGrant();
     if (this.mode === 'cancel') {
       const error = new Error('cancelled');
       error.name = 'NotFoundError';

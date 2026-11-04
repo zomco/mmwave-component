@@ -32,6 +32,7 @@
 | 想了解 | 看 |
 | --- | --- |
 | 第一次安装、接线、烧录、校准 | [新手上手指南](./GETTING-STARTED_CN.md) |
+| 不依赖 Home Assistant 的 USB 调试 | [USB 调试使用说明](./docs/WEB_CONSOLE_CN.md) |
 | 自己写 YAML、改引脚、加传感器 | [DIY 指南](./DIY_CN.md) |
 | 某个型号的实体和选项 | `docs/<型号>/README_CN.md`（LD2410、LD2450A 只有说明书 PDF，在 `docs/<型号>/`） |
 | 新增型号，或你是 AI 助手 | [AGENTS.md](./AGENTS.md) |

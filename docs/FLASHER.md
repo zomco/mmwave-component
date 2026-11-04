@@ -18,6 +18,8 @@ npm run dev
 
 The checked-in `static/public/releases.json` is deliberately empty. Local development does not silently use old `dev` artifacts or fictitious releases. The deployed index is generated from published, validated GitHub release assets. Never connect real hardware to synthetic test firmware.
 
+User instructions for the USB console are in [WEB_CONSOLE.md](./WEB_CONSOLE.md). Source that contains `mmwave_host`, a host profile that compiles it, a factory image, and a published release are four different facts. The factory package includes `tests/r60abd1-esp32c3.yaml`, which does not enable `mmwave_host`. An empty release index or a visible install button is not a published MWCP firmware.
+
 ## Hardware catalog
 
 `static/device-catalog.json` is the curated storefront, not the whole development inventory. Only README **Completed** models may appear; `scripts/releases.py catalog` cross-checks README, factory YAML and TX21/RX20 wiring. Add a model only after human acceptance, with 1D/2D classification, verified power/pin evidence, card instructions and artwork (or a labeled placeholder).

@@ -112,6 +112,7 @@ export default function ConsoleView({ language, session, snapshot, support, onCo
         </div>
       </div>
       <p className="muted mt-3 text-xs leading-6">{t.verifiedBoard}</p>
+      <p className="mt-2 text-sm"><a className="text-link" href={t.guideHref} target="_blank" rel="noreferrer">{t.guide}</a></p>
       {!support.ok && <Banner>{support.reason === 'insecure_context' ? t.insecure : t.unsupported}</Banner>}
       {sim && <Banner>{snap.mode === 'replay' ? t.replayBanner : t.simBanner}</Banner>}
       {snap.layers.protocol === 'handshake' && <p className="notice mt-4" role="status">{t.handshake} {t.waiting}</p>}

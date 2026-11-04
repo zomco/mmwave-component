@@ -32,6 +32,7 @@ Changing which block an entity appears in needs a config-entry reload after the 
 | If you want | Read |
 | --- | --- |
 | First install, wiring, flash, calibration | [Getting Started](./GETTING-STARTED.md) |
+| USB console, without Home Assistant | [USB console guide](./docs/WEB_CONSOLE.md) |
 | Your own YAML, pins, extra sensors | [DIY guide](./DIY.md) |
 | One model's entities and options | `docs/<model>/README.md` (LD2410 and LD2450A: PDF only, under `docs/<model>/`) |
 | Add a model, or you are an AI agent | [AGENTS.md](./AGENTS.md) |
