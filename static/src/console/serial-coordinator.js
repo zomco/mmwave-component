@@ -25,6 +25,9 @@ export class SerialCoordinator {
     this.lockRelease = null;
     this.channel = null;
     this.peerHint = null;
+    this.connecting = false;
+    this.closeError = null;
+    this.installerUnconfirmed = false;
     this.onChange = options.onChange || (() => {});
     if (this.channelFactory) {
       try {
@@ -57,7 +60,10 @@ export class SerialCoordinator {
     return {
       owner: this.owner,
       generation: this.generation,
+      connecting: this.connecting === true,
       busy: this.closing != null,
+      closeError: this.closeError,
+      installerUnconfirmed: this.installerUnconfirmed === true,
       peerHint: this.peerHint,
       portClosed: this.port ? this.port.readable == null && this.port.writable == null : true,
     };
@@ -114,16 +120,19 @@ export class SerialCoordinator {
   async connect({ open, isSecureContext = true } = {}) {
     const support = this.support(isSecureContext);
     if (!support.ok) return { ok: false, reason: support.reason };
-    if (this.owner === OWNERS.console || this.closing) return { ok: false, reason: 'port_busy', owner: this.owner };
-    if (this.owner === OWNERS.installer) this.owner = OWNERS.none;
+    if (this.connecting || this.owner === OWNERS.console || this.closing) return { ok: false, reason: 'port_busy', owner: this.owner };
+    if (this.owner === OWNERS.installer) return { ok: false, reason: 'installer_holds_port', owner: this.owner };
+    this.connecting = true;
+    this.emit();
     let port;
     try {
-      port = await this.serial.requestPort();
-    } catch (error) {
-      const name = error?.name || '';
-      if (name === 'NotFoundError' || name === 'AbortError') return { ok: false, reason: 'chooser_cancelled' };
-      return { ok: false, reason: 'request_failed', error: name || 'Error' };
-    }
+      try {
+        port = await this.serial.requestPort();
+      } catch (error) {
+        const name = error?.name || '';
+        if (name === 'NotFoundError' || name === 'AbortError') return { ok: false, reason: 'chooser_cancelled' };
+        return { ok: false, reason: 'request_failed', error: name || 'Error' };
+      }
     if (!port) return { ok: false, reason: 'chooser_cancelled' };
     try {
       await this.acquireLock();
@@ -147,6 +156,8 @@ export class SerialCoordinator {
     this.owner = OWNERS.console;
     this.generation += 1;
     this.peerHint = null;
+    this.closeError = null;
+    this.installerUnconfirmed = false;
     const generation = this.generation;
     const onDisconnect = () => {
       if (this.generation !== generation || this.port !== port) return;
@@ -156,12 +167,17 @@ export class SerialCoordinator {
     this.announce('held');
     this.emit();
     return { ok: true, owner: OWNERS.console, port, generation, detach: () => { try { port.removeEventListener?.('disconnect', onDisconnect); } catch { /* ignore */ } } };
+    } finally {
+      this.connecting = false;
+      this.emit();
+    }
   }
 
   /** Installer still owns the port until readable and writable are both gone. */
   noteInstallerHolding() {
-    if (this.owner === OWNERS.console) return { ok: false, reason: 'console_holds_port' };
+    if (this.owner === OWNERS.console || this.connecting || this.closing) return { ok: false, reason: 'console_holds_port' };
     this.owner = OWNERS.installer;
+    this.installerUnconfirmed = false;
     this.emit();
     this.announce('held');
     return { ok: true, owner: OWNERS.installer };
@@ -169,6 +185,15 @@ export class SerialCoordinator {
 
   noteInstallerClosedEvent() {
     return { ok: true, released: false, reason: 'closed_event_is_not_close' };
+  }
+
+  /** The dialog left the page. That is not proof port.close() finished. */
+  noteInstallerDismissed() {
+    if (this.owner !== OWNERS.installer) return { ok: false, reason: 'not_installer' };
+    this.owner = OWNERS.none;
+    this.installerUnconfirmed = true;
+    this.emit();
+    return { ok: true, released: false, reason: 'close_not_confirmed' };
   }
 
   async claimAfterInstaller(port, open) {
@@ -215,16 +240,21 @@ export class SerialCoordinator {
       if (generation === this.generation) {
         this.port = released ? null : port;
         this.owner = released ? OWNERS.none : OWNERS.console;
-        if (released) this.releaseLock();
+        this.closeError = released ? null : (closeError || 'still_open');
+        if (released) {
+          this.releaseLock();
+          this.announce('released');
+        }
       }
-      this.announce('released');
       this.emit();
-      return { ok: released, readCancelled, closeError, owner: this.owner };
+      return { ok: released, readCancelled, closeError: this.closeError, owner: this.owner };
     })();
+    this.emit();
     try {
       return await this.closing;
     } finally {
       this.closing = null;
+      this.emit();
     }
   }
 
@@ -232,6 +262,8 @@ export class SerialCoordinator {
     const port = this.port;
     this.port = null;
     this.owner = OWNERS.none;
+    this.closeError = null;
+    this.installerUnconfirmed = false;
     this.generation += 1;
     this.releaseLock();
     try { port?.readable?.cancel?.(); } catch { /* already gone */ }

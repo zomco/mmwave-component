@@ -30,7 +30,7 @@ function Banner({ children }) {
   return <p className="notice mt-4" role="status"><AlertTriangle size={16} aria-hidden="true" /> {children}</p>;
 }
 
-export default function ConsoleView({ language, session, snapshot, support, onConnect, onDisconnect, busy, selectedModel }) {
+export default function ConsoleView({ language, session, snapshot, support, onConnect, onDisconnect, busy, portPhase = 'idle', holdDisconnect = false, selectedModel }) {
   const t = consoleCopy[language] || consoleCopy.en;
   const [tab, setTab] = useState('quick');
   const [message, setMessage] = useState('');
@@ -79,6 +79,7 @@ export default function ConsoleView({ language, session, snapshot, support, onCo
     if (result && result.reason === 'chooser_cancelled') setMessage(t.cancelled);
     else if (result && result.reason === 'no_web_serial') setMessage(t.unsupported);
     else if (result && result.reason === 'insecure_context') setMessage(t.insecure);
+    else if (result && result.reason === 'installer_holds_port') setMessage(t.installerHold);
     else if (result && (result.reason === 'port_busy' || result.reason === 'peer_holds_port')) setMessage(t.busy);
     else if (result && result.reason === 'timeout') setMessage(t.noResponse);
     else if (result && !result.ok) setMessage(result.reason || t.noResponse);
@@ -105,9 +106,9 @@ export default function ConsoleView({ language, session, snapshot, support, onCo
         </div>
         <div className="flex gap-2">
           {snap.layers.protocol === 'session_expired' && <button className="primary-button" onClick={rehandshake}>{t.rehandshake}</button>}
-          {snap.layers.port === 'open' || snap.layers.protocol === 'online' || snap.layers.protocol === 'handshake' || snap.layers.protocol === 'session_expired'
-            ? <button className="secondary-button" onClick={onDisconnect}><Unplug size={16} />{t.disconnect}</button>
-            : <button className="primary-button" onClick={connect} disabled={!support.ok || busy}><Plug size={16} />{t.connect}</button>}
+          {holdDisconnect || snap.layers.port === 'open' || snap.layers.protocol === 'online' || snap.layers.protocol === 'handshake' || snap.layers.protocol === 'session_expired'
+            ? <button className="secondary-button" onClick={onDisconnect} disabled={portPhase === 'closing'}><Unplug size={16} />{t.disconnect}</button>
+            : <button className="primary-button" onClick={connect} disabled={!support.ok || busy || portPhase === 'installer' || portPhase === 'connecting' || portPhase === 'closing'}><Plug size={16} />{t.connect}</button>}
         </div>
       </div>
       <p className="muted mt-3 text-xs leading-6">{t.verifiedBoard}</p>
@@ -116,6 +117,10 @@ export default function ConsoleView({ language, session, snapshot, support, onCo
       {snap.layers.protocol === 'handshake' && <p className="notice mt-4" role="status">{t.handshake} {t.waiting}</p>}
       {snap.layers.protocol === 'no_response' && <Banner>{t.noResponse}</Banner>}
       {snap.layers.protocol === 'session_expired' && <Banner>{t.sessionExpired}</Banner>}
+      {portPhase === 'installer' && <p className="notice mt-4" role="status">{t.installerHold}</p>}
+      {portPhase === 'closing' && <p className="notice mt-4" role="status">{t.closingPort}</p>}
+      {portPhase === 'close_failed' && <p className="notice mt-4" role="status">{t.closeFailed}</p>}
+      {portPhase === 'installer_unconfirmed' && <p className="notice mt-4" role="status">{t.afterInstaller}</p>}
       {message && <p className="notice mt-4" role="status">{message}</p>}
       <div className="mt-5 grid gap-3 sm:grid-cols-5">
         <Layer label={t.layers.port} value={snap.layers.port} />

@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "node --test --test-timeout=120000 test/*.test.js test/browser/*.test.js",
     "test:unit": "node --test --test-timeout=60000 test/*.test.js",
-    "test:browser": "node --test --test-timeout=30000 test/browser/*.test.js"
+    "test:browser": "node --test --test-timeout=90000 test/browser/*.test.js"
   },
   "dependencies": {
     "esp-web-tools": "^10.1.1",

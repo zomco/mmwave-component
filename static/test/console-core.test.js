@@ -423,6 +423,13 @@ test('C2 console and installer cannot own the port together', async () => {
   const hint = coord.noteInstallerClosedEvent();
   assert.equal(hint.released, false);
   assert.equal(coord.owner, OWNERS.installer);
+  const blocked = await coord.connect();
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.reason, 'installer_holds_port');
+  assert.equal(coord.owner, OWNERS.installer);
+  const dismissed = coord.noteInstallerDismissed();
+  assert.equal(dismissed.released, false);
+  assert.equal(coord.owner, OWNERS.none);
   const after = await coord.connect();
   assert.equal(after.ok, true);
   assert.equal(coord.owner, OWNERS.console);

@@ -36,7 +36,7 @@ export const copy = {
     browser: '烧录需要桌面版 Chrome / Edge 的 Web Serial，以及 HTTPS 或 localhost。手机可查看指南。',
     erase: '首次安装可能擦除旧固件和设置。请备份配置、关闭其他串口程序，烧录期间不要断电。', flashHint: '在弹窗中选择串口并确认安装。只有安装工具报告成功才表示完成，本页不会自动判定。',
     notes: '更新记录', commit: '源码', binary: '二进制版本', flashDone: '烧录完成？继续配置 HA', troubleshoot: '连接或烧录遇到问题？',
-    trouble: [['没有串口 / 无法连接', '换一根 USB 数据线，关闭串口日志；必要时按住 BOOT，按一下 RESET 后松开 BOOT，再连接。'], ['取消了连接', '取消不会安装固件。准备好后重新点击“连接设备并烧录”。'], ['下载或烧录失败', '检查网络与 USB，重新选择同一版本重试。写入中不要拔线。反复失败请附版本、板型与错误日志反馈。']],
+    trouble: [['没有串口 / 无法连接', '换一根 USB 数据线，关闭串口日志；必要时按住 BOOT，按一下 RESET 后松开 BOOT，再连接。'], ['取消了连接', '取消不会安装固件。准备好后重新点击“连接设备并烧录”。'], ['下载或烧录失败', '检查网络与 USB，重新选择同一版本重试。写入中不要拔线。反复失败请附版本、板型与错误日志反馈。'], ['端口仍被占用', 'USB 调试或安装窗口还握着端口时不要再烧录。关闭窗口不等于端口已释放。旧固件没有 MWCP 时，USB 调试不会显示成功。']],
     guideHint: '假设你已部署并熟悉 Home Assistant。不需要安装额外的高级集成。',
     guide: [
       ['设备联网', '烧录工具报告成功后，使用其 Wi-Fi 配置入口连接 2.4 GHz 网络。若没有入口，连接设备 Fallback 热点并打开 http://192.168.4.1 配网。设备和 HA 必须网络互通。'],
@@ -50,6 +50,9 @@ export const copy = {
     installCard: '在 HACS 中打开', cardDocs: '卡片配置说明', example: '最小 YAML 示例（实体 ID 必须替换）', copy: '复制', copied: '已复制', copyError: '复制失败，请手动选择文本。',
     theme: '切换深浅色', language: 'English', skip: '跳到 DIY 步骤', footer: 'MMWave Component + MMWave Card · 个人 DIY，本地设备',
     consoleNav: 'USB 调试', consoleAfterFlash: '烧录完成？先做 USB 验证。接入 Home Assistant 仍是可选项。',
+    usbBusy: 'USB 调试正在连接、占用或释放这个端口。请先断开并等到空闲，再烧录。关闭安装窗口不等于端口已经释放。',
+    usbCloseFailed: '端口关闭失败，仍然被 USB 调试占用。请重试断开后再烧录。',
+    usbInstaller: '安装器正在使用这个端口。请关闭安装窗口，等端口释放后再烧录或连接。',
   },
   en: {
     title: 'Bring radar into your home', subtitle: 'Choose your hardware, wire it up, flash in your browser, then see it in Home Assistant.', badge: 'Personal DIY · ESP32-C3',
@@ -86,7 +89,7 @@ export const copy = {
     flash: 'Connect & flash', verify: 'Verifying firmware manifest…', verifyError: 'Manifest unavailable, mismatched or checksum failed. Flashing is disabled.', prepare: 'Choose radar, board and release, then confirm wiring.', browser: 'Flashing needs desktop Chrome / Edge with Web Serial, on HTTPS or localhost. Guides work on mobile.',
     erase: 'Installation may erase firmware and settings. Back up your configuration, close other serial tools and keep USB connected.', flashHint: 'Select the port and confirm installation in the dialog. Only the installer can confirm success; this page does not assume it succeeded.',
     notes: 'Release notes', commit: 'Source', binary: 'Binary version', flashDone: 'Finished flashing? Set up HA', troubleshoot: 'Connection or installation problems?',
-    trouble: [['No port / cannot connect', 'Use a USB data cable and close serial monitors. If needed, hold BOOT, tap RESET, release BOOT and connect again.'], ['Connection cancelled', 'Cancelling does not install firmware. Click Connect & flash when ready.'], ['Download / flash failed', 'Check network and USB, then retry the same release. Do not unplug while writing. Report version, board and logs for repeated failures.']],
+    trouble: [['No port / cannot connect', 'Use a USB data cable and close serial monitors. If needed, hold BOOT, tap RESET, release BOOT and connect again.'], ['Connection cancelled', 'Cancelling does not install firmware. Click Connect & flash when ready.'], ['Download / flash failed', 'Check network and USB, then retry the same release. Do not unplug while writing. Report version, board and logs for repeated failures.'], ['Port still held', 'Do not flash while USB debug or the installer window holds the port. Closing the window is not a release. Old firmware without MWCP will not show a USB debug success.']],
     guideHint: 'For users who already run Home Assistant. No extra advanced integration is required.',
     guide: [
       ['Connect Wi-Fi', 'After successful flashing, use the installer Wi-Fi setup to join a 2.4 GHz network. Alternatively, join the device Fallback hotspot and open http://192.168.4.1. HA and the device must be able to reach each other.'],
@@ -99,5 +102,8 @@ export const copy = {
     ], oneDGuide: 'For 1D set near/far distance, sensitivity and distance zones, not planar calibration. Test at known distances, check zone entities, then test an empty room.',
     installCard: 'Open in HACS', cardDocs: 'Card configuration', example: 'Minimal YAML (replace entity IDs)', copy: 'Copy', copied: 'Copied', copyError: 'Copy failed. Select text manually.', theme: 'Toggle theme', language: '中文', skip: 'Skip to DIY steps', footer: 'MMWave Component + MMWave Card · Personal DIY, local devices',
     consoleNav: 'USB debug', consoleAfterFlash: 'Finished flashing? Verify over USB first. Home Assistant stays optional.',
+    usbBusy: 'USB debug is connecting, holding, or releasing this port. Disconnect and wait until it is idle before flashing. Closing the installer window does not release the port.',
+    usbCloseFailed: 'The port failed to close and USB debug still holds it. Retry disconnect before flashing.',
+    usbInstaller: 'The installer is using this port. Close its window and wait for release before flashing or connecting.',
   },
 };

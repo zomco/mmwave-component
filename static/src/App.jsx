@@ -7,6 +7,7 @@ import { boards, radars, textFor, compatibleReleases, defaultRelease, parseRelea
 import ConsoleView from './console/ConsoleView';
 import { ConsoleSession } from './console/session.js';
 import { SerialCoordinator } from './console/serial-coordinator.js';
+import { serialControls } from './console/serial-ui.js';
 import { WebSerialTransport } from './console/web-serial-transport.js';
 import { supportReport } from './console/session.js';
 
@@ -130,11 +131,22 @@ export default function App() {
     consoleRef.current = { session, coordinator };
   }
   const [consoleSnap, setConsoleSnap] = useState(() => consoleRef.current.session.snapshot());
+  const [serialSnap, setSerialSnap] = useState(() => consoleRef.current.coordinator.snapshot());
   useEffect(() => {
-    consoleRef.current.session.onChange = setConsoleSnap;
+    const { session, coordinator } = consoleRef.current;
+    session.onChange = setConsoleSnap;
+    coordinator.onChange = setSerialSnap;
+    const syncInstaller = () => {
+      const dialog = document.querySelector('ewt-install-dialog');
+      if (dialog) coordinator.noteInstallerHolding();
+      else coordinator.noteInstallerDismissed();
+    };
+    const observer = new MutationObserver(syncInstaller);
+    observer.observe(document.body, { childList: true });
+    return () => observer.disconnect();
   }, []);
   const support = supportReport(typeof navigator !== 'undefined' ? navigator.serial : null, typeof window !== 'undefined' ? window.isSecureContext : false);
-  const portHeld = consoleSnap.layers.port === 'open' || consoleSnap.layers.protocol === 'online' || consoleSnap.layers.protocol === 'handshake';
+  const controls = serialControls(serialSnap, consoleSnap);
   const connectConsole = async () => {
     const opened = await consoleRef.current.coordinator.connect({ isSecureContext: typeof window !== 'undefined' ? window.isSecureContext : false });
     if (!opened.ok) return opened;
@@ -154,10 +166,10 @@ export default function App() {
       <section id="diy" className="scroll-mt-24"><nav className="step-nav" aria-label={t.selection}>{t.steps.map((title, index) => <button key={title} className={step === index ? 'current' : ''} aria-current={step === index ? 'step' : undefined} onClick={() => go(index)}><span>{index + 1}</span>{title}</button>)}</nav><div className="mt-5 grid items-start gap-5 lg:grid-cols-[1fr_260px]"><div className="surface min-w-0 p-5 sm:p-8"><h2 ref={heading} tabIndex={-1} className="section-title outline-none">{t.steps[step]}</h2><div className="mt-4">
         {step === 0 && <><p className="muted leading-7">{t.radarHint}</p><DevicePicker kind="radar" devices={radars} selected={radar} onSelect={selectRadar} {...{ language, t }} />{radar && <RadarDetails {...{ radar, language, t }} />}</>}
         {step === 1 && <><p className="muted leading-7">{t.boardHint}</p><DevicePicker kind="board" devices={boards} selected={board} onSelect={selectBoard} {...{ language, t }} />{radar && board ? <><Wiring {...{ radar, board, t, language }} /><label className="check-row mt-5"><input type="checkbox" checked={wiringConfirmed} onChange={(e) => confirmWiring(e.target.checked)} />{t.boardConfirm}</label></> : <p className="notice mt-5">{t.prepare}</p>}</>}
-        {step === 2 && <><Flash {...{ radar, board, wiringConfirmed, t }} portHeld={portHeld} blockedMessage={t.consoleNav + ' · ' + (language === 'zh' ? '请先断开 USB 调试再烧录。' : 'Disconnect USB debug before flashing.')} /><p className="muted mt-4 text-sm leading-6"><a className="text-link" href="#console">{t.consoleAfterFlash}</a></p></>}{step === 3 && <Guide {...{ radar, t }} />}
+        {step === 2 && <><Flash {...{ radar, board, wiringConfirmed, t }} portHeld={controls.flashDisabled} blockedMessage={controls.phase === 'close_failed' ? t.usbCloseFailed : controls.phase === 'installer' ? t.usbInstaller : t.usbBusy} /><p className="muted mt-4 text-sm leading-6"><a className="text-link" href="#console">{t.consoleAfterFlash}</a></p></>}{step === 3 && <Guide {...{ radar, t }} />}
         </div><div className="mt-8 flex flex-wrap justify-between gap-3 border-t border-slate-200 pt-5 dark:border-white/10">{step > 0 ? <button className="secondary-button" onClick={() => go(step - 1)}><ChevronLeft size={16} />{t.back}</button> : <span />}{step < 3 && <button className="primary-button" disabled={step === 0 ? !radar : step === 1 ? !radar || !board || !wiringConfirmed : false} onClick={() => go(step + 1)}>{step === 2 ? t.flashDone : t.next}<ArrowRight size={16} /></button>}</div></div>
         <aside className="soft-surface p-5"><h2 className="text-sm font-semibold">{t.selection}</h2><dl className="mt-4 space-y-4 text-sm"><div><dt className="muted text-xs">{t.steps[0]}</dt><dd className="mt-1">{radar?.name || '—'}</dd></div><div><dt className="muted text-xs">{t.steps[1]}</dt><dd className="mt-1">{board?.name || '—'}</dd></div></dl><p className="muted mt-5 border-t border-slate-200 pt-4 text-xs leading-6 dark:border-white/10">GPIO21 TX → RX<br />GPIO20 RX ← TX<br />GND ↔ GND</p><a className="text-link mt-4 inline-block text-xs" href="#features">{t.features.link}</a></aside></div></section>
-      <ConsoleView language={language} session={consoleRef.current.session} snapshot={consoleSnap} support={support} onConnect={connectConsole} onDisconnect={disconnectConsole} busy={false} selectedModel={radar?.id} />
+      <ConsoleView language={language} session={consoleRef.current.session} snapshot={consoleSnap} support={support} onConnect={connectConsole} onDisconnect={disconnectConsole} busy={controls.connectDisabled} portPhase={controls.phase} holdDisconnect={controls.showDisconnect} selectedModel={radar?.id} />
       <FeatureShowcase t={t.features} onGuide={() => go(3)} />
     </main><footer className="shell border-t border-slate-200 py-6 text-xs text-slate-500 dark:border-white/10">{t.footer}</footer></>;
 }
