@@ -48,9 +48,6 @@ wifi:
     - ssid: "mwcp-g2-absent-ssid"
       password: "unused-offline-probe"
 
-web_server:
-  port: 80
-
 packages:
   radar: !include common/r60abd1_mwcp.yaml
 

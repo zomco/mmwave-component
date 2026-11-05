@@ -1,0 +1,38 @@
+[
+  {
+    "id": "src-download",
+    "file": "src/flash.ts",
+    "from": "    if (!resp.ok) {\n      throw new Error(\n        `Downloading firmware ${part.path} failed: ${resp.status}`,\n      );\n    }\n\n    const reader = new FileReader();\n    const blob = await resp.blob();\n\n    return new Promise<ArrayBuffer>((resolve) => {\n      reader.addEventListener(\"load\", () =>\n        resolve(reader.result as ArrayBuffer),\n      );\n      reader.readAsArrayBuffer(blob);\n    });",
+    "to": "    if (!resp.ok) {\n      throw new Error(\n        `Downloading firmware ${part.path} failed: ${resp.status}`,\n      );\n    }\n    let firmware: ArrayBuffer;\n    try {\n      firmware = await resp.arrayBuffer();\n    } catch (err: any) {\n      throw new Error(\n        `Downloading firmware ${part.path} failed: ${err instanceof Error ? err.message : err}`,\n      );\n    }\n    if (firmware.byteLength === 0) {\n      throw new Error(\n        `Downloading firmware ${part.path} failed: the response was empty. Check a download blocker, then retry. Nothing was written.`,\n      );\n    }\n    return firmware;"
+  },
+  {
+    "id": "src-total",
+    "file": "src/flash.ts",
+    "from": "  fireStateEvent({\n    state: FlashStateType.PREPARING,\n    message: \"Installation prepared\",",
+    "to": "  if (totalSize === 0) {\n    fireStateEvent({\n      state: FlashStateType.ERROR,\n      message:\n        \"Downloading firmware failed: no firmware bytes were received. Check a download blocker, then retry. Nothing was written.\",\n      details: {\n        error: FlashError.FAILED_FIRMWARE_DOWNLOAD,\n        details: \"empty firmware\",\n      },\n    });\n    await hardResetDevice(transport, esploader);\n    await transport.disconnect();\n    return;\n  }\n\n  fireStateEvent({\n    state: FlashStateType.PREPARING,\n    message: \"Installation prepared\","
+  },
+  {
+    "id": "dist-download",
+    "file": "dist/flash.js",
+    "from": "        if (!resp.ok) {\n            throw new Error(`Downloading firmware ${part.path} failed: ${resp.status}`);\n        }\n        const reader = new FileReader();\n        const blob = await resp.blob();\n        return new Promise((resolve) => {\n            reader.addEventListener(\"load\", () => resolve(reader.result));\n            reader.readAsArrayBuffer(blob);\n        });",
+    "to": "        if (!resp.ok) {\n            throw new Error(`Downloading firmware ${part.path} failed: ${resp.status}`);\n        }\n        let firmware;\n        try {\n            firmware = await resp.arrayBuffer();\n        }\n        catch (err) {\n            throw new Error(`Downloading firmware ${part.path} failed: ${err instanceof Error ? err.message : err}`);\n        }\n        if (firmware.byteLength === 0) {\n            throw new Error(`Downloading firmware ${part.path} failed: the response was empty. Check a download blocker, then retry. Nothing was written.`);\n        }\n        return firmware;"
+  },
+  {
+    "id": "dist-total",
+    "file": "dist/flash.js",
+    "from": "    fireStateEvent({\n        state: \"preparing\" /* FlashStateType.PREPARING */,\n        message: \"Installation prepared\",",
+    "to": "    if (totalSize === 0) {\n        fireStateEvent({\n            state: \"error\" /* FlashStateType.ERROR */,\n            message: \"Downloading firmware failed: no firmware bytes were received. Check a download blocker, then retry. Nothing was written.\",\n            details: {\n                error: \"failed_firmware_download\" /* FlashError.FAILED_FIRMWARE_DOWNLOAD */,\n                details: \"empty firmware\",\n            },\n        });\n        await hardResetDevice(transport, esploader);\n        await transport.disconnect();\n        return;\n    }\n    fireStateEvent({\n        state: \"preparing\" /* FlashStateType.PREPARING */,\n        message: \"Installation prepared\","
+  },
+  {
+    "id": "web-download",
+    "file": "dist/web/install-dialog-*.js",
+    "from": "if(!i.ok)throw new Error(`Downloading firmware ${e.path} failed: ${i.status}`);const r=new FileReader,s=await i.blob();return new Promise((e=>{r.addEventListener(\"load\",(()=>e(r.result))),r.readAsArrayBuffer(s)}))",
+    "to": "if(!i.ok)throw new Error(`Downloading firmware ${e.path} failed: ${i.status}`);let r;try{r=await i.arrayBuffer()}catch(s){throw new Error(`Downloading firmware ${e.path} failed: ${s&&s.message||s}`)}if(r.byteLength===0)throw new Error(`Downloading firmware ${e.path} failed: the response was empty. Check a download blocker, then retry. Nothing was written.`);return r"
+  },
+  {
+    "id": "web-total",
+    "file": "dist/web/install-dialog-*.js",
+    "from": "details:{error:\"failed_firmware_download\",details:e.message}}),await wa(l,h),void await l.disconnect()}n({state:\"preparing\",message:\"Installation prepared\",details:{done:!0}}),s&&(",
+    "to": "details:{error:\"failed_firmware_download\",details:e.message}}),await wa(l,h),void await l.disconnect()}if(v===0)return n({state:\"error\",message:\"Downloading firmware failed: no firmware bytes were received. Check a download blocker, then retry. Nothing was written.\",details:{error:\"failed_firmware_download\",details:\"empty firmware\"}}),await wa(l,h),void await l.disconnect();n({state:\"preparing\",message:\"Installation prepared\",details:{done:!0}}),s&&("
+  }
+]

@@ -1,0 +1,8 @@
+{
+  "step": "restore install.x_cm to the original 30 via editDraft + commitDraft (same code path as 保存到设备)",
+  "before": 31,
+  "restored": 30,
+  "after_readback": 30,
+  "commit_reason": "persisted_and_read_back",
+  "revision_after": "157"
+}

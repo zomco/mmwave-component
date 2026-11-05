@@ -41,7 +41,7 @@
 ### 1.2 串口打开参数与单一端口所有者约束
 - **浏览器 `port.open()` 默认参数**：`baudRate: 115200`、8N1、无硬件流控、`bufferSize: 16384`（详见 `DD-12`：现有 `esp-web-tools 10.4.0` 安装器内部使用 `8192`，独立控制台打开串口时采用规范值 `16384`）。不随意切换 `DTR/RTS` 以免触发板卡复位。
 - **单一运行时所有者（`DD-03`，G0 真机已验证）**：
-  - 同一物理 USB 串口在同一时刻只允许一个运行时消费者。启用 MWCP 的 host profile（如 [`docs/reviews/web-console/g0/host.yaml`](../reviews/web-console/g0/host.yaml)）必须移除 stock `improv_serial`，设置 `CONFIG_ESP_CONSOLE_NONE: y`、`CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG: n`，将 `logger` 设为 `hardware_uart: UART0, baud_rate: 0`（禁用串口明文日志混排），并将 `wifi.reboot_timeout` 与 `api.reboot_timeout` 设为 `0s`。
+  - 同一物理 USB 串口在同一时刻只允许一个运行时消费者。启用 MWCP 的 host profile（如 [`docs/reviews/web-console/g0/host.yaml`](../reviews/web-console/g0/host.yaml)）必须移除 stock `improv_serial`，设置 `CONFIG_ESP_CONSOLE_NONE: y`、`CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG: n`，将 `logger` 设为 `hardware_uart: UART0, baud_rate: 0`（禁用串口明文日志混排），并将 `wifi.reboot_timeout` 与 `api.reboot_timeout` 设为 `0s`。R60ABD1 的日常配置和工厂配置现在遵循这条规则。其他型号仍通过 `tests/common/_standard_device.yaml` 保留串口 Improv。未打补丁的 ESPHome 上，`wifi.scan` 仍不可用。
   - **G0 硬件实测关键边界**：在 LuatOS ESP32C3-CORE（`USB\VID_303A&PID_1001`）原生 `USB Serial/JTAG` 上，若主机停止读取 IN URB，而固件端阻塞式向 `USB_SERIAL_JTAG` 写入数据，硬件 64B TX FIFO 写满后会阻塞主循环。因此 `HostLink` 发送必须采用 64B 分块非阻塞泵（连续零写 `250 ms` 放弃并标记下一帧前补 `0x00` 重同步）。
 
 ### 1.3 首版非目标

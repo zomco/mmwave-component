@@ -36,9 +36,6 @@ api:
 ota:
   platform: esphome
 
-web_server:
-  port: 80
-
 wifi:
   reboot_timeout: 0s
   # TEST PROFILE (F-2 discriminator): fast_connect skips scanning entirely and

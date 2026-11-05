@@ -1,0 +1,12 @@
+INFO ESPHome 2026.9.1
+INFO Reading configuration D:\Users\zomco\Documents\GitHub\mmwave-workspace\submodules\mmwave-component\.esphome\candidate\bad-channel.yaml...
+Failed config
+
+mmwave_host: [source D:\Users\zomco\Documents\GitHub\mmwave-workspace\submodules\mmwave-component\.esphome\candidate\bad-channel.yaml:50]
+  id: host_link
+  radar_id: radar
+  
+  Unknown value 'nightly', valid options are 'alpha', 'beta', 'development'.
+  release_channel: nightly
+  build_profile: r60-daily
+  firmware_version: dev

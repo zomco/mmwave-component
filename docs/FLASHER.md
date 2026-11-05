@@ -18,7 +18,7 @@ npm run dev
 
 The checked-in `static/public/releases.json` is deliberately empty. Local development does not silently use old `dev` artifacts or fictitious releases. The deployed index is generated from published, validated GitHub release assets. Never connect real hardware to synthetic test firmware.
 
-User instructions for the USB console are in [WEB_CONSOLE.md](./WEB_CONSOLE.md). Source that contains `mmwave_host`, a host profile that compiles it, a factory image, and a published release are four different facts. The factory package includes `tests/r60abd1-esp32c3.yaml`, which does not enable `mmwave_host`. An empty release index or a visible install button is not a published MWCP firmware.
+User instructions for the USB console are in [WEB_CONSOLE.md](./WEB_CONSOLE.md). Source that contains `mmwave_host`, a profile that compiles it, an image that was flashed, and a published release are four different facts. The R60ABD1 base now enables `mmwave_host` and gives it native USB; serial Improv stays on the other models. `tests/r60abd1-esp32c3.factory.yaml` still says `version: dev`, and `static/public/releases.json` is still empty. A local candidate, or a visible install button, is not a published firmware.
 
 ## Hardware catalog
 

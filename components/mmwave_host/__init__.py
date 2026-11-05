@@ -20,13 +20,28 @@ CONF_RADAR_ID = "radar_id"
 # Diagnostic-only: a synthetic LOG stream for stress soaks (r2 review R2-A).
 # 0 (the default) compiles to nothing; production profiles never set it.
 CONF_LOG_PRESSURE_HZ = "log_pressure_hz"
+CONF_FIRMWARE_VERSION = "firmware_version"
+CONF_RELEASE_CHANNEL = "release_channel"
+CONF_BUILD_PROFILE = "build_profile"
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(MwcpHost),
         cv.Required(CONF_RADAR_ID): cv.use_id(R60ABD1Component),
         cv.Optional(CONF_LOG_PRESSURE_HZ, default=0): cv.int_range(min=0, max=20),
+        # Host tests keep the historical identity. A factory build reports
+        # ESPHOME_PROJECT_VERSION instead, so a stamped version: line wins.
+        cv.Optional(CONF_FIRMWARE_VERSION, default="mwcp-host"): cv.All(cv.string, cv.Length(min=1, max=64)),
+        cv.Optional(CONF_RELEASE_CHANNEL, default="development"): cv.one_of(
+            "alpha", "beta", "development", lower=True
+        ),
+        cv.Optional(CONF_BUILD_PROFILE, default="host-enabled"): cv.All(cv.string, cv.Length(min=1, max=32)),
     }
 ).extend(cv.COMPONENT_SCHEMA)
+
+
+def _cxx_string(name, value):
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    cg.add_cxx_build_flag(f'-D{name}=\\"{escaped}\\"')
 
 
 @coroutine_with_priority(CoroPriority.FINAL)
@@ -62,7 +77,12 @@ async def to_code(config):
     except (OSError, subprocess.CalledProcessError):
         sha = ""
     if sha:
-        cg.add_cxx_build_flag(f'-DMWCP_GIT_SHA=\\"{sha}\\"')
+        # HEAD only. A dirty worktree can share this SHA, so the candidate
+        # report records the diff separately.
+        _cxx_string("MWCP_GIT_SHA", sha)
+    _cxx_string("MWCP_FIRMWARE_VERSION", config[CONF_FIRMWARE_VERSION])
+    _cxx_string("MWCP_RELEASE_CHANNEL", config[CONF_RELEASE_CHANNEL])
+    _cxx_string("MWCP_BUILD_PROFILE", config[CONF_BUILD_PROFILE])
     pressure_hz = config[CONF_LOG_PRESSURE_HZ]
     if pressure_hz:
         # Diagnostic stress profile only; see CONF_LOG_PRESSURE_HZ above.

@@ -47,9 +47,11 @@ The **authoritative radar model status table** lives in `README.md`. The AI must
 ├── tests/
 │   ├── common/_device.yaml                    # ← Device-level entities every model gets:
 │   │                                          #   diagnostics, restart, safe mode,
-│   │                                          #   web_server, improv_serial.
-│   │                                          #   Included BY each radar core, not by
-│   │                                          #   the platform files.
+│   │                                          #   web_server. Serial Improv lives in
+│   │                                          #   _improv_serial.yaml, via
+│   │                                          #   _standard_device.yaml. The R60
+│   │                                          #   MWCP core includes _device.yaml
+│   │                                          #   without it.
 │   ├── common/_bluetooth.yaml                 # ← Opt-in BLE proxy. +502 KB flash; not
 │   │                                          #   included anywhere by default.
 │   ├── common/{radar_model}.yaml              # ← Shared radar core: uart, component,
@@ -262,7 +264,7 @@ uart:
 ```
 
 **Rules for the shared core:**
-- **Must open with `packages: device: !include _device.yaml`.** That is where WiFi Signal, Uptime, Status, IP/SSID/MAC, ESP Temperature, Restart and Safe Mode come from. A model that forgets it compiles and runs fine, and is simply missing every diagnostic — which is why this is a rule and not a suggestion.
+- **Ordinary cores open with `packages: device: !include _standard_device.yaml`.** That brings `_device.yaml` (WiFi Signal, Uptime, Status, IP/SSID/MAC, ESP Temperature, Restart, Safe Mode and the web server) plus `_improv_serial.yaml`. A model that forgets it compiles and runs fine, and is simply missing every diagnostic — which is why this is a rule and not a suggestion. `r60abd1_mwcp.yaml` is the exception: it includes `_device.yaml` only, because that candidate gives native USB to MWCP and cannot also run serial Improv.
 - Declare **no** diagnostic `sensor:`, `binary_sensor:` or `text_sensor:` block of its own. Those blocks used to be copy-pasted into every model; they now live in `_device.yaml` only. A model's own `sensor:`/`button:` entries are for radar-specific things, and merge with the package's.
 - Carries **no** `esp32:`, `wifi:`, `api:` or `external_components:` block. Each consumer supplies its own, and two declarations of the same key collide with no way to drop just one.
 - `uart.baud_rate` must match the radar's protocol document exactly. Current values range from 9600 (LD2452) to 1382400 (LD6002) — never assume 115200.

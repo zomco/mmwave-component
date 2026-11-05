@@ -11,31 +11,45 @@ esp32:
   board: esp32-c3-devkitm-1
   framework:
     type: esp-idf
-
-# ── 外部组件（本地路径） ──────────────────────────────────────────────────────
+    sdkconfig_options:
+      # Native USB belongs to MWCP. The radar stays on GPIO21 TX / GPIO20 RX,
+      # and the logger baud below is 0 so logs are not moved onto that UART.
+      CONFIG_ESP_CONSOLE_NONE: y
+      CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG: n
+      # The IDF default of 3584 overflowed while dispatching an MWCP frame.
+      CONFIG_ESP_MAIN_TASK_STACK_SIZE: "8192"
 
 external_components:
   - source:
       type: local
       path: ../components
-    components: [r60abd1]
+    components: [r60abd1, mmwave_host]
 
 logger:
+  baud_rate: 0
+  hardware_uart: UART0
+  level: INFO
 
 api:
+  reboot_timeout: 0s
 
 ota:
   platform: esphome
 
 wifi:
+  reboot_timeout: 0s
   ap:
     ssid: "${friendly_name} Fallback"
 
 captive_portal:
 
-# =============================================================================
-# 脚本与 UART
-# =============================================================================
-
 packages:
-  radar: !include common/r60abd1.yaml
+  radar: !include common/r60abd1_mwcp.yaml
+
+mmwave_host:
+  id: host_link
+  radar_id: radar
+  release_channel: development
+  build_profile: r60-daily
+  # Fallback only. A factory project version replaces this in the binary.
+  firmware_version: dev

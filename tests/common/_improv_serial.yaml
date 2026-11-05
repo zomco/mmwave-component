@@ -1,0 +1,7 @@
+# USB serial provisioning. This occupies the native USB port.
+#
+# Safe on the ordinary factory builds because the logger uses
+# USB_SERIAL_JTAG and the radar stays on GPIO21/GPIO20. Do not include
+# this in the R60ABD1 MWCP candidate: that build gives USB_SERIAL_JTAG
+# to the console. Other models keep it through _standard_device.yaml.
+improv_serial:

@@ -1,0 +1,5 @@
+﻿16:32:20 Installation failed || Downloading firmware r60abd1.factory.bin failed: the response was empty. Check a download blocker, then retry. Nothing was written.
+16:39:31 Installing || Preparing installation
+16:40:19 Installing || %
+16:40:24 Installing
+16:40:36 Installation complete!

@@ -1,0 +1,1119 @@
+INFO ESPHome 2026.9.1
+INFO Reading configuration D:\Users\zomco\Documents\GitHub\mmwave-workspace\submodules\mmwave-component\tests\ld2450-esp32c3.factory.yaml...
+INFO External components are overriding built-in components:
+  source: D:\Users\zomco\Documents\GitHub\mmwave-workspace\submodules\mmwave-component\tests\..\components
+  components: ld2450
+substitutions:
+  name: ld2450
+  friendly_name: LD2450 Radar
+esphome:
+  on_boot:
+    - priority: -100.0
+      then:
+        - lambda: !lambda |-
+            if (!id(g_area_1).empty()) id(text_area_1).publish_state(id(g_area_1));
+            if (!id(g_area_2).empty()) id(text_area_2).publish_state(id(g_area_2));
+            if (!id(g_area_3).empty()) id(text_area_3).publish_state(id(g_area_3));
+        - script.execute:
+            id: apply_area_1
+        - script.execute:
+            id: apply_area_2
+        - script.execute:
+            id: apply_area_3
+        - lambda: !lambda |-
+            id(radar).set_area_hysteresis(id(g_area_hysteresis));
+            id(radar).set_area_still_speed(id(g_area_still_speed));
+            id(radar).set_area_confirm_ms(static_cast<uint32_t>(id(g_area_confirm) * 1000.f + 0.5f));
+            id(radar).set_area_clear_ms(static_cast<uint32_t>(id(g_area_clear) * 1000.f + 0.5f));
+            id(radar).set_area_pass_speed(id(g_area_pass_speed));
+        - lambda: !lambda |-
+            // 开机启动后，将保存在闪存中的 globals 恢复给底层雷达组件
+            id(radar).set_radar_x(id(g_radar_x));
+            id(radar).set_radar_y(id(g_radar_y));
+            id(radar).set_radar_z(id(g_radar_z));
+            id(radar).set_yaw(id(g_yaw));
+            id(radar).set_pitch(id(g_pitch));
+            id(radar).set_roll(id(g_roll));
+
+            if (!id(g_polygon).empty()) {
+              id(text_polygon).publish_state(id(g_polygon));
+            }
+        - script.execute:
+            id: apply_polygon
+  name: ld2450
+  friendly_name: LD2450 Radar
+  name_add_mac_suffix: true
+  project:
+    name: mmwave.ld2450
+    version: dev
+  min_version: 2026.9.1
+  build_path: build\ld2450
+  platformio_options: {}
+  build_flags: []
+  environment_variables: {}
+  includes: []
+  includes_c: []
+  libraries: []
+  merge_warnings: true
+  debug_scheduler: false
+  areas: []
+  devices: []
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    version: 5.5.5
+    sdkconfig_options: {}
+    log_level: ERROR
+    advanced:
+      compiler_optimization: SIZE
+      enable_idf_experimental_features: false
+      enable_lwip_assert: true
+      ignore_efuse_custom_mac: false
+      ignore_efuse_mac_crc: false
+      sram1_as_iram: false
+      enable_lwip_mdns_queries: true
+      enable_lwip_bridge_interface: false
+      enable_lwip_tcpip_core_locking: true
+      enable_lwip_check_thread_safety: true
+      disable_libc_locks_in_iram: true
+      disable_vfs_support_termios: true
+      disable_vfs_support_select: true
+      disable_vfs_support_dir: true
+      freertos_in_iram: false
+      ringbuf_in_iram: false
+      heap_in_iram: false
+      execute_from_psram: false
+      loop_task_stack_size: 8192
+      enable_ota_rollback: true
+      enable_ota_downgrade_protection: false
+      use_full_certificate_bundle: false
+      include_builtin_idf_components: []
+      enable_full_printf: false
+      disable_debug_stubs: true
+      disable_ocd_aware: true
+      disable_usb_serial_jtag_secondary: true
+      disable_dev_null_vfs: true
+      disable_mbedtls_peer_cert: true
+      disable_mbedtls_pkcs7: true
+      disable_regi2c_in_iram: true
+      adc_oneshot_in_iram: false
+      disable_fatfs: true
+    components: []
+  flash_size: 4MB
+  watchdog_timeout: 5s
+  variant: ESP32C3
+  cpu_frequency: 160MHZ
+sensor:
+  - platform: wifi_signal
+    name: WiFi Signal
+    update_interval: 60s
+    entity_category: diagnostic
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: dBm
+    accuracy_decimals: 0
+    device_class: signal_strength
+    state_class: measurement
+  - platform: uptime
+    name: Uptime
+    update_interval: 60s
+    entity_category: diagnostic
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: s
+    icon: mdi:timer-outline
+    accuracy_decimals: 0
+    device_class: duration
+    state_class: total_increasing
+    type: seconds
+  - platform: internal_temperature
+    name: ESP Temperature
+    entity_category: diagnostic
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: °C
+    accuracy_decimals: 1
+    device_class: temperature
+    state_class: measurement
+    update_interval: 60s
+binary_sensor:
+  - platform: status
+    name: Status
+    entity_category: diagnostic
+    disabled_by_default: false
+    device_class: connectivity
+    update_interval: 1s
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: IP Address
+      entity_category: diagnostic
+      disabled_by_default: false
+    ssid:
+      name: SSID
+      entity_category: diagnostic
+      disabled_by_default: false
+    mac_address:
+      name: MAC Address
+      entity_category: diagnostic
+      disabled_by_default: false
+button:
+  - platform: restart
+    name: Restart ESP
+    entity_category: ''
+    icon: mdi:power-cycle
+    disabled_by_default: false
+    device_class: restart
+  - platform: safe_mode
+    name: Restart (Safe Mode)
+    entity_category: ''
+    icon: mdi:lifebuoy
+    disabled_by_default: false
+    device_class: restart
+  - platform: template
+    name: Query Radar State
+    icon: mdi:help-network
+    on_press:
+      - then:
+          - lambda: !lambda |-
+              id(radar).query_state();
+    disabled_by_default: false
+  - platform: template
+    name: Query Zone Filter
+    icon: mdi:selection-search
+    on_press:
+      - then:
+          - lambda: !lambda |-
+              id(radar).query_zone_config();
+    disabled_by_default: false
+web_server:
+  port: 80
+  version: 2
+  enable_private_network_access: false
+  include_internal: false
+  log: true
+  compression: gzip
+  css_url: ''
+  js_url: https://oi.esphome.io/v2/www.js
+improv_serial: {}
+script:
+  - id: apply_area_1
+    mode: restart
+    then:
+      - lambda: !lambda |-
+          id(radar).clear_area(0);
+          const std::string s = id(g_area_1);
+          size_t start = 0;
+          uint8_t added = 0;
+          while (start <= s.size() && added < 12) {
+            const size_t sep = s.find(';', start);
+            const std::string pt = (sep == std::string::npos) ? s.substr(start) : s.substr(start, sep - start);
+            start = (sep == std::string::npos) ? s.size() + 1 : sep + 1;
+            if (pt.empty()) continue;
+            const size_t comma = pt.find(',');
+            if (comma == std::string::npos) continue;
+            const std::string xs = pt.substr(0, comma);
+            const std::string ys = pt.substr(comma + 1);
+            char *xend = nullptr;
+            char *yend = nullptr;
+            const float px = strtof(xs.c_str(), &xend);
+            const float py = strtof(ys.c_str(), &yend);
+            if (xend == xs.c_str() || yend == ys.c_str() || !std::isfinite(px) || !std::isfinite(py)) continue;
+            id(radar).add_area_point(0, px, py);
+            added++;
+          }
+    parameters: {}
+  - id: apply_area_2
+    mode: restart
+    then:
+      - lambda: !lambda |-
+          id(radar).clear_area(1);
+          const std::string s = id(g_area_2);
+          size_t start = 0;
+          uint8_t added = 0;
+          while (start <= s.size() && added < 12) {
+            const size_t sep = s.find(';', start);
+            const std::string pt = (sep == std::string::npos) ? s.substr(start) : s.substr(start, sep - start);
+            start = (sep == std::string::npos) ? s.size() + 1 : sep + 1;
+            if (pt.empty()) continue;
+            const size_t comma = pt.find(',');
+            if (comma == std::string::npos) continue;
+            const std::string xs = pt.substr(0, comma);
+            const std::string ys = pt.substr(comma + 1);
+            char *xend = nullptr;
+            char *yend = nullptr;
+            const float px = strtof(xs.c_str(), &xend);
+            const float py = strtof(ys.c_str(), &yend);
+            if (xend == xs.c_str() || yend == ys.c_str() || !std::isfinite(px) || !std::isfinite(py)) continue;
+            id(radar).add_area_point(1, px, py);
+            added++;
+          }
+    parameters: {}
+  - id: apply_area_3
+    mode: restart
+    then:
+      - lambda: !lambda |-
+          id(radar).clear_area(2);
+          const std::string s = id(g_area_3);
+          size_t start = 0;
+          uint8_t added = 0;
+          while (start <= s.size() && added < 12) {
+            const size_t sep = s.find(';', start);
+            const std::string pt = (sep == std::string::npos) ? s.substr(start) : s.substr(start, sep - start);
+            start = (sep == std::string::npos) ? s.size() + 1 : sep + 1;
+            if (pt.empty()) continue;
+            const size_t comma = pt.find(',');
+            if (comma == std::string::npos) continue;
+            const std::string xs = pt.substr(0, comma);
+            const std::string ys = pt.substr(comma + 1);
+            char *xend = nullptr;
+            char *yend = nullptr;
+            const float px = strtof(xs.c_str(), &xend);
+            const float py = strtof(ys.c_str(), &yend);
+            if (xend == xs.c_str() || yend == ys.c_str() || !std::isfinite(px) || !std::isfinite(py)) continue;
+            id(radar).add_area_point(2, px, py);
+            added++;
+          }
+    parameters: {}
+  - id: apply_polygon
+    mode: restart
+    then:
+      - lambda: !lambda |-
+          // 解析 "x1,y1;x2,y2;..." 形式的多边形字符串。
+          //
+          // 这里绝不能用 std::stof。ESPHome 的 esp-idf 构建关闭了 C++ 异常
+          // (sdkconfig: CONFIG_COMPILER_CXX_EXCEPTIONS is not set)，std::stof
+          // 遇到非法输入会 std::terminate() -> abort()，也就是用户在 HA 的
+          // 文本框里随手打错一个字符就会把雷达重启。
+          //
+          // 改用 strtof + endptr 校验：非法的点跳过并告警，其余照常应用。
+          id(radar).clear_polygon();
+          const std::string s = id(g_polygon);
+          size_t start = 0;
+          uint8_t added = 0;
+          uint8_t rejected = 0;
+          // 上限同时防住超长输入撑爆内存。
+          while (start <= s.size() && added < 64) {
+            const size_t sep = s.find(';', start);
+            const std::string pt =
+                (sep == std::string::npos) ? s.substr(start) : s.substr(start, sep - start);
+            start = (sep == std::string::npos) ? s.size() + 1 : sep + 1;
+            if (pt.empty()) continue;
+
+            const size_t comma = pt.find(',');
+            if (comma == std::string::npos) { rejected++; continue; }
+
+            const std::string xs = pt.substr(0, comma);
+            const std::string ys = pt.substr(comma + 1);
+            char *xend = nullptr;
+            char *yend = nullptr;
+            const float px = strtof(xs.c_str(), &xend);
+            const float py = strtof(ys.c_str(), &yend);
+            // endptr 未前进 = 完全没解析出数字；再挡掉 inf/nan。
+            if (xend == xs.c_str() || yend == ys.c_str() ||
+                !std::isfinite(px) || !std::isfinite(py)) {
+              rejected++;
+              continue;
+            }
+
+            id(radar).add_polygon_point(px, py);
+            added++;
+          }
+          if (rejected > 0)
+            ESP_LOGW("polygon", "Ignored %u malformed point(s) in polygon string", rejected);
+          ESP_LOGI("polygon", "Applied %u polygon point(s)", added);
+    parameters: {}
+globals:
+  - id: g_area_1
+    type: std::string
+    restore_value: true
+    max_restore_data_length: 254
+    initial_value: '""'
+    update_interval: 1s
+  - id: g_area_2
+    type: std::string
+    restore_value: true
+    max_restore_data_length: 254
+    initial_value: '""'
+    update_interval: 1s
+  - id: g_area_3
+    type: std::string
+    restore_value: true
+    max_restore_data_length: 254
+    initial_value: '""'
+    update_interval: 1s
+  - id: g_area_hysteresis
+    type: float
+    restore_value: true
+    initial_value: '50.0'
+    update_interval: 1s
+  - id: g_area_still_speed
+    type: float
+    restore_value: true
+    initial_value: '15.0'
+    update_interval: 1s
+  - id: g_area_confirm
+    type: float
+    restore_value: true
+    initial_value: '0.4'
+    update_interval: 1s
+  - id: g_area_clear
+    type: float
+    restore_value: true
+    initial_value: '2.0'
+    update_interval: 1s
+  - id: g_area_pass_speed
+    type: float
+    restore_value: true
+    initial_value: '80.0'
+    update_interval: 1s
+  - id: g_radar_x
+    type: float
+    restore_value: true
+    initial_value: '0.0'
+    update_interval: 1s
+  - id: g_radar_y
+    type: float
+    restore_value: true
+    initial_value: '0.0'
+    update_interval: 1s
+  - id: g_radar_z
+    type: float
+    restore_value: true
+    initial_value: '150.0'
+    update_interval: 1s
+  - id: g_yaw
+    type: float
+    restore_value: true
+    initial_value: '0.0'
+    update_interval: 1s
+  - id: g_pitch
+    type: float
+    restore_value: true
+    initial_value: '0.0'
+    update_interval: 1s
+  - id: g_roll
+    type: float
+    restore_value: true
+    initial_value: '0.0'
+    update_interval: 1s
+  - id: g_polygon
+    type: std::string
+    restore_value: true
+    max_restore_data_length: 254
+    initial_value: '""'
+    update_interval: 1s
+number:
+  - platform: template
+    name: Area Hysteresis
+    id: num_area_hysteresis
+    entity_category: config
+    unit_of_measurement: cm
+    min_value: 0.0
+    max_value: 150.0
+    step: 5.0
+    mode: BOX
+    icon: mdi:arrow-expand-horizontal
+    lambda: !lambda |-
+      return id(g_area_hysteresis);
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_area_hysteresis) = x;
+            id(radar).set_area_hysteresis(x);
+            id(num_area_hysteresis).publish_state(x);
+    disabled_by_default: false
+    optimistic: false
+    update_interval: 60s
+  - platform: template
+    name: Area Still Speed
+    id: num_area_still_speed
+    entity_category: config
+    unit_of_measurement: cm/s
+    min_value: 0.0
+    max_value: 80.0
+    step: 1.0
+    mode: BOX
+    icon: mdi:walk
+    lambda: !lambda |-
+      return id(g_area_still_speed);
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_area_still_speed) = x;
+            id(radar).set_area_still_speed(x);
+            id(num_area_still_speed).publish_state(x);
+    disabled_by_default: false
+    optimistic: false
+    update_interval: 60s
+  - platform: template
+    name: Area Confirm
+    id: num_area_confirm
+    entity_category: config
+    unit_of_measurement: s
+    min_value: 0.0
+    max_value: 3.0
+    step: 0.1
+    mode: BOX
+    icon: mdi:timer-plus-outline
+    lambda: !lambda |-
+      return id(g_area_confirm);
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_area_confirm) = x;
+            id(radar).set_area_confirm_ms(static_cast<uint32_t>(x * 1000.f + 0.5f));
+            id(num_area_confirm).publish_state(x);
+    disabled_by_default: false
+    optimistic: false
+    update_interval: 60s
+  - platform: template
+    name: Area Clear
+    id: num_area_clear
+    entity_category: config
+    unit_of_measurement: s
+    min_value: 0.0
+    max_value: 15.0
+    step: 0.1
+    mode: BOX
+    icon: mdi:timer-minus-outline
+    lambda: !lambda |-
+      return id(g_area_clear);
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_area_clear) = x;
+            id(radar).set_area_clear_ms(static_cast<uint32_t>(x * 1000.f + 0.5f));
+            id(num_area_clear).publish_state(x);
+    disabled_by_default: false
+    optimistic: false
+    update_interval: 60s
+  - platform: template
+    name: Area Pass Speed
+    id: num_area_pass_speed
+    entity_category: config
+    unit_of_measurement: cm/s
+    min_value: 0.0
+    max_value: 200.0
+    step: 5.0
+    mode: BOX
+    icon: mdi:run-fast
+    lambda: !lambda |-
+      return id(g_area_pass_speed);
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_area_pass_speed) = x;
+            id(radar).set_area_pass_speed(x);
+            id(num_area_pass_speed).publish_state(x);
+    disabled_by_default: false
+    optimistic: false
+    update_interval: 60s
+  - platform: template
+    name: Mount X
+    entity_category: config
+    id: num_radar_x
+    unit_of_measurement: cm
+    min_value: -2000.0
+    max_value: 2000.0
+    step: 1.0
+    mode: BOX
+    icon: mdi:crosshairs-gps
+    lambda: !lambda |-
+      return id(g_radar_x);
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_radar_x) = x;
+            id(radar).set_radar_x(x);
+            id(num_radar_x).publish_state(x);
+    disabled_by_default: false
+    optimistic: false
+    update_interval: 60s
+  - platform: template
+    name: Mount Y
+    entity_category: config
+    id: num_radar_y
+    unit_of_measurement: cm
+    min_value: -2000.0
+    max_value: 2000.0
+    step: 1.0
+    mode: BOX
+    icon: mdi:crosshairs-gps
+    lambda: !lambda |-
+      return id(g_radar_y);
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_radar_y) = x;
+            id(radar).set_radar_y(x);
+            id(num_radar_y).publish_state(x);
+    disabled_by_default: false
+    optimistic: false
+    update_interval: 60s
+  - platform: template
+    name: Mount Z
+    entity_category: config
+    id: num_radar_z
+    unit_of_measurement: cm
+    min_value: 50.0
+    max_value: 400.0
+    step: 1.0
+    mode: BOX
+    icon: mdi:ruler-square
+    lambda: !lambda |-
+      return id(g_radar_z);
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_radar_z) = x;
+            id(radar).set_radar_z(x);
+            id(num_radar_z).publish_state(x);
+    disabled_by_default: false
+    optimistic: false
+    update_interval: 60s
+  - platform: template
+    name: Mount Yaw
+    entity_category: config
+    id: num_yaw
+    unit_of_measurement: °
+    min_value: -180.0
+    max_value: 180.0
+    step: 0.1
+    mode: BOX
+    icon: mdi:rotate-3d-variant
+    lambda: !lambda |-
+      return id(g_yaw);
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_yaw) = x;
+            id(radar).set_yaw(x);
+            id(num_yaw).publish_state(x);
+    disabled_by_default: false
+    optimistic: false
+    update_interval: 60s
+  - platform: template
+    name: Mount Pitch
+    entity_category: config
+    id: num_pitch
+    unit_of_measurement: °
+    min_value: -90.0
+    max_value: 90.0
+    step: 0.5
+    mode: BOX
+    icon: mdi:angle-acute
+    lambda: !lambda |-
+      return id(g_pitch);
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_pitch) = x;
+            id(radar).set_pitch(x);
+            id(num_pitch).publish_state(x);
+    disabled_by_default: false
+    optimistic: false
+    update_interval: 60s
+  - platform: template
+    name: Mount Roll
+    entity_category: config
+    id: num_roll
+    unit_of_measurement: °
+    min_value: -90.0
+    max_value: 90.0
+    step: 0.5
+    mode: BOX
+    icon: mdi:angle-acute
+    lambda: !lambda |-
+      return id(g_roll);
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_roll) = x;
+            id(radar).set_roll(x);
+            id(num_roll).publish_state(x);
+    disabled_by_default: false
+    optimistic: false
+    update_interval: 60s
+text:
+  - platform: template
+    name: Area 1 Polygon
+    entity_category: config
+    id: text_area_1
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: TEXT
+    icon: mdi:vector-polygon
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_area_1) = x;
+        - script.execute:
+            id: apply_area_1
+    disabled_by_default: false
+    restore_value: false
+    update_interval: 60s
+    initial_value: ''
+  - platform: template
+    name: Area 2 Polygon
+    entity_category: config
+    id: text_area_2
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: TEXT
+    icon: mdi:vector-polygon
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_area_2) = x;
+        - script.execute:
+            id: apply_area_2
+    disabled_by_default: false
+    restore_value: false
+    update_interval: 60s
+    initial_value: ''
+  - platform: template
+    name: Area 3 Polygon
+    entity_category: config
+    id: text_area_3
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: TEXT
+    icon: mdi:vector-polygon
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_area_3) = x;
+        - script.execute:
+            id: apply_area_3
+    disabled_by_default: false
+    restore_value: false
+    update_interval: 60s
+    initial_value: ''
+  - platform: template
+    name: Zone Polygon
+    entity_category: config
+    id: text_polygon
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: TEXT
+    icon: mdi:vector-polygon
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(g_polygon) = x;
+        - script.execute:
+            id: apply_polygon
+    disabled_by_default: false
+    restore_value: false
+    update_interval: 60s
+    initial_value: ''
+  - platform: template
+    name: Mock Data
+    entity_category: diagnostic
+    id: text_mock_data
+    min_length: 0
+    max_length: 255
+    optimistic: true
+    mode: TEXT
+    icon: mdi:code-json
+    set_action:
+      then:
+        - lambda: !lambda |-
+            id(radar).inject_mock_data(x);
+    disabled_by_default: false
+    restore_value: false
+    update_interval: 60s
+    initial_value: ''
+uart:
+  - id: uart_ld2450
+    tx_pin:
+      number: 21
+      mode:
+        output: true
+        input: false
+        open_drain: false
+        pullup: false
+        pulldown: false
+      inverted: false
+      ignore_pin_validation_error: false
+      ignore_strapping_warning: false
+      drive_strength: 20.0
+    rx_pin:
+      number: 20
+      mode:
+        input: true
+        output: false
+        open_drain: false
+        pullup: false
+        pulldown: false
+      inverted: false
+      ignore_pin_validation_error: false
+      ignore_strapping_warning: false
+      drive_strength: 20.0
+    baud_rate: 256000
+    data_bits: 8
+    parity: NONE
+    stop_bits: 1
+    rx_buffer_size: 256
+    rx_timeout: 2
+ld2450:
+  id: radar
+  uart_id: uart_ld2450
+  presence:
+    name: Presence
+    device_class: presence
+    disabled_by_default: false
+  area_1_occupied:
+    name: Area 1 Occupied
+    device_class: occupancy
+    disabled_by_default: false
+  area_2_occupied:
+    name: Area 2 Occupied
+    device_class: occupancy
+    disabled_by_default: false
+  area_3_occupied:
+    name: Area 3 Occupied
+    device_class: occupancy
+    disabled_by_default: false
+  target_frame:
+    name: Target Frame
+    icon: mdi:radar
+    disabled_by_default: false
+  presence_timeout: 5s
+  multi_target:
+    name: Multi Target Mode
+    disabled_by_default: false
+    restore_mode: ALWAYS_OFF
+    icon: mdi:target-account
+  bluetooth:
+    name: Bluetooth
+    disabled_by_default: false
+    restore_mode: ALWAYS_OFF
+    icon: mdi:bluetooth
+  restart:
+    name: Restart Module
+    disabled_by_default: false
+    icon: mdi:restart
+  factory_reset:
+    name: Factory Reset
+    disabled_by_default: false
+    icon: mdi:restart-alert
+  target_1_x:
+    name: Target 1 X
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:axis-x-arrow
+    accuracy_decimals: 1
+    state_class: measurement
+  target_1_y:
+    name: Target 1 Y
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:axis-y-arrow
+    accuracy_decimals: 1
+    state_class: measurement
+  target_1_speed:
+    name: Target 1 Speed
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm/s
+    icon: mdi:speedometer
+    accuracy_decimals: 0
+    device_class: speed
+    state_class: measurement
+  target_1_resolution:
+    name: Target 1 Resolution
+    internal: true
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:ruler
+    accuracy_decimals: 1
+    state_class: measurement
+  target_1_distance:
+    name: Target 1 Distance
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:map-marker-distance
+    accuracy_decimals: 1
+    device_class: distance
+    state_class: measurement
+  target_1_angle:
+    name: Target 1 Angle
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: °
+    icon: mdi:angle-acute
+    accuracy_decimals: 1
+    state_class: measurement
+  target_1_room_x:
+    name: Target 1 Room X
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:map-marker-radius
+    accuracy_decimals: 1
+    state_class: measurement
+  target_1_room_y:
+    name: Target 1 Room Y
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:map-marker-radius
+    accuracy_decimals: 1
+    state_class: measurement
+  target_1_active:
+    name: Target 1 Active
+    disabled_by_default: false
+    icon: mdi:radar
+  target_1_in_boundary:
+    name: Target 1 In Boundary
+    disabled_by_default: false
+    icon: mdi:vector-polygon
+  target_2_x:
+    name: Target 2 X
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:axis-x-arrow
+    accuracy_decimals: 1
+    state_class: measurement
+  target_2_y:
+    name: Target 2 Y
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:axis-y-arrow
+    accuracy_decimals: 1
+    state_class: measurement
+  target_2_speed:
+    name: Target 2 Speed
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm/s
+    icon: mdi:speedometer
+    accuracy_decimals: 0
+    device_class: speed
+    state_class: measurement
+  target_2_resolution:
+    name: Target 2 Resolution
+    internal: true
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:ruler
+    accuracy_decimals: 1
+    state_class: measurement
+  target_2_distance:
+    name: Target 2 Distance
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:map-marker-distance
+    accuracy_decimals: 1
+    device_class: distance
+    state_class: measurement
+  target_2_angle:
+    name: Target 2 Angle
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: °
+    icon: mdi:angle-acute
+    accuracy_decimals: 1
+    state_class: measurement
+  target_2_room_x:
+    name: Target 2 Room X
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:map-marker-radius
+    accuracy_decimals: 1
+    state_class: measurement
+  target_2_room_y:
+    name: Target 2 Room Y
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:map-marker-radius
+    accuracy_decimals: 1
+    state_class: measurement
+  target_2_active:
+    name: Target 2 Active
+    disabled_by_default: false
+    icon: mdi:radar
+  target_2_in_boundary:
+    name: Target 2 In Boundary
+    disabled_by_default: false
+    icon: mdi:vector-polygon
+  target_3_x:
+    name: Target 3 X
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:axis-x-arrow
+    accuracy_decimals: 1
+    state_class: measurement
+  target_3_y:
+    name: Target 3 Y
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:axis-y-arrow
+    accuracy_decimals: 1
+    state_class: measurement
+  target_3_speed:
+    name: Target 3 Speed
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm/s
+    icon: mdi:speedometer
+    accuracy_decimals: 0
+    device_class: speed
+    state_class: measurement
+  target_3_resolution:
+    name: Target 3 Resolution
+    internal: true
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:ruler
+    accuracy_decimals: 1
+    state_class: measurement
+  target_3_distance:
+    name: Target 3 Distance
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:map-marker-distance
+    accuracy_decimals: 1
+    device_class: distance
+    state_class: measurement
+  target_3_angle:
+    name: Target 3 Angle
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: °
+    icon: mdi:angle-acute
+    accuracy_decimals: 1
+    state_class: measurement
+  target_3_room_x:
+    name: Target 3 Room X
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:map-marker-radius
+    accuracy_decimals: 1
+    state_class: measurement
+  target_3_room_y:
+    name: Target 3 Room Y
+    disabled_by_default: false
+    force_update: false
+    unit_of_measurement: cm
+    icon: mdi:map-marker-radius
+    accuracy_decimals: 1
+    state_class: measurement
+  target_3_active:
+    name: Target 3 Active
+    disabled_by_default: false
+    icon: mdi:radar
+  target_3_in_boundary:
+    name: Target 3 In Boundary
+    disabled_by_default: false
+    icon: mdi:vector-polygon
+  radar_x: 0.0
+  radar_y: 0.0
+  radar_z: 150.0
+  yaw: 0.0
+  pitch: 0.0
+  roll: 0.0
+  zone_filter:
+    type: disabled
+    zones: []
+  distance_min: 0.0
+  distance_max: 0.0
+  polygon: []
+  boundary_gates_presence: true
+external_components:
+  - source:
+      path: D:\Users\zomco\Documents\GitHub\mmwave-workspace\submodules\mmwave-component\tests\..\components
+      type: local
+    components:
+      - ld2450
+    refresh: 1d
+logger:
+  baud_rate: 115200
+  tx_buffer_size: 512
+  deassert_rts_dtr: false
+  task_log_buffer_size: 768
+  hardware_uart: USB_SERIAL_JTAG
+  level: DEBUG
+  logs: {}
+  runtime_tag_levels: false
+api:
+  port: 6053
+  reboot_timeout: 15min
+  batch_delay: 100ms
+  custom_services: false
+  homeassistant_services: false
+  homeassistant_states: false
+  listen_backlog: 4
+  max_connections: 5
+  max_send_queue: 8
+ota:
+  - platform: http_request
+  - platform: web_server
+wifi:
+  ap:
+    ssid: \033[8mLD2450 Radar Fallback\033[28m
+    ap_timeout: 90s
+  domain: .local
+  reboot_timeout: 15min
+  power_save_mode: LIGHT
+  fast_connect:
+    enabled: false
+    storage: flash
+  enable_btm: false
+  enable_rrm: false
+  passive_scan: false
+  enable_on_boot: true
+  post_connect_roaming: true
+  min_auth_mode: WPA2
+  use_address: ld2450.local
+captive_portal:
+  compression: gzip
+dashboard_import:
+  package_import_url: github://zomco/mmwave-component/tests/ld2450-esp32c3.yaml@main
+  import_full_config: true
+esp32_improv:
+  authorizer: null
+  identify_duration: 10s
+  authorized_duration: 1min
+  wifi_timeout: 90s
+http_request:
+  useragent: ESPHome/2026.9.1 (https://esphome.io)
+  follow_redirects: true
+  redirect_limit: 3
+  timeout: 4500ms
+  verify_ssl: true
+  buffer_size_rx: 512
+  buffer_size_tx: 512
+  watchdog_timeout: 14500ms
+update:
+  - platform: http_request
+    name: Firmware
+    source: https://zomco.github.io/mmwave-component/ld2450-ESP32-C3/manifest.json
+    disabled_by_default: false
+    entity_category: config
+    update_interval: 6h
+switch: []
+
+INFO Configuration is valid!

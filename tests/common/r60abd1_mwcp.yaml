@@ -1,10 +1,11 @@
-﻿# Host-enabled radar core. Same entities as r60abd1.yaml, without improv_serial.
-# Keep this file aligned with tests/common/r60abd1.yaml except the device package.
-# R60ABD1 radar definition, shared by every consumer.
+# R60ABD1 core for the MWCP candidate and the host test profiles.
+# Keep the radar entities aligned with r60abd1.yaml. This file includes
+# _device.yaml without serial Improv, because native USB belongs to MWCP.
+# Calibration writes go through host_link rather than straight to the radar.
 #
-# Included by tests/r60abd1-esp32c3.yaml (standalone firmware, and via
-# that the factory build users flash) and by the workspace's
-# esphome-config/r60abd1-esp32c3.yaml. Edit here once.
+# Included by tests/r60abd1-esp32c3.yaml and the host profiles.
+# The workspace esphome-config stays on tests/common/r60abd1.yaml, which
+# still has serial Improv. Do not point that production file here.
 #
 # Carries no board, networking or external_components block on purpose:
 # each consumer supplies its own, and two declarations of the same key
@@ -13,6 +14,7 @@
 # Diagnostics and recovery controls are the same on every model, so they live
 # in one place rather than being copied into sixteen radar cores.
 packages:
+  device: !include _device.yaml
   areas: !include _areas_host.yaml
 
 esphome:

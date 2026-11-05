@@ -106,7 +106,7 @@ MicRadar R60ABD1 60 GHz mmWave breathing & sleep radar — ESPHome component.
 
 | Method                               | Best For                                                     | Description                                                                                                                            |
 | ------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **Browser flash (factory firmware)** | Quick setup, no customization needed                         | Visit the [Online Installer](https://zomco.github.io/mmwave-component/), flash via USB using Chrome/Edge — ready to use out of the box |
+| **Browser flash (factory firmware)** | Quick setup, no customization needed                         | The [Online Installer](https://zomco.github.io/mmwave-component/) is the intended page, but it currently has no published firmware. A local candidate is not that release. |
 | **Custom YAML compilation**          | Adjusting calibration, selecting sensors, adding automations | Create a new config in ESPHome Dashboard, write YAML following the guide below, then compile and flash                                 |
 
 ### Firmware Config File Structure
@@ -120,7 +120,7 @@ tests/
 ```
 
 - **Base config** (`r60abd1-esp32c3.yaml`): Contains all hardware parameters and sensor definitions. **Use this as a template for customization.**
-- **Factory config** (`r60abd1-esp32c3.factory.yaml`): Includes the base config via `!include` and adds BLE provisioning, HTTP OTA updates, etc. Built automatically by CI — **users typically do not need to modify this.**
+- **Factory config** (`r60abd1-esp32c3.factory.yaml`): Includes the base via `!include`. The base enables the USB console and does not include serial Improv. The factory file adds BLE provisioning, the fallback access point, captive portal, and HTTP OTA. It still says `version: dev` until a maintainer publishes a real version. **Users typically do not need to modify this.**
 
 ### Step 1: Add the External Component
 

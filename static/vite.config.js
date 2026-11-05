@@ -2,6 +2,9 @@ import { cpSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
+import { applyInstallerDownloadGuard, assertBundleGuarded } from './script/apply-installer-download-guard.mjs';
+
+applyInstallerDownloadGuard();
 
 const passthroughAssets = [
   '_config.yml',
@@ -30,7 +33,12 @@ function copyStaticAssets() {
 
 export default defineConfig({
   base: './',
-  plugins: [tailwindcss(), copyStaticAssets()],
+  plugins: [tailwindcss(), copyStaticAssets(), {
+    name: 'mmwave-installer-download-guard',
+    closeBundle() {
+      assertBundleGuarded(resolve('dist'));
+    },
+  }],
   build: {
     outDir: 'dist',
     emptyOutDir: true,

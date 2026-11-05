@@ -67,6 +67,14 @@ jobs:
             exit 1
           fi
 
+  r60-usb:
+    name: Check R60 USB ownership
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Reject a candidate that shares USB with serial Improv
+        run: python scripts/check_r60_usb_profile.py
+
   # ── Pinned ESPHome patch ────────────────────────────────────────────────────
   # The host-enabled firmware runs on a stock ESPHome release plus exactly one
   # reviewed patch (patches/esphome-2026.9.1-wifi-scan-ownership.patch). This

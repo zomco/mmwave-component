@@ -69,9 +69,10 @@ No software to install. The web flasher talks to the board over USB directly.
 The device joins your Wi-Fi and announces itself. If the port list is empty,
 see [Troubleshooting](#troubleshooting).
 
-Flashing this page does not by itself open the USB console. The console needs
-firmware that actually speaks MWCP, and the ordinary published factory profile
-does not enable it. After a compatible firmware is on the board, close the
+Flashing the public page does not by itself open the USB console: its release
+index is empty, so there is no published firmware there. The R60ABD1 factory
+source now builds the USB console, but that is not a published image and this
+guide has not flashed one. After a compatible firmware is on the board, close the
 installer, wait until the port is free, then connect manually. Closing the
 installer window is not the same as releasing the port. See the
 [USB console guide](./docs/WEB_CONSOLE.md).

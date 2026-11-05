@@ -9,8 +9,8 @@ export function parseReleaseIndex(data) {
   if (data?.schemaVersion !== 1 || !Array.isArray(data.releases)) throw new Error('Invalid release index');
   const ids = new Set();
   return data.releases.map((r) => {
-    if (!r || !['alpha', 'beta'].includes(r.channel) || typeof r.id !== 'string' || r.id !== r.version || ids.has(r.id)
-      || !/^v?\d+\.\d+\.\d+-(alpha|beta)\.\d+$/.test(r.version) || !r.version.includes(`-${r.channel}.`)
+    if (!r || !['alpha', 'beta', 'local'].includes(r.channel) || typeof r.id !== 'string' || r.id !== r.version || ids.has(r.id)
+      || !/^v?\d+\.\d+\.\d+-(alpha|beta|local)\.\d+$/.test(r.version) || !r.version.includes(`-${r.channel}.`)
       || !/^[a-f0-9]{40}$/.test(r.sourceCommit) || !Number.isFinite(Date.parse(r.publishedAt))
       || !Array.isArray(r.firmware) || !r.firmware.length) throw new Error('Invalid release metadata');
     ids.add(r.id);

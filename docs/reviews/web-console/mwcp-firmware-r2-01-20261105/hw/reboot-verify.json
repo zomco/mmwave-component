@@ -1,0 +1,17 @@
+{
+  "step": "one orderly reboot via protocol ACTION_START device.restart (op_id 4947bb52-e666-474b-aeea-f15a43062fdb, job_id job-1); no write_flash, no erase",
+  "boot_id_before": "dcda0cf8f274a6632f914218d02a5d64",
+  "boot_id_after": "dcda0cf8f2749144c2e839d05c2c203f",
+  "firmware_version_after_reboot": "v0.0.0-local.20261105",
+  "identity_line": "r60abd1 · 2D · v0.0.0-local.20261105",
+  "install_x_cm_after_reboot": 31,
+  "config_revision_after_reboot": "156",
+  "persisted": true,
+  "chips": [
+    "串口 open",
+    "协议 online",
+    "雷达 healthy",
+    "数据 valid",
+    "配置 idle"
+  ]
+}

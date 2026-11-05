@@ -1,0 +1,2 @@
+# Preserve archived build inputs and artifact hashes on every checkout.
+* -text

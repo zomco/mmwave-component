@@ -1,0 +1,12 @@
+{
+  "step": "install.x_cm trial write via console session (editDraft + commitDraft, same code path as the 保存到设备 button)",
+  "before": 30,
+  "target": 31,
+  "after_readback": 31,
+  "commit_ok": true,
+  "commit_reason": "persisted_and_read_back",
+  "save_phase": "persisted",
+  "revision_before": "155",
+  "revision_after": "156",
+  "at": "2026-11-05T19:20:00+08:00 (approx, Asia/Shanghai)"
+}

@@ -1,0 +1,6 @@
+# Diagnostics, recovery and USB serial Improv for every model that does
+# not reserve native USB for MWCP. The R60ABD1 candidate includes
+# _device.yaml directly so it keeps the entities without improv_serial.
+packages:
+  device: !include _device.yaml
+  improv: !include _improv_serial.yaml

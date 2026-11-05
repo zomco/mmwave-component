@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node script/apply-installer-download-guard.mjs && vite build",
     "preview": "vite preview",
-    "test": "node --test --test-timeout=120000 test/*.test.js test/browser/*.test.js",
-    "test:unit": "node --test --test-timeout=60000 test/*.test.js",
-    "test:browser": "node --test --test-timeout=90000 test/browser/*.test.js"
+    "test": "node script/apply-installer-download-guard.mjs && node --experimental-vm-modules --test --test-timeout=120000 test/*.test.js test/browser/*.test.js",
+    "test:unit": "node script/apply-installer-download-guard.mjs && node --experimental-vm-modules --test --test-timeout=60000 test/*.test.js",
+    "test:browser": "node script/apply-installer-download-guard.mjs && node --test --test-timeout=90000 test/browser/*.test.js"
   },
   "dependencies": {
     "esp-web-tools": "^10.1.1",

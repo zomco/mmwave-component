@@ -285,14 +285,28 @@ void MwcpHost::setup() {
   id.device_id = device_id_;
   id.configured_model = "r60abd1";
   id.dimension = "2D";
+#ifdef ESPHOME_PROJECT_VERSION
+  id.firmware_version = ESPHOME_PROJECT_VERSION;
+#elif defined(MWCP_FIRMWARE_VERSION)
+  id.firmware_version = MWCP_FIRMWARE_VERSION;
+#else
   id.firmware_version = "mwcp-host";
+#endif
 #ifdef MWCP_GIT_SHA
   id.git_sha = MWCP_GIT_SHA;
 #else
   id.git_sha = nullptr;
 #endif
+#ifdef MWCP_RELEASE_CHANNEL
+  id.release_channel = MWCP_RELEASE_CHANNEL;
+#else
   id.release_channel = "development";
+#endif
+#ifdef MWCP_BUILD_PROFILE
+  id.build_profile = MWCP_BUILD_PROFILE;
+#else
   id.build_profile = "host-enabled";
+#endif
   id.cap_revision = "r60-cap-1";
   id.max_targets = 1;
   service_.begin(id, boot_id_);

@@ -18,7 +18,7 @@ npm run dev
 
 仓库内 `static/public/releases.json` 故意保持空列表。本地开发不会偷偷使用旧 dev 固件或虚构版本；正式索引由已发布的 GitHub Release 产物生成。测试用假固件绝不能连接真机烧录。
 
-给用户看的 USB 调试说明在 [WEB_CONSOLE_CN.md](./WEB_CONSOLE_CN.md)。源码里有 `mmwave_host`、某个 host 配置编译时启用它、某个镜像实际刷入、某个版本已经发布，这是四件事。factory 包包含 `tests/r60abd1-esp32c3.yaml`，该文件不启用 `mmwave_host`。空的发布列表或页面上有烧录按钮，都不能当成已经发布了 MWCP 固件。
+给用户看的 USB 调试说明在 [WEB_CONSOLE_CN.md](./WEB_CONSOLE_CN.md)。源码里有 `mmwave_host`、某个配置编译时启用它、某个镜像实际刷入、某个版本已经发布，这是四件事。R60ABD1 的基础配置现在启用 `mmwave_host`，并把原生 USB 留给它；串口 Improv 留在其他型号上。`tests/r60abd1-esp32c3.factory.yaml` 仍写着 `version: dev`，仓库里的 `static/public/releases.json` 仍是空列表。本地候选、页面上的烧录按钮，都不是已发布固件。
 
 要复验浏览器的版本分组和异常处理，构建后在 `static/` 运行 `python test/serve-fixtures.py`，打开 `http://127.0.0.1:5175/mmwave-component/?scenario=mixed`。场景为 `mixed`（Beta 默认 + Alpha 确认）、`alpha`（不自动选择）、`corrupt`（校验失败）、`error`（索引失败）和 `empty`。该服务只监听本机，显示 QA 横幅，故意不提供任何可烧录二进制；不要连接硬件。它同时覆盖 GitHub Pages 子路径资源解析。
 

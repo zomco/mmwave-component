@@ -85,7 +85,6 @@ button:
 web_server:
   port: 80
 
-# Wi-Fi provisioning over the USB serial port, which is what the web installer
-# at static/ drives. Safe here only because the logger is on USB_SERIAL_JTAG:
-# on the ESP32-C3, UART0 is GPIO20/21, which is where every radar is wired.
-improv_serial:
+# Serial Improv is intentionally not in this file. Models that still provision
+# over USB include it via _standard_device.yaml. The R60ABD1 MWCP candidate
+# includes this file alone.

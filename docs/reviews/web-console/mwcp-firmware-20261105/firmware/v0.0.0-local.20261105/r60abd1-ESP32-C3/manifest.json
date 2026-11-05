@@ -1,0 +1,20 @@
+{
+  "name": "R60ABD1 local candidate",
+  "version": "v0.0.0-local.20261105",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-C3",
+      "parts": [
+        {
+          "path": "r60abd1.factory.bin",
+          "offset": 0
+        }
+      ],
+      "ota": {
+        "path": "r60abd1.ota.bin",
+        "md5": "d5879956b3c39379c91f59331dc68cb2"
+      }
+    }
+  ]
+}
