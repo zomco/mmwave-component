@@ -32,10 +32,11 @@ npm run dev
 
 GitHub Actions 中在 `main` 手动运行 **Publish**：
 
-1. channel 选 `alpha`，填写新版本，例如 `v1.2.0-alpha.1`。
-2. 填写精确 ESPHome 版本，例如 `2026.9.0`；禁止 `latest`。实际发布应选择已完成 CI/硬件验证的版本。
-3. 工作流只构建上架的 Completed 型号，编译前写入 Alpha 版本，必须同时有 factory 和 OTA 产物。
-4. 发布 prerelease，永久附件为 `release.json` 和 `firmware-bundle.zip`。ZIP、各文件和网页 manifest 都有 SHA-256 校验；Actions 临时 artifact 仅用于构建过程，不承担版本存储。
+1. channel 选 `alpha`，填写新版本，例如 `v1.2.0-alpha.1`。版本必须严格符合 `vX.Y.Z-alpha.N`。
+2. 填写精确 ESPHome 版本，例如 `2026.9.1`；禁止 `latest`。实际发布应选择已完成 CI/硬件验证的版本。
+3. 工作流只构建上架的 Completed 型号，编译前由 `scripts/releases.py stamp` 同时写入 Alpha 项目版本和 `release_channel: alpha`，确保固件 HELLO 协议身份、编译宏与分发元数据完全一致；必须同时有 factory 和 OTA 产物。
+4. 源码追踪嵌入实际 40 位 Git 提交哈希（`MWCP_GIT_SHA`）。若在本地演练中基于脏工作树构建，必须另行如实记录变更差异与文件哈希，不能只填基线 commit 伪装成干净发布构建。
+5. 发布 prerelease，永久附件为 `release.json` 和 `firmware-bundle.zip`。ZIP、各文件和网页 manifest 都有 SHA-256 校验；Actions 临时 artifact 仅用于构建过程，不承担版本存储。
 
 按维护者节奏手动发布（约半月一次），日常提交只运行 CI。版本号必须唯一，不覆盖附件；中断产生的残缺草稿由维护者正常处理后重试，网页部署会拒绝残缺版本。
 
@@ -62,7 +63,7 @@ Beta **不重新构建**，沿用被测试 Alpha 的完整 ZIP、二进制及 ma
 
 维护者已明确允许丢弃正式发布前测试设备的旧 OTA 文件。从全新 Vite 构建目录运行：`python3 scripts/releases.py assemble OWNER/REPO static/dist`。组装不再访问现有 Pages 网站，也不迁移旧固件；部署后旧测试设备的 OTA 地址可能失效，必要时重新烧录。没有符合新格式的 Release 时，两个索引均为空，DIY 指南仍可部署。GitHub API 错误或 Release 产物校验失败仍会阻止部署，不会被当作空历史忽略。
 
-回滚时不要偷偷改写固定 tag。由维护者撤下错误发布版本并重新部署页面，检查稳定 OTA 地址和旧设备行为；设备擦除或降级属于另外的明确硬件操作。
+回滚时不要偷偷改写固定 tag。由维护者撤下错误发布版本并重新部署页面，检查稳定 OTA 地址和旧设备行为。只有 Beta 能生成稳定 OTA 地址（`<model>-ESP32-C3/manifest.json`），Alpha-only 不会产生稳定更新别名。工厂烧录从 0x0 覆盖 bootloader、分区表和应用区，NVS 没有备份，系统不承诺自动降级或 NVS 恢复。
 
 ## 比较表依据（核对日期 2026-10-12）
 

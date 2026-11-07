@@ -1,0 +1,23 @@
+{
+  "name": "R60ABD1 alpha",
+  "version": "v0.1.0-alpha.1",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-C3",
+      "parts": [
+        {
+          "path": "r60abd1.factory.bin",
+          "offset": 0,
+          "md5": "d932a004eaa3f55ce753e8ea72b9f5c3",
+          "sha256": "0270f1578e0f56ac4a5f397e43760021efb5882adc5079260cb6f7c76fc7c752"
+        }
+      ],
+      "ota": {
+        "path": "r60abd1.ota.bin",
+        "md5": "f3ef2c83c3ea5fc64a92afe36cbd841b",
+        "sha256": "c4dbb29e7c02b3704ea0f1caaf13e887e414e411e1c13548eb8ddd9a9ec84ce3"
+      }
+    }
+  ]
+}

@@ -150,14 +150,78 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotIn('github.io', workflow)
         self.assertNotIn('preserve existing OTA', workflow)
 
-    def test_stamp_changes_only_the_project_version(self):
+    def test_stamp_updates_project_version_and_release_channel(self):
         config = self.root / 'factory.yaml'
-        config.write_text('esphome:\n  project:\n    version: dev # release\n', encoding='utf-8')
+        config.write_text('esphome:\n  project:\n    version: dev # release\n\nmmwave_host:\n  release_channel: dev\n', encoding='utf-8')
         with patch.object(r, 'ROOT', self.root):
             r.stamp('factory.yaml', self.version)
-            self.assertIn(f'version: "{self.version}" # release', config.read_text())
+            content = config.read_text()
+            self.assertIn(f'version: "{self.version}" # release', content)
+            self.assertIn('release_channel: alpha', content)
+            self.assertNotIn('release_channel: dev', content)
+            # Re-stamping already stamped config must fail
             with self.assertRaises(ValueError): r.stamp('factory.yaml', self.version)
+            # Stamping with beta tag must fail
             with self.assertRaises(ValueError): r.stamp('factory.yaml', 'v1.0.0-beta.1')
+            # Stamping with nightly or invalid tag must fail
+            with self.assertRaises(ValueError): r.stamp('factory.yaml', 'v1.0.0-nightly.1')
+
+    def test_assemble_local_releases_alpha_only_and_beta_promotion(self):
+        alpha = self.package()
+        site_alpha = self.root / 'site_alpha'
+        r.assemble('none', site_alpha, local_releases=alpha)
+        # Alpha-only: releases has 1 release, models.json is empty, no stable OTA alias
+        releases_data = r.read(site_alpha / 'releases.json')
+        self.assertEqual(len(releases_data['releases']), 1)
+        self.assertEqual(releases_data['releases'][0]['channel'], 'alpha')
+        self.assertEqual(r.read(site_alpha / 'models.json'), [])
+        self.assertFalse((site_alpha / 'r60abd1-ESP32-C3').exists())
+        self.assertTrue((site_alpha / 'firmware' / self.version / 'r60abd1-ESP32-C3' / 'manifest.json').exists())
+
+        # Promote to Beta
+        beta = self.root / 'beta'
+        r.promote(alpha, beta, 'v1.0.0-beta.1', 'hardware passed')
+        local_dir = self.root / 'local_releases'
+        local_dir.mkdir()
+        r.shutil.copytree(alpha, local_dir / 'alpha')
+        r.shutil.copytree(beta, local_dir / 'beta')
+
+        site_all = self.root / 'site_all'
+        r.assemble('none', site_all, local_releases=local_dir)
+        releases_all = r.read(site_all / 'releases.json')
+        self.assertEqual(len(releases_all['releases']), 2)
+        # Beta is first because it sorts by channel/version
+        self.assertEqual(releases_all['releases'][0]['channel'], 'beta')
+        self.assertEqual(releases_all['releases'][1]['channel'], 'alpha')
+        # Beta generates stable OTA alias and models.json
+        models = r.read(site_all / 'models.json')
+        self.assertEqual(models, [{'id': 'r60abd1-ESP32-C3', 'manifest': 'r60abd1-ESP32-C3/manifest.json'}])
+        self.assertTrue((site_all / 'r60abd1-ESP32-C3' / 'factory.bin').exists())
+        self.assertEqual((site_all / 'r60abd1-ESP32-C3' / 'factory.bin').read_bytes(), b'factory')
+
+    def test_stamp_rejects_host_without_a_dev_channel_placeholder(self):
+        # A factory without mmwave_host is covered by the version-only test;
+        # both host variants here must be refused instead of guessing.
+        for suffix in ('mmwave_host:\n  id: host_link\n', 'mmwave_host:\n  release_channel: beta\n'):
+            config = self.root / 'host.yaml'
+            original = 'esphome:\n  project:\n    version: dev\n' + suffix
+            config.write_text(original, encoding='utf-8')
+            with self.subTest(suffix=suffix.splitlines()[-1:]):
+                with patch.object(r, 'ROOT', self.root), self.assertRaises(ValueError):
+                    r.stamp('host.yaml', self.version)
+                self.assertEqual(config.read_text(encoding='utf-8'), original,
+                                 'a refused stamp must keep the file byte-identical')
+
+    def test_stamp_leaves_factories_without_mmwave_host_alone(self):
+        config = self.root / 'plain.yaml'
+        config.write_text('esphome:\n  project:\n    version: dev\n', encoding='utf-8')
+        with patch.object(r, 'ROOT', self.root):
+            r.stamp('plain.yaml', self.version)
+        self.assertEqual(
+            config.read_text(encoding='utf-8'),
+            'esphome:\n  project:\n    version: "v1.0.0-alpha.1"\n',
+            'a non-MWCP factory only takes the project version, no host block',
+        )
 
     def test_beta_requires_acceptance_and_alpha_provenance(self):
         alpha = self.package()

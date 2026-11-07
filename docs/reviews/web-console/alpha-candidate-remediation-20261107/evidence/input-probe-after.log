@@ -1,0 +1,13 @@
+$ python docs/plans/mmwave-web-console/alpha-review-20261107/input-probe.py
+[exit code: 0]
+
+--- stdout ---
+builder 'v0.1.0-alpha.1' ACCEPTED alpha inside firmware: True
+builder 'v0.1.0-beta.1' REJECTED ValueError Candidate builds need vX.Y.Z-alpha.N or v0.0.0-local.YYYYMMDD; Beta is only promoted from tested Alpha bytes
+builder '../outside' REJECTED ValueError Candidate builds need vX.Y.Z-alpha.N or v0.0.0-local.YYYYMMDD; Beta is only promoted from tested Alpha bytes
+builder 'v0.1.0-alpha.bad' REJECTED ValueError Candidate builds need vX.Y.Z-alpha.N or v0.0.0-local.YYYYMMDD; Beta is only promoted from tested Alpha bytes
+release stamp no-host 'esphome:\n  project:\n    version: "v0.1.0-alpha.1"\n'
+release stamp host-no-channel REJECTED ValueError unchanged: True
+release stamp wrong-channel REJECTED ValueError unchanged: True
+
+--- stderr ---

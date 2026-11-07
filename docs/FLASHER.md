@@ -30,10 +30,11 @@ Current entry: R60ABD1. ESP32-C3 Super Mini artwork depicts the repository refer
 
 In GitHub Actions, run **Publish** on `main`:
 
-1. Choose `alpha`, enter a new tag such as `v1.2.0-alpha.1`.
-2. Set an exact ESPHome version, such as `2026.9.0`; floating `latest` is rejected. Select a version already validated by CI/hardware for the release.
-3. The workflow builds only Completed catalog entries and requires both factory and OTA artifacts. It stamps the Alpha version before compilation.
-4. It uploads permanent `release.json` and `firmware-bundle.zip` assets to a prerelease. SHA-256 covers the archive, each file and the web manifest. GitHub Actions artifacts are temporary build transport, not release storage.
+1. Choose `alpha`, enter a new tag such as `v1.2.0-alpha.1`. The tag must strictly follow `vX.Y.Z-alpha.N`.
+2. Set an exact ESPHome version, such as `2026.9.1`; floating `latest` is rejected. Select a version already validated by CI/hardware for the release.
+3. The workflow builds only Completed catalog entries and requires both factory and OTA artifacts. `scripts/releases.py stamp` stamps both the Alpha project version and `release_channel: alpha` into the factory configuration before compilation, guaranteeing that `firmware_version` and `release_channel` match across HELLO protocol identity, CMake flags, and distribution metadata.
+4. Source tracking embeds the actual 40-character Git commit (`MWCP_GIT_SHA`). If built from a dirty worktree during local rehearsals, dirty status and file hashes must be recorded separately rather than disguised as a clean baseline commit.
+5. It uploads permanent `release.json` and `firmware-bundle.zip` assets to a prerelease. SHA-256 covers the archive, each file and the web manifest. GitHub Actions artifacts are temporary build transport, not release storage.
 
 Run when ready (roughly fortnightly); ordinary commits run CI, not firmware publishing. A tag must be new; the workflow does not overwrite assets. If an interrupted release is incomplete, repair or remove that draft through the maintainer's normal process before retrying. Pages rejects partial releases.
 
@@ -58,7 +59,7 @@ Do not promote a version merely because the website builds. This workflow does n
 
 The maintainer has explicitly waived legacy OTA retention for the pre-release test fleet. Deploy from a fresh Vite build: `python3 scripts/releases.py assemble OWNER/REPO static/dist`. Assembly does not request the existing Pages site or migrate its firmware. Old test-device OTA URLs may disappear after deployment; reflash those devices if needed. With no qualifying releases, both indexes are empty and the DIY guide still deploys. GitHub API failures and invalid release bundles still stop deployment; they are not treated as empty history.
 
-To roll back a release, do not silently mutate an immutable tag. Remove the bad release from publication under maintainer control, redeploy Pages, and check the stable alias and older device behavior. Erasing or downgrading devices is a separate, explicit hardware action.
+To roll back a release, do not silently mutate an immutable tag. Remove the bad release from publication under maintainer control, redeploy Pages, and check the stable alias and older device behavior. Note that Alpha-only releases do not advance the stable OTA alias (`<model>-ESP32-C3/manifest.json`); only Beta releases generate it. Factory installation starts from offset 0x0 and overwrites bootloader, partition table, and application; NVS is not backed up, and no automatic downgrade or NVS restoration is promised.
 
 ## Comparison evidence (checked 2026-10-12)
 

@@ -1,0 +1,18 @@
+{
+  "version": "v0.1.0-alpha.1",
+  "channel": "alpha",
+  "sourceCommit": "a020ff1c420a4d11a413c7791daa5c608804dca8",
+  "dirtyWorktree": true,
+  "esphome": "2026.9.1",
+  "patched": false,
+  "scan": "UNSUPPORTED",
+  "flashFit": "82.5% (1514176/1835008 bytes)",
+  "invalidChannelExit": 2,
+  "factorySha256": "0270f1578e0f56ac4a5f397e43760021efb5882adc5079260cb6f7c76fc7c752",
+  "otaSha256": "c4dbb29e7c02b3704ea0f1caaf13e887e414e411e1c13548eb8ddd9a9ec84ce3",
+  "manifestSha256": "b2725a54d8d0f60151398913193ba4920ead9e28d2abadae1e9df6e10a34d568",
+  "factoryBytes": 1580080,
+  "otaBytes": 1514544,
+  "defines": "D:\\Users\\zomco\\Documents\\GitHub\\mmwave-workspace\\submodules\\mmwave-component\\tmp\\rehearsal-data\\build\\r60abd1\\src\\esphome\\core\\defines.h",
+  "sdkconfig": "D:\\Users\\zomco\\Documents\\GitHub\\mmwave-workspace\\submodules\\mmwave-component\\tmp\\rehearsal-data\\build\\r60abd1\\sdkconfig.r60abd1"
+}

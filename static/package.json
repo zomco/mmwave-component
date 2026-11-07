@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "node script/apply-installer-download-guard.mjs && node --experimental-vm-modules --test --test-timeout=120000 test/*.test.js test/browser/*.test.js",
     "test:unit": "node script/apply-installer-download-guard.mjs && node --experimental-vm-modules --test --test-timeout=60000 test/*.test.js",
-    "test:browser": "node script/apply-installer-download-guard.mjs && node --test --test-timeout=90000 test/browser/*.test.js"
+    "test:browser": "node script/apply-installer-download-guard.mjs && node --test --test-timeout=90000 test/browser/*.test.js",
+    "postinstall": "node script/apply-installer-download-guard.mjs"
   },
   "dependencies": {
     "esp-web-tools": "^10.1.1",

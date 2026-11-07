@@ -1,0 +1,483 @@
+diff --git a/scripts/build_r60_candidate.py b/scripts/build_r60_candidate.py
+index 8718410..8c9fd35 100644
+--- a/scripts/build_r60_candidate.py
++++ b/scripts/build_r60_candidate.py
+@@ -4,12 +4,18 @@
+ The committed factory file keeps version: dev so the publisher can stamp a
+ real Alpha later. This compiles a copy. It does not patch ESPHome, publish,
+ or write static/public/releases.json. wifi.scan stays unsupported.
++
++Versions follow the release tool's own rules (scripts/releases.py): strict
++vX.Y.Z-alpha.N for Alpha candidates or v0.0.0-local.YYYYMMDD for local
++development. Candidate builds never produce Beta. Artifact directories are
++append-only: an existing candidate output is refused, never deleted.
+ """
+ 
+ from __future__ import annotations
+ 
+ import argparse
+ import hashlib
++import importlib.util
+ import json
+ import os
+ import re
+@@ -19,9 +25,17 @@ import sys
+ from pathlib import Path
+ 
+ ROOT = Path(__file__).resolve().parents[1]
+-VERSION = "v0.0.0-local.20261105"
++DEFAULT_VERSION = "v0.0.0-local.20261105"
+ PINNED = "2026.9.1"
+ 
++# One identity rule set: the candidate builder reuses the release tool's
++# version validation instead of keeping its own channel heuristics.
++_spec = importlib.util.spec_from_file_location(
++    "_mmwave_release_tool", Path(__file__).resolve().with_name("releases.py")
++)
++release_tool = importlib.util.module_from_spec(_spec)
++_spec.loader.exec_module(release_tool)
++
+ 
+ def sha256(data: bytes) -> str:
+     return hashlib.sha256(data).hexdigest()
+@@ -45,20 +59,36 @@ def expect_failure(cmd, env, log: Path) -> int:
+     return proc.returncode
+ 
+ 
+-def stamp(destination: Path) -> None:
++def stamp(destination: Path, version: str) -> str:
++    """Stamp a copy of the factory config for one candidate build.
++
++    The version is validated with the release tool's candidate rules before
++    anything is read or written, so an invalid value cannot create files or
++    change existing ones.
++    """
++    channel_value = release_tool.candidate_channel(version)
+     text = (ROOT / "tests/r60abd1-esp32c3.factory.yaml").read_text(encoding="utf-8")
+     text = text.replace(
+         "core: !include r60abd1-esp32c3.yaml",
+         "core: !include ../../tests/r60abd1-esp32c3.yaml",
+         1,
+     )
+-    text, count = re.subn(r"version:\s*dev\b", f'version: "{VERSION}"', text, count=1)
+-    if count != 1 or "version: dev" in text:
+-        raise SystemExit("error: could not stamp exactly one project version")
++    stamped, count = re.subn(r"version:\s*dev\b", f'version: "{version}"', text, count=1)
++    if count != 1 or "version: dev" in stamped:
++        raise ValueError("could not stamp exactly one project version")
++    stamped, channel_count = re.subn(
++        r"(?m)^(\s*release_channel:\s*)dev\b",
++        lambda match: f"{match.group(1)}{channel_value}",
++        stamped,
++        count=1,
++    )
++    if channel_count != 1:
++        raise ValueError("could not stamp exactly one release_channel placeholder")
+     destination.write_text(
+-        "# Generated local compile input. Not a release and not the file CI publishes.\n" + text,
++        "# Generated local compile input. Not a release and not the file CI publishes.\n" + stamped,
+         encoding="utf-8",
+     )
++    return channel_value
+ 
+ 
+ def bad_copy(destination: Path) -> None:
+@@ -86,16 +116,37 @@ def assert_text(label, text, required, forbidden):
+             raise SystemExit(f"error: {label} unexpectedly contains {item}")
+ 
+ 
+-def assert_build(data_dir: Path):
++def resolve_candidate_target(output: Path, version: str) -> Path:
++    """Resolve the artifact directory for one candidate version.
++
++    The version is already validated, so it cannot carry path separators; this
++    still resolves the real path to refuse symlink escapes out of the firmware
++    root. Existing outputs are refused instead of deleted, so earlier
++    candidates and historical evidence are never removed or overwritten.
++    """
++    firmware_root = (output / "firmware").resolve()
++    target = firmware_root / version / "r60abd1-ESP32-C3"
++    resolved_target = target.resolve()
++    if resolved_target == firmware_root or not resolved_target.is_relative_to(firmware_root):
++        raise ValueError(f"candidate target {target} resolves outside {firmware_root}")
++    if target.exists() or target.is_symlink():
++        raise ValueError(
++            f"candidate output {target} already exists; use a new --output directory "
++            "(existing outputs are never deleted)"
++        )
++    return target
++
++
++def assert_build(data_dir: Path, version: str, channel: str):
+     defines_path = find_one(data_dir.glob("build/*/src/esphome/core/defines.h"))
+     defines = defines_path.read_text(encoding="utf-8")
+-    if f'#define ESPHOME_PROJECT_VERSION "{VERSION}"' not in defines:
+-        raise SystemExit("error: defines.h missing the local project version")
++    if f'#define ESPHOME_PROJECT_VERSION "{version}"' not in defines:
++        raise SystemExit("error: defines.h missing the project version")
+     cmake_path = find_one(data_dir.glob("build/*/CMakeLists.txt"))
+     cmake = cmake_path.read_text(encoding="utf-8")
+     for flag in (
+         '-DMWCP_BUILD_PROFILE=\\"r60-daily\\"',
+-        '-DMWCP_RELEASE_CHANNEL=\\"development\\"',
++        f'-DMWCP_RELEASE_CHANNEL=\\"{channel}\\"',
+         '-DMWCP_FIRMWARE_VERSION=\\"dev\\"',
+     ):
+         if flag not in cmake:
+@@ -133,23 +184,36 @@ def main() -> int:
+     parser.add_argument("--python", type=Path, required=True)
+     parser.add_argument("--data-dir", type=Path, required=True)
+     parser.add_argument("--output", type=Path, required=True)
++    parser.add_argument("--version", default=DEFAULT_VERSION, help="Target version string (default: local candidate)")
+     parser.add_argument("--skip-compile", action="store_true")
+     args = parser.parse_args()
++    version = args.version
++    try:
++        release_tool.candidate_channel(version)
++    except ValueError as error:
++        raise SystemExit(f"error: invalid --version {version!r}: {error}")
+     subprocess.check_call([sys.executable, str(ROOT / "scripts/check_r60_usb_profile.py")])
+     data = args.data_dir.resolve()
+     data.mkdir(parents=True, exist_ok=True)
+     output = args.output.resolve()
+     output.mkdir(parents=True, exist_ok=True)
++    try:
++        target = resolve_candidate_target(output, version)
++    except ValueError as error:
++        raise SystemExit(f"error: {error}")
+     reported = subprocess.check_output([str(args.python), "-m", "esphome", "version"], text=True)
+     match = re.search(r"(\d{4}\.\d+\.\d+)", reported)
+-    version = match.group(1) if match else ""
+-    if version != PINNED:
+-        raise SystemExit(f"error: esphome {version}, expected {PINNED}")
++    esphome_ver = match.group(1) if match else ""
++    if esphome_ver != PINNED:
++        raise SystemExit(f"error: esphome {esphome_ver}, expected {PINNED}")
+     env = dict(os.environ)
+     env.pop("MSYSTEM", None)
+     env["ESPHOME_DATA_DIR"] = str(data)
+     stamped = data / "r60abd1.factory.yaml"
+-    stamp(stamped)
++    try:
++        ch = stamp(stamped, version)
++    except ValueError as error:
++        raise SystemExit(f"error: {error}")
+     shutil.copyfile(stamped, output / "compiled.factory.yaml")
+     bad = data / "bad-channel.yaml"
+     bad_copy(bad)
+@@ -158,7 +222,7 @@ def main() -> int:
+     assert_text(
+         "r60 config",
+         r60_config,
+-        ["baud_rate: 0", "mmwave_host:", "captive_portal:", "reboot_timeout: 0s", f"version: {VERSION}", "firmware_version: dev"],
++        ["baud_rate: 0", "mmwave_host:", "captive_portal:", "reboot_timeout: 0s", f"version: {version}", "firmware_version: dev"],
+         ["improv_serial:", "hardware_uart: USB_SERIAL_JTAG", "MWCP_WIFI_SCAN_OWNERSHIP"],
+     )
+     other = run(
+@@ -171,40 +235,53 @@ def main() -> int:
+         print("config ok")
+         return 0
+     compile_log = run([str(args.python), "-m", "esphome", "compile", str(stamped)], env, output / "compile.log")
+-    built = assert_build(data)
++    built = assert_build(data, version, ch)
+     fit = flash_fit(compile_log)
+-    target = output / "firmware" / VERSION / "r60abd1-ESP32-C3"
+-    if target.exists():
+-        shutil.rmtree(target)
++    # The target was resolved and checked before the build started; nothing
++    # that appeared meanwhile is overwritten (mkdir without exist_ok).
+     target.mkdir(parents=True)
+     factory_name = "r60abd1.factory.bin"
+     ota_name = "r60abd1.ota.bin"
+     shutil.copyfile(built["factory"], target / factory_name)
+     shutil.copyfile(built["ota"], target / ota_name)
+     ota_bytes = (target / ota_name).read_bytes()
++    factory_bytes = (target / factory_name).read_bytes()
++    factory_hash = sha256(factory_bytes)
++    ota_hash = sha256(ota_bytes)
+     manifest = {
+-        "name": "R60ABD1 local candidate",
+-        "version": VERSION,
++        "name": f"R60ABD1 {ch}" if ch != "development" else "R60ABD1 local candidate",
++        "version": version,
+         "new_install_prompt_erase": True,
+         "builds": [{
+             "chipFamily": "ESP32-C3",
+-            "parts": [{"path": factory_name, "offset": 0}],
+-            "ota": {"path": ota_name, "md5": hashlib.md5(ota_bytes).hexdigest()},
++            "parts": [{"path": factory_name, "offset": 0, "md5": hashlib.md5(factory_bytes).hexdigest(), "sha256": factory_hash}],
++            "ota": {"path": ota_name, "md5": hashlib.md5(ota_bytes).hexdigest(), "sha256": ota_hash},
+         }],
+     }
+     manifest_bytes = (json.dumps(manifest, indent=2) + "\n").encode()
+     (target / "manifest.json").write_bytes(manifest_bytes)
++    try:
++        head_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
++    except Exception:
++        head_commit = ""
++    try:
++        git_dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
++    except Exception:
++        git_dirty = False
+     summary = {
+-        "version": VERSION,
+-        "esphome": version,
++        "version": version,
++        "channel": ch,
++        "sourceCommit": head_commit,
++        "dirtyWorktree": git_dirty,
++        "esphome": esphome_ver,
+         "patched": False,
+         "scan": "UNSUPPORTED",
+         "flashFit": fit,
+         "invalidChannelExit": rejected,
+-        "factorySha256": sha256((target / factory_name).read_bytes()),
+-        "otaSha256": sha256(ota_bytes),
++        "factorySha256": factory_hash,
++        "otaSha256": ota_hash,
+         "manifestSha256": sha256(manifest_bytes),
+-        "factoryBytes": (target / factory_name).stat().st_size,
++        "factoryBytes": len(factory_bytes),
+         "otaBytes": len(ota_bytes),
+         "defines": str(built["defines"]),
+         "sdkconfig": str(built["sdkconfig"]),
+diff --git a/scripts/releases.py b/scripts/releases.py
+index ed6224f..b907b55 100644
+--- a/scripts/releases.py
++++ b/scripts/releases.py
+@@ -45,6 +45,37 @@ def channel(version):
+     return match[1]
+ 
+ 
++# Local candidate builds keep the historical development identity: a pinned
++# v0.0.0-local.<YYYYMMDD> tag. Only digits and dots, so the value can never
++# carry path separators.
++LOCAL_CANDIDATE_VERSION = re.compile(r"^v0\.0\.0-local\.\d{8}$")
++
++
++def candidate_channel(version):
++    """Channel for one candidate build: a strict Alpha tag or the local format.
++
++    Candidate builds never produce Beta. A Beta release is only created by
++    promote() from already tested Alpha bytes, so any Beta, malformed or
++    non-string value is rejected here with the file system untouched.
++    """
++    if not isinstance(version, str):
++        raise ValueError(
++            "Candidate builds need vX.Y.Z-alpha.N or v0.0.0-local.YYYYMMDD; "
++            "Beta is only promoted from tested Alpha bytes"
++        )
++    try:
++        if channel(version) == "alpha":
++            return "alpha"
++    except ValueError:
++        pass
++    if LOCAL_CANDIDATE_VERSION.fullmatch(version):
++        return "development"
++    raise ValueError(
++        "Candidate builds need vX.Y.Z-alpha.N or v0.0.0-local.YYYYMMDD; "
++        "Beta is only promoted from tested Alpha bytes"
++    )
++
++
+ def catalog(root=ROOT):
+     data = read(root / "static/device-catalog.json")
+     status = (root / "README.md").read_text(encoding="utf-8")
+@@ -77,9 +108,22 @@ def stamp(config, version):
+         raise ValueError("Only Alpha builds; Beta promotes tested bytes")
+     path = ROOT / safe_path(config)
+     text = path.read_text(encoding="utf-8")
+-    text, count = re.subn(r'(?m)^(\s*version:\s*)[\"\']?dev[\"\']?(\s*(?:#.*)?)$', lambda m: f'{m[1]}"{version}"{m[2]}', text)
++    text, count = re.subn(r'(?m)^(\s*version:\s*)["\']?dev["\']?(\s*(?:#.*)?)$', lambda m: f'{m[1]}"{version}"{m[2]}', text)
+     if count != 1:
+         raise ValueError("Expected exactly one version: dev placeholder")
++    ch = channel(version)
++    if re.search(r'(?m)^\s*release_channel:\s*["\']?(?:dev|development)["\']?', text):
++        text, ch_count = re.subn(r'(?m)^(\s*release_channel:\s*)["\']?(?:dev|development)["\']?(\s*(?:#.*)?)$', lambda m: f'{m[1]}{ch}{m[2]}', text)
++        if ch_count != 1:
++            raise ValueError("Expected exactly one release_channel placeholder")
++    elif "mmwave_host:" in text:
++        # An mmwave_host block without a dev/development placeholder cannot be
++        # stamped safely: keeping its channel would disagree with the stamped
++        # version and duplicating or rewriting the block risks malformed YAML.
++        # Refuse and let the maintainer fix the source configuration.
++        raise ValueError("mmwave_host block has no release_channel: dev placeholder to stamp")
++    # A factory without mmwave_host is not an MWCP model: only the project
++    # version is stamped and no host block is invented for it.
+     path.write_text(text, encoding="utf-8")
+ 
+ 
+@@ -247,36 +291,55 @@ def download_release(repo, tag, directory):
+     return meta
+ 
+ 
+-def assemble(repo, output):
++def assemble(repo, output, local_releases=None):
+     models, _ = catalog()
+     eligible = {m["id"] for m in models}
+     output = Path(output)
+     # The pre-release test fleet has no legacy OTA retention requirement.
+     # A fresh Vite build supplies the site; GitHub Releases supplies firmware.
+     releases = []
+-    with tempfile.TemporaryDirectory() as temp:
+-        page = 1
+-        while True:
+-            batch = json.loads(gh("api", f"repos/{repo}/releases?per_page=100&page={page}"))
+-            for release in batch:
+-                if release["draft"]:
+-                    continue
+-                assets = {a["name"] for a in release["assets"]}
+-                if not ({"release.json", "firmware-bundle.zip"} & assets):
+-                    continue  # Older releases remain outside the new channel index.
+-                if not {"release.json", "firmware-bundle.zip"} <= assets:
+-                    raise ValueError("Incomplete release assets")
+-                tag = release["tag_name"]
+-                meta = download_release(repo, tag, Path(temp) / tag)
+-                meta["publishedAt"] = release["published_at"]
+-                with zipfile.ZipFile(Path(temp) / tag / "firmware-bundle.zip") as bundle:
+-                    bundle.extractall(output / "firmware" / tag)  # validated safe paths above
+-                meta["firmware"] = [f for f in meta["firmware"] if f["radarId"] in eligible]
+-                if meta["firmware"]:
+-                    releases.append(meta)
+-            if len(batch) < 100:
+-                break
+-            page += 1
++    if local_releases:
++        local_dir = Path(local_releases)
++        release_dirs = []
++        if (local_dir / "release.json").is_file():
++            release_dirs.append(local_dir)
++        elif local_dir.is_dir():
++            for child in sorted(local_dir.iterdir()):
++                if child.is_dir() and (child / "release.json").is_file():
++                    release_dirs.append(child)
++        for r_dir in release_dirs:
++            meta = read(r_dir / "release.json")
++            validate_bundle(meta, r_dir / "firmware-bundle.zip")
++            tag = meta["version"]
++            with zipfile.ZipFile(r_dir / "firmware-bundle.zip") as bundle:
++                bundle.extractall(output / "firmware" / tag)
++            meta["firmware"] = [f for f in meta["firmware"] if f["radarId"] in eligible]
++            if meta["firmware"]:
++                releases.append(meta)
++    else:
++        with tempfile.TemporaryDirectory() as temp:
++            page = 1
++            while True:
++                batch = json.loads(gh("api", f"repos/{repo}/releases?per_page=100&page={page}"))
++                for release in batch:
++                    if release["draft"]:
++                        continue
++                    assets = {a["name"] for a in release["assets"]}
++                    if not ({"release.json", "firmware-bundle.zip"} & assets):
++                        continue  # Older releases remain outside the new channel index.
++                    if not {"release.json", "firmware-bundle.zip"} <= assets:
++                        raise ValueError("Incomplete release assets")
++                    tag = release["tag_name"]
++                    meta = download_release(repo, tag, Path(temp) / tag)
++                    meta["publishedAt"] = release["published_at"]
++                    with zipfile.ZipFile(Path(temp) / tag / "firmware-bundle.zip") as bundle:
++                        bundle.extractall(output / "firmware" / tag)  # validated safe paths above
++                    meta["firmware"] = [f for f in meta["firmware"] if f["radarId"] in eligible]
++                    if meta["firmware"]:
++                        releases.append(meta)
++                if len(batch) < 100:
++                    break
++                page += 1
+     releases.sort(key=lambda r: (r["publishedAt"], r["version"]), reverse=True)
+     assigned = set()
+     for release in releases:
+@@ -315,6 +378,7 @@ def main():
+     p = sub.add_parser("assemble")
+     for name in ("repo", "output"):
+         p.add_argument(name)
++    p.add_argument("--local-releases", default=None, help="Directory containing local release folders")
+     args = vars(parser.parse_args()); command = args.pop("command")
+     if command == "catalog":
+         print(json.dumps([r["config"] for r in catalog()[0]]))
+diff --git a/tests/test_releases.py b/tests/test_releases.py
+index 41d52b6..8454bfd 100644
+--- a/tests/test_releases.py
++++ b/tests/test_releases.py
+@@ -150,14 +150,78 @@ class ReleaseTests(unittest.TestCase):
+         self.assertNotIn('github.io', workflow)
+         self.assertNotIn('preserve existing OTA', workflow)
+ 
+-    def test_stamp_changes_only_the_project_version(self):
++    def test_stamp_updates_project_version_and_release_channel(self):
+         config = self.root / 'factory.yaml'
+-        config.write_text('esphome:\n  project:\n    version: dev # release\n', encoding='utf-8')
++        config.write_text('esphome:\n  project:\n    version: dev # release\n\nmmwave_host:\n  release_channel: dev\n', encoding='utf-8')
+         with patch.object(r, 'ROOT', self.root):
+             r.stamp('factory.yaml', self.version)
+-            self.assertIn(f'version: "{self.version}" # release', config.read_text())
++            content = config.read_text()
++            self.assertIn(f'version: "{self.version}" # release', content)
++            self.assertIn('release_channel: alpha', content)
++            self.assertNotIn('release_channel: dev', content)
++            # Re-stamping already stamped config must fail
+             with self.assertRaises(ValueError): r.stamp('factory.yaml', self.version)
++            # Stamping with beta tag must fail
+             with self.assertRaises(ValueError): r.stamp('factory.yaml', 'v1.0.0-beta.1')
++            # Stamping with nightly or invalid tag must fail
++            with self.assertRaises(ValueError): r.stamp('factory.yaml', 'v1.0.0-nightly.1')
++
++    def test_assemble_local_releases_alpha_only_and_beta_promotion(self):
++        alpha = self.package()
++        site_alpha = self.root / 'site_alpha'
++        r.assemble('none', site_alpha, local_releases=alpha)
++        # Alpha-only: releases has 1 release, models.json is empty, no stable OTA alias
++        releases_data = r.read(site_alpha / 'releases.json')
++        self.assertEqual(len(releases_data['releases']), 1)
++        self.assertEqual(releases_data['releases'][0]['channel'], 'alpha')
++        self.assertEqual(r.read(site_alpha / 'models.json'), [])
++        self.assertFalse((site_alpha / 'r60abd1-ESP32-C3').exists())
++        self.assertTrue((site_alpha / 'firmware' / self.version / 'r60abd1-ESP32-C3' / 'manifest.json').exists())
++
++        # Promote to Beta
++        beta = self.root / 'beta'
++        r.promote(alpha, beta, 'v1.0.0-beta.1', 'hardware passed')
++        local_dir = self.root / 'local_releases'
++        local_dir.mkdir()
++        r.shutil.copytree(alpha, local_dir / 'alpha')
++        r.shutil.copytree(beta, local_dir / 'beta')
++
++        site_all = self.root / 'site_all'
++        r.assemble('none', site_all, local_releases=local_dir)
++        releases_all = r.read(site_all / 'releases.json')
++        self.assertEqual(len(releases_all['releases']), 2)
++        # Beta is first because it sorts by channel/version
++        self.assertEqual(releases_all['releases'][0]['channel'], 'beta')
++        self.assertEqual(releases_all['releases'][1]['channel'], 'alpha')
++        # Beta generates stable OTA alias and models.json
++        models = r.read(site_all / 'models.json')
++        self.assertEqual(models, [{'id': 'r60abd1-ESP32-C3', 'manifest': 'r60abd1-ESP32-C3/manifest.json'}])
++        self.assertTrue((site_all / 'r60abd1-ESP32-C3' / 'factory.bin').exists())
++        self.assertEqual((site_all / 'r60abd1-ESP32-C3' / 'factory.bin').read_bytes(), b'factory')
++
++    def test_stamp_rejects_host_without_a_dev_channel_placeholder(self):
++        # A factory without mmwave_host is covered by the version-only test;
++        # both host variants here must be refused instead of guessing.
++        for suffix in ('mmwave_host:\n  id: host_link\n', 'mmwave_host:\n  release_channel: beta\n'):
++            config = self.root / 'host.yaml'
++            original = 'esphome:\n  project:\n    version: dev\n' + suffix
++            config.write_text(original, encoding='utf-8')
++            with self.subTest(suffix=suffix.splitlines()[-1:]):
++                with patch.object(r, 'ROOT', self.root), self.assertRaises(ValueError):
++                    r.stamp('host.yaml', self.version)
++                self.assertEqual(config.read_text(encoding='utf-8'), original,
++                                 'a refused stamp must keep the file byte-identical')
++
++    def test_stamp_leaves_factories_without_mmwave_host_alone(self):
++        config = self.root / 'plain.yaml'
++        config.write_text('esphome:\n  project:\n    version: dev\n', encoding='utf-8')
++        with patch.object(r, 'ROOT', self.root):
++            r.stamp('plain.yaml', self.version)
++        self.assertEqual(
++            config.read_text(encoding='utf-8'),
++            'esphome:\n  project:\n    version: "v1.0.0-alpha.1"\n',
++            'a non-MWCP factory only takes the project version, no host block',
++        )
+ 
+     def test_beta_requires_acceptance_and_alpha_provenance(self):
+         alpha = self.package()

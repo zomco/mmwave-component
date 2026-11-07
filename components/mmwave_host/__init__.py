@@ -32,7 +32,7 @@ CONFIG_SCHEMA = cv.Schema(
         # ESPHOME_PROJECT_VERSION instead, so a stamped version: line wins.
         cv.Optional(CONF_FIRMWARE_VERSION, default="mwcp-host"): cv.All(cv.string, cv.Length(min=1, max=64)),
         cv.Optional(CONF_RELEASE_CHANNEL, default="development"): cv.one_of(
-            "alpha", "beta", "development", lower=True
+            "alpha", "beta", "development", "dev", lower=True
         ),
         cv.Optional(CONF_BUILD_PROFILE, default="host-enabled"): cv.All(cv.string, cv.Length(min=1, max=32)),
     }
@@ -80,8 +80,31 @@ async def to_code(config):
         # HEAD only. A dirty worktree can share this SHA, so the candidate
         # report records the diff separately.
         _cxx_string("MWCP_GIT_SHA", sha)
+    rel_channel = config[CONF_RELEASE_CHANNEL]
+    if rel_channel == "dev":
+        rel_channel = "development"
+
+    from esphome.core import CORE
+    proj = CORE.config.get("esphome", {}).get("project", {}) if hasattr(CORE, "config") and CORE.config else {}
+    proj_version = proj.get("version")
+    if proj_version and proj_version != "dev":
+        import re
+        if re.search(r"-alpha\.\d+$", proj_version):
+            if rel_channel != "alpha":
+                raise cv.Invalid(
+                    f"mmwave_host release_channel must be 'alpha' for alpha project version '{proj_version}', got '{rel_channel}'"
+                )
+        elif rel_channel == "alpha":
+            raise cv.Invalid(
+                f"mmwave_host release_channel cannot be 'alpha' for non-alpha project version '{proj_version}'"
+            )
+    elif rel_channel == "alpha":
+        raise cv.Invalid(
+            "mmwave_host release_channel cannot be 'alpha' when project version is 'dev' or unset"
+        )
+
     _cxx_string("MWCP_FIRMWARE_VERSION", config[CONF_FIRMWARE_VERSION])
-    _cxx_string("MWCP_RELEASE_CHANNEL", config[CONF_RELEASE_CHANNEL])
+    _cxx_string("MWCP_RELEASE_CHANNEL", rel_channel)
     _cxx_string("MWCP_BUILD_PROFILE", config[CONF_BUILD_PROFILE])
     pressure_hz = config[CONF_LOG_PRESSURE_HZ]
     if pressure_hz:

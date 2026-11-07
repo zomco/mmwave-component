@@ -129,7 +129,11 @@ test('production app connects, saves, and keeps one port owner', async () => {
     await clickExact(socket, '连接设备');
     await waitForText(socket, { timeoutMs: 8000, commandTimeoutMs: 1000, match: 'r60abd1' });
     await clickExact(socket, '配置');
-    const adopted = await readFields(socket);
+    let adopted = await readFields(socket);
+    for (let i = 0; i < 30 && adopted.y !== '88'; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      adopted = await readFields(socket);
+    }
     assert.equal(adopted.x, '31');
     assert.equal(adopted.y, '88');
     await setField(socket, 'X (', '32');

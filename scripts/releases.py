@@ -45,6 +45,37 @@ def channel(version):
     return match[1]
 
 
+# Local candidate builds keep the historical development identity: a pinned
+# v0.0.0-local.<YYYYMMDD> tag. Only digits and dots, so the value can never
+# carry path separators.
+LOCAL_CANDIDATE_VERSION = re.compile(r"^v0\.0\.0-local\.\d{8}$")
+
+
+def candidate_channel(version):
+    """Channel for one candidate build: a strict Alpha tag or the local format.
+
+    Candidate builds never produce Beta. A Beta release is only created by
+    promote() from already tested Alpha bytes, so any Beta, malformed or
+    non-string value is rejected here with the file system untouched.
+    """
+    if not isinstance(version, str):
+        raise ValueError(
+            "Candidate builds need vX.Y.Z-alpha.N or v0.0.0-local.YYYYMMDD; "
+            "Beta is only promoted from tested Alpha bytes"
+        )
+    try:
+        if channel(version) == "alpha":
+            return "alpha"
+    except ValueError:
+        pass
+    if LOCAL_CANDIDATE_VERSION.fullmatch(version):
+        return "development"
+    raise ValueError(
+        "Candidate builds need vX.Y.Z-alpha.N or v0.0.0-local.YYYYMMDD; "
+        "Beta is only promoted from tested Alpha bytes"
+    )
+
+
 def catalog(root=ROOT):
     data = read(root / "static/device-catalog.json")
     status = (root / "README.md").read_text(encoding="utf-8")
@@ -77,9 +108,22 @@ def stamp(config, version):
         raise ValueError("Only Alpha builds; Beta promotes tested bytes")
     path = ROOT / safe_path(config)
     text = path.read_text(encoding="utf-8")
-    text, count = re.subn(r'(?m)^(\s*version:\s*)[\"\']?dev[\"\']?(\s*(?:#.*)?)$', lambda m: f'{m[1]}"{version}"{m[2]}', text)
+    text, count = re.subn(r'(?m)^(\s*version:\s*)["\']?dev["\']?(\s*(?:#.*)?)$', lambda m: f'{m[1]}"{version}"{m[2]}', text)
     if count != 1:
         raise ValueError("Expected exactly one version: dev placeholder")
+    ch = channel(version)
+    if re.search(r'(?m)^\s*release_channel:\s*["\']?(?:dev|development)["\']?', text):
+        text, ch_count = re.subn(r'(?m)^(\s*release_channel:\s*)["\']?(?:dev|development)["\']?(\s*(?:#.*)?)$', lambda m: f'{m[1]}{ch}{m[2]}', text)
+        if ch_count != 1:
+            raise ValueError("Expected exactly one release_channel placeholder")
+    elif "mmwave_host:" in text:
+        # An mmwave_host block without a dev/development placeholder cannot be
+        # stamped safely: keeping its channel would disagree with the stamped
+        # version and duplicating or rewriting the block risks malformed YAML.
+        # Refuse and let the maintainer fix the source configuration.
+        raise ValueError("mmwave_host block has no release_channel: dev placeholder to stamp")
+    # A factory without mmwave_host is not an MWCP model: only the project
+    # version is stamped and no host block is invented for it.
     path.write_text(text, encoding="utf-8")
 
 
@@ -247,36 +291,55 @@ def download_release(repo, tag, directory):
     return meta
 
 
-def assemble(repo, output):
+def assemble(repo, output, local_releases=None):
     models, _ = catalog()
     eligible = {m["id"] for m in models}
     output = Path(output)
     # The pre-release test fleet has no legacy OTA retention requirement.
     # A fresh Vite build supplies the site; GitHub Releases supplies firmware.
     releases = []
-    with tempfile.TemporaryDirectory() as temp:
-        page = 1
-        while True:
-            batch = json.loads(gh("api", f"repos/{repo}/releases?per_page=100&page={page}"))
-            for release in batch:
-                if release["draft"]:
-                    continue
-                assets = {a["name"] for a in release["assets"]}
-                if not ({"release.json", "firmware-bundle.zip"} & assets):
-                    continue  # Older releases remain outside the new channel index.
-                if not {"release.json", "firmware-bundle.zip"} <= assets:
-                    raise ValueError("Incomplete release assets")
-                tag = release["tag_name"]
-                meta = download_release(repo, tag, Path(temp) / tag)
-                meta["publishedAt"] = release["published_at"]
-                with zipfile.ZipFile(Path(temp) / tag / "firmware-bundle.zip") as bundle:
-                    bundle.extractall(output / "firmware" / tag)  # validated safe paths above
-                meta["firmware"] = [f for f in meta["firmware"] if f["radarId"] in eligible]
-                if meta["firmware"]:
-                    releases.append(meta)
-            if len(batch) < 100:
-                break
-            page += 1
+    if local_releases:
+        local_dir = Path(local_releases)
+        release_dirs = []
+        if (local_dir / "release.json").is_file():
+            release_dirs.append(local_dir)
+        elif local_dir.is_dir():
+            for child in sorted(local_dir.iterdir()):
+                if child.is_dir() and (child / "release.json").is_file():
+                    release_dirs.append(child)
+        for r_dir in release_dirs:
+            meta = read(r_dir / "release.json")
+            validate_bundle(meta, r_dir / "firmware-bundle.zip")
+            tag = meta["version"]
+            with zipfile.ZipFile(r_dir / "firmware-bundle.zip") as bundle:
+                bundle.extractall(output / "firmware" / tag)
+            meta["firmware"] = [f for f in meta["firmware"] if f["radarId"] in eligible]
+            if meta["firmware"]:
+                releases.append(meta)
+    else:
+        with tempfile.TemporaryDirectory() as temp:
+            page = 1
+            while True:
+                batch = json.loads(gh("api", f"repos/{repo}/releases?per_page=100&page={page}"))
+                for release in batch:
+                    if release["draft"]:
+                        continue
+                    assets = {a["name"] for a in release["assets"]}
+                    if not ({"release.json", "firmware-bundle.zip"} & assets):
+                        continue  # Older releases remain outside the new channel index.
+                    if not {"release.json", "firmware-bundle.zip"} <= assets:
+                        raise ValueError("Incomplete release assets")
+                    tag = release["tag_name"]
+                    meta = download_release(repo, tag, Path(temp) / tag)
+                    meta["publishedAt"] = release["published_at"]
+                    with zipfile.ZipFile(Path(temp) / tag / "firmware-bundle.zip") as bundle:
+                        bundle.extractall(output / "firmware" / tag)  # validated safe paths above
+                    meta["firmware"] = [f for f in meta["firmware"] if f["radarId"] in eligible]
+                    if meta["firmware"]:
+                        releases.append(meta)
+                if len(batch) < 100:
+                    break
+                page += 1
     releases.sort(key=lambda r: (r["publishedAt"], r["version"]), reverse=True)
     assigned = set()
     for release in releases:
@@ -315,6 +378,7 @@ def main():
     p = sub.add_parser("assemble")
     for name in ("repo", "output"):
         p.add_argument(name)
+    p.add_argument("--local-releases", default=None, help="Directory containing local release folders")
     args = vars(parser.parse_args()); command = args.pop("command")
     if command == "catalog":
         print(json.dumps([r["config"] for r in catalog()[0]]))

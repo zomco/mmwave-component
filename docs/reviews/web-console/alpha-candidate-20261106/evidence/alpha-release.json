@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "v0.1.0-alpha.1",
+  "version": "v0.1.0-alpha.1",
+  "channel": "alpha",
+  "binaryVersion": "v0.1.0-alpha.1",
+  "sourceCommit": "a020ff1c420a4d11a413c7791daa5c608804dca8",
+  "esphomeVersion": "2026.9.1",
+  "publishedAt": "2026-11-06T02:59:25.408130+00:00",
+  "firmware": [
+    {
+      "radarId": "r60abd1",
+      "chipFamily": "ESP32-C3",
+      "boardIds": [
+        "esp32-c3-supermini"
+      ],
+      "manifest": "firmware/v0.1.0-alpha.1/r60abd1-ESP32-C3/manifest.json",
+      "manifestSha256": "b2725a54d8d0f60151398913193ba4920ead9e28d2abadae1e9df6e10a34d568"
+    }
+  ],
+  "files": {
+    "r60abd1-ESP32-C3/manifest.json": "b2725a54d8d0f60151398913193ba4920ead9e28d2abadae1e9df6e10a34d568",
+    "r60abd1-ESP32-C3/r60abd1.factory.bin": "0270f1578e0f56ac4a5f397e43760021efb5882adc5079260cb6f7c76fc7c752",
+    "r60abd1-ESP32-C3/r60abd1.ota.bin": "c4dbb29e7c02b3704ea0f1caaf13e887e414e411e1c13548eb8ddd9a9ec84ce3"
+  },
+  "bundleSha256": "fe3e7e77196b29a52061caacccd3fa15355818a60ac4dba511224fb598f9aff5"
+}

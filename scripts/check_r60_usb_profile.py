@@ -48,6 +48,8 @@ def candidate_errors(base, factory, mwcp):
             errors.append(f"factory is missing {item}")
     if "version: dev" not in factory:
         errors.append("factory must keep the version: dev placeholder for the publisher")
+    if "release_channel: dev" not in factory:
+        errors.append("factory must keep the release_channel: dev placeholder for the publisher")
     if "_device.yaml" not in mwcp or "_areas_host.yaml" not in mwcp:
         errors.append("MWCP core must include diagnostics and host-bound areas")
     if "_standard_device.yaml" in mwcp or key_present(mwcp, "improv_serial:"):
@@ -94,6 +96,7 @@ release_channel: development
     factory = """
 core: !include r60abd1-esp32c3.yaml
 version: dev
+release_channel: dev
 dashboard_import:
 esp32_improv:
 ota:
