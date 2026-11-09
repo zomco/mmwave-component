@@ -42,6 +42,30 @@ GitHub Actions 中在 `main` 手动运行 **Publish**：
 
 构建目录与发布路径不同：[build-action v7 的入口实现](https://github.com/esphome/build-action/blob/v7/entrypoint.py) 使用小写 variant，产物目录为 `r60abd1-esp32c3`，下载后也可能套一层 `firmware-` 前缀。打包器兼容这些布局和旧 `r60abd1-ESP32-C3` 布局，统一对外目录为 `r60abd1-ESP32-C3/`，但不改动 manifest 内的二进制文件名。factory 和 OTA 声明的 MD5/SHA-256 必须匹配实际文件；存在多个候选 manifest 时拒绝猜测。
 
+## 本地候选构建：运行目录与源码身份
+
+`scripts/build_r60_candidate.py` 是维护者的离线演练工具。每次运行必须使用独立的 `--data-dir` 和 `--output`；当输出目录已包含上一次运行的 `artifact-summary.json`、日志、盖章配置或候选固件时，工具拒绝启动，且从不删除任何文件。
+
+```sh
+python scripts/build_r60_candidate.py \
+  --python /path/to/esphome-2026.9.1-python \
+  --data-dir tmp/closeout/data-<tag> \
+  --output tmp/closeout/out-<tag> \
+  --version v1.2.0-alpha.1 \
+  --run-id <短名>
+```
+
+一次运行在 `--output` 中留下：
+
+- `source-state.json` — 在任何构建动作之前记录：HEAD、clean/dirty 状态、构建实际消费的组件源码与配置的逐文件 SHA-256（components/、protocol/cpp、tests/common、scripts/）、版本、通道、profile、固定的 ESPHome 版本和运行 ID。
+- `source-dirty.patch` — 仅脏树时存在：范围内文件的 diff，用于恢复精确构建输入。
+- `compiled.factory.yaml` — 实际交给 ESPHome 的盖章配置（与干净源码状态分开保存；盖章是有意行为，不是污染）。
+- `config-*.log`、`compile.log` — 分阶段日志，失败时原样保留。
+- `firmware/<tag>/r60abd1-ESP32-C3/` — 仅本次运行的 factory/OTA/manifest。
+- `artifact-summary.json` — 状态、运行 ID、源码与产物哈希、flash 占用。编译失败保持 `"status": "failed"` 并带阶段与退出码。编译返回后，工具重新收集已声明的源码集合，并把实际交给 ESPHome 的盖章配置与构建开始时归档的字节比较；新增、删除或修改都使本次运行变为 `"uncertain"` 并列出原因，不能当作可信候选。该检查不展开声明目录之外的 include，未跟踪文件只记录哈希、没有可恢复内容。
+
+复核一次运行：先读 `artifact-summary.json`，再读 `source-state.json`；确认 `gitStatus`、盖章配置哈希与产物哈希都属于同一 run ID。脏树构建是有效演练，但仅凭 commit 不能确定输入——以 patch 文件为准。正式 Alpha 必须由维护者选定提交后经 Publish 工作流构建；编译产物内嵌的是编译时的 Git SHA，之后提交不会更新它，也不是重编的理由。
+
 ## 晋升 Beta
 
 先对 Alpha 完成同型号真机验收：供电和接线、USB 烧录、Wi-Fi、HA 实体、卡片安装、安装/方向校准、实时走动验证、重启持久化，记录硬件和结果。

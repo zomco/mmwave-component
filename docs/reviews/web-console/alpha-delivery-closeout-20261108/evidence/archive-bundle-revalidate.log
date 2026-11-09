@@ -1,0 +1,5 @@
+$ python -c "...validate_bundle..."
+[exit code: 0]
+
+2026-11-06 alpha bundle re-validated through current tool: OK
+bundleSha256: fe3e7e77196b29a52061caacccd3fa15355818a60ac4dba511224fb598f9aff5

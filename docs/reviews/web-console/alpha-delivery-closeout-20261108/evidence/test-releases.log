@@ -1,0 +1,34 @@
+$ python -m unittest discover -s tests -p test_releases.py -v
+[exit code: 0]
+
+--- stdout ---
+
+--- stderr ---
+test_all_shared_radar_configs_use_the_same_c3_uart (test_releases.ReleaseTests.test_all_shared_radar_configs_use_the_same_c3_uart) ... ok
+test_assemble_empty_history_drops_legacy_index_without_contacting_pages (test_releases.ReleaseTests.test_assemble_empty_history_drops_legacy_index_without_contacting_pages) ... ok
+test_assemble_local_releases_alpha_only_and_beta_promotion (test_releases.ReleaseTests.test_assemble_local_releases_alpha_only_and_beta_promotion) ... ok
+test_assemble_release_api_errors_still_fail (test_releases.ReleaseTests.test_assemble_release_api_errors_still_fail) ... ok
+test_beta_preserves_every_tested_byte_and_source (test_releases.ReleaseTests.test_beta_preserves_every_tested_byte_and_source) ... ok
+test_beta_requires_acceptance_and_alpha_provenance (test_releases.ReleaseTests.test_beta_requires_acceptance_and_alpha_provenance) ... ok
+test_build_action_hashes_validate_both_binary_kinds (test_releases.ReleaseTests.test_build_action_hashes_validate_both_binary_kinds) ... ok
+test_build_action_v7_lowercase_download_layouts (test_releases.ReleaseTests.test_build_action_v7_lowercase_download_layouts) ... ok
+test_catalog_agrees_with_readme_and_uart (test_releases.ReleaseTests.test_catalog_agrees_with_readme_and_uart) ... ok
+test_corrupt_bundle_rejected (test_releases.ReleaseTests.test_corrupt_bundle_rejected) ... ok
+test_duplicate_build_manifests_are_rejected (test_releases.ReleaseTests.test_duplicate_build_manifests_are_rejected) ... ok
+test_history_keeps_versions_and_only_latest_beta_updates_ota (test_releases.ReleaseTests.test_history_keeps_versions_and_only_latest_beta_updates_ota) ... ok
+test_manifest_factory_checksum_must_match_packaged_bytes (test_releases.ReleaseTests.test_manifest_factory_checksum_must_match_packaged_bytes) ... ok
+test_missing_ota_rejected (test_releases.ReleaseTests.test_missing_ota_rejected) ... ok
+test_package_checks_factory_and_ota (test_releases.ReleaseTests.test_package_checks_factory_and_ota) ... ok
+test_pages_workflow_has_no_previous_site_argument (test_releases.ReleaseTests.test_pages_workflow_has_no_previous_site_argument) ... ok
+test_path_traversal_rejected (test_releases.ReleaseTests.test_path_traversal_rejected) ... ok
+test_promotion_rejects_missing_evidence_or_wrong_version (test_releases.ReleaseTests.test_promotion_rejects_missing_evidence_or_wrong_version) ... ok
+test_stamp_leaves_factories_without_mmwave_host_alone (test_releases.ReleaseTests.test_stamp_leaves_factories_without_mmwave_host_alone) ... ok
+test_stamp_rejects_host_without_a_dev_channel_placeholder (test_releases.ReleaseTests.test_stamp_rejects_host_without_a_dev_channel_placeholder) ... ok
+test_stamp_updates_project_version_and_release_channel (test_releases.ReleaseTests.test_stamp_updates_project_version_and_release_channel) ... ok
+test_version_validation (test_releases.ReleaseTests.test_version_validation) ... ok
+test_wrong_build_version_rejected (test_releases.ReleaseTests.test_wrong_build_version_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 0.481s
+
+OK

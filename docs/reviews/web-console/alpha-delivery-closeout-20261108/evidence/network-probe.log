@@ -1,0 +1,6 @@
+2026-11-08 connectivity probes (all from this environment):
+  https://api.registry.platformio.org  -> timeout (twice, ~10 min apart)
+  https://github.com                   -> timeout
+  DNS api.registry.platformio.org      -> resolves to 88.198.170.159
+Conclusion: HTTP egress blocked; DNS works. The 2026-11-06 rehearsal build succeeded
+when egress was available; the same venv and pinned ESPHome 2026.9.1 are used here.

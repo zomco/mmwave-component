@@ -1,0 +1,25 @@
+Real candidate build run closeout-alpha-20261108 (v0.1.0-alpha.2)
+Outcome: FAILED at stage compile_command; ESPHome write_cpp could not resolve an IDF
+component against api.registry.platformio.org (HTTPClientError). DNS resolves, HTTP times
+out - network egress to the registry is unavailable in this environment on 2026-11-08.
+Per the work package: failure logs preserved, candidate build not completed, no blind retry.
+
+--- compile.log (tail) ---
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zomco\Documents\GitHub\mmwave-workspace\submodules\mmwave-component\.esphome\candidate-venv\Lib\site-packages\platformio\package\manager\_registry.py", line 97, in fetch_registry_package
+    result = regclient.get_package(self.pkg_type, spec.owner, spec.name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zomco\Documents\GitHub\mmwave-workspace\submodules\mmwave-component\.esphome\candidate-venv\Lib\site-packages\platformio\registry\client.py", line 164, in get_package
+    raise exc
+  File "D:\Users\zomco\Documents\GitHub\mmwave-workspace\submodules\mmwave-component\.esphome\candidate-venv\Lib\site-packages\platformio\registry\client.py", line 149, in get_package
+    return self.fetch_json_data(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zomco\Documents\GitHub\mmwave-workspace\submodules\mmwave-component\.esphome\candidate-venv\Lib\site-packages\platformio\http.py", line 166, in fetch_json_data
+    response = self.send_request(method, path, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zomco\Documents\GitHub\mmwave-workspace\submodules\mmwave-component\.esphome\candidate-venv\Lib\site-packages\platformio\util.py", line 79, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zomco\Documents\GitHub\mmwave-workspace\submodules\mmwave-component\.esphome\candidate-venv\Lib\site-packages\platformio\http.py", line 148, in send_request
+    raise HTTPClientError(str(exc2)) from exc
+platformio.http.HTTPClientError

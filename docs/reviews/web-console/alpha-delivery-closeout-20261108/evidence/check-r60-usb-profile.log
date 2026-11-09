@@ -1,0 +1,8 @@
+$ python scripts/check_r60_usb_profile.py
+[exit code: 0]
+
+--- stdout ---
+self-test ok
+r60 usb profile ok
+
+--- stderr ---

@@ -40,6 +40,30 @@ Run when ready (roughly fortnightly); ordinary commits run CI, not firmware publ
 
 Build directories are not public URL names. The [build-action v7 entrypoint](https://github.com/esphome/build-action/blob/v7/entrypoint.py) emits a lower-case variant directory, e.g. `r60abd1-esp32c3`, optionally nested inside `firmware-r60abd1-esp32c3` after artifact download. The packager accepts these and legacy `r60abd1-ESP32-C3` layouts, normalizes the published directory to `r60abd1-ESP32-C3/`, and preserves binary filenames within the manifest. Declared factory/OTA MD5 and SHA-256 hashes must match the files; ambiguous duplicate manifests fail validation.
 
+## Local candidate builds: run directories and source identity
+
+`scripts/build_r60_candidate.py` is the maintainer's offline rehearsal tool. Each run must get its own `--data-dir` and `--output`; the tool refuses to start when the output already contains a previous run's `artifact-summary.json`, logs, stamped config, or candidate firmware, and it never deletes anything.
+
+```sh
+python scripts/build_r60_candidate.py \
+  --python /path/to/esphome-2026.9.1-python \
+  --data-dir tmp/closeout/data-<tag> \
+  --output tmp/closeout/out-<tag> \
+  --version v1.2.0-alpha.1 \
+  --run-id <short-name>
+```
+
+What one run leaves in `--output`:
+
+- `source-state.json` — recorded before any build work: HEAD, clean/dirty status, per-file SHA-256 of the component sources and configs the build consumes (components/, protocol/cpp, tests/common, scripts/), version, channel, profile, pinned ESPHome version and the run ID.
+- `source-dirty.patch` — present only for a dirty tree: the diff of the in-scope files, so the exact build input is recoverable.
+- `compiled.factory.yaml` — the stamped configuration actually handed to ESPHome (kept separate from the clean source state; the stamp is intentional, not pollution).
+- `config-*.log`, `compile.log` — per-stage logs, kept as-is on failure.
+- `firmware/<tag>/r60abd1-ESP32-C3/` — factory/OTA/manifest for this run only.
+- `artifact-summary.json` — status, run ID, source and artifact hashes, flash fit. A failed compile stays `"status": "failed"` with the stage and exit code. After a compile returns, the tool re-collects the declared source set and compares the consumed stamped config with the bytes archived at the start; any add, delete or edit makes the run `"uncertain"` and lists the reason. That result is not a trustworthy candidate. The check does not expand includes outside the declared directories, and an untracked file is recorded by hash only.
+
+To review a run: read `artifact-summary.json` first, then `source-state.json`; confirm `gitStatus`, the stamped config hash and the artifact hashes refer to the same run ID. A dirty-tree build is a valid rehearsal but its commit alone does not identify the input — the patch file does. The final formal Alpha must be built by the Publish workflow from the maintainer's chosen commit; a compiled firmware keeps the Git SHA embedded at compile time, so committing afterwards does not update it and is not a reason to rebuild.
+
 ## Promote Beta
 
 Test Alpha on the exact radar/board: supply and wiring, USB flash, Wi-Fi, HA entities, card installation, calibration, live walk-test, restart persistence. Record hardware and results.

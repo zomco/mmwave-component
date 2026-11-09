@@ -1,0 +1,10 @@
+{
+  "status": "failed",
+  "stage": "compile_command",
+  "exitCode": 1,
+  "error": "command failed (1); see D:\\Users\\zomco\\Documents\\GitHub\\mmwave-workspace\\submodules\\mmwave-component\\tmp\\closeout\\out-v010a2\\compile.log",
+  "version": "v0.1.0-alpha.2",
+  "channel": "alpha",
+  "runId": "closeout-alpha-20261108",
+  "recordedAt": "2026-11-07T23:14:41.989141+00:00"
+}

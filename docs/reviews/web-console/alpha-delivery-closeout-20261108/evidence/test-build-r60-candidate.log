@@ -1,0 +1,33 @@
+$ python -m unittest discover -s tests -p test_build_r60_candidate.py -v
+[exit code: 0]
+
+--- stdout ---
+
+--- stderr ---
+test_default_version_is_the_local_candidate (test_build_r60_candidate.BuilderMainTests.test_default_version_is_the_local_candidate) ... ok
+test_existing_target_is_refused_and_not_overwritten (test_build_r60_candidate.BuilderMainTests.test_existing_target_is_refused_and_not_overwritten) ... ok
+test_full_build_writes_candidate_inside_firmware_root (test_build_r60_candidate.BuilderMainTests.test_full_build_writes_candidate_inside_firmware_root) ... ok
+test_invalid_version_runs_nothing_and_creates_nothing (test_build_r60_candidate.BuilderMainTests.test_invalid_version_runs_nothing_and_creates_nothing) ... ok
+test_skip_compile_writes_stamped_config_only (test_build_r60_candidate.BuilderMainTests.test_skip_compile_writes_stamped_config_only) ... ok
+test_symlink_escape_is_refused (test_build_r60_candidate.BuilderMainTests.test_symlink_escape_is_refused) ... ok
+test_alpha_stamp_writes_version_and_channel (test_build_r60_candidate.BuilderStampTests.test_alpha_stamp_writes_version_and_channel) ... ok
+test_invalid_version_writes_nothing_and_keeps_existing_bytes (test_build_r60_candidate.BuilderStampTests.test_invalid_version_writes_nothing_and_keeps_existing_bytes) ... ok
+test_local_stamp_keeps_development_channel (test_build_r60_candidate.BuilderStampTests.test_local_stamp_keeps_development_channel) ... ok
+test_default_run_id_is_timestamped (test_build_r60_candidate.RunIsolationTests.test_default_run_id_is_timestamped) ... ok
+test_existing_root_artifacts_are_refused (test_build_r60_candidate.RunIsolationTests.test_existing_root_artifacts_are_refused) ... ok
+test_explicit_run_id_is_used (test_build_r60_candidate.RunIsolationTests.test_explicit_run_id_is_used) ... ok
+test_failed_compile_keeps_logs_and_writes_failed_summary (test_build_r60_candidate.RunIsolationTests.test_failed_compile_keeps_logs_and_writes_failed_summary) ... ok
+test_accepts_strict_alpha_and_local_formats (test_build_r60_candidate.SharedCandidateChannelTests.test_accepts_strict_alpha_and_local_formats) ... ok
+test_rejects_beta_malformed_and_path_like_values (test_build_r60_candidate.SharedCandidateChannelTests.test_rejects_beta_malformed_and_path_like_values) ... ok
+test_dirty_tree_captures_patch_and_scope (test_build_r60_candidate.SourceStateTests.test_dirty_tree_captures_patch_and_scope) ... ok
+test_git_failure_is_recorded_as_unknown (test_build_r60_candidate.SourceStateTests.test_git_failure_is_recorded_as_unknown) ... ok
+test_inputs_changed_during_build_marked_uncertain (test_build_r60_candidate.SourceStateTests.test_inputs_changed_during_build_marked_uncertain) ... ok
+test_source_state_recorded_with_identity_and_inputs (test_build_r60_candidate.SourceStateTests.test_source_state_recorded_with_identity_and_inputs) ... ok
+test_summary_links_source_state_and_stamped_config (test_build_r60_candidate.SourceStateTests.test_summary_links_source_state_and_stamped_config) ... ok
+test_bad_copy_include_resolves_from_nested_directory (test_build_r60_candidate.StampRelocationTests.test_bad_copy_include_resolves_from_nested_directory) ... ok
+test_stamp_include_resolves_from_nested_directory (test_build_r60_candidate.StampRelocationTests.test_stamp_include_resolves_from_nested_directory) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 0.851s
+
+OK
