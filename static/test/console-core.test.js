@@ -732,6 +732,45 @@ test('R3 fresh, stale, disconnected and recovered observations stay distinct', a
   assert.equal(box.device.writeCount, writes);
 });
 
+test('mixed field freshness stays partial and does not expire fresh targets', async () => {
+  const box = await online();
+  const now = box.clock.now();
+  const sent = now + 20000;
+  box.device.emitTelemetry({
+    source_seq: 90,
+    sent_ms: sent,
+    origin: 'simulation',
+    presence: { value: true, quality: 'valid', sample_ms: now },
+    targets_quality: 'valid',
+    targets_ms: sent,
+    targets: [{ id: '0', local_cm: [12, 34], room_cm: [12, 34], position_quality: 'valid', position_ms: sent, boundary: 'inside', speed_cm_s: null }],
+  });
+  const view = box.session.observationView();
+  assert.equal(view.presence, 'stale');
+  assert.equal(view.targets, 'points');
+  assert.equal(box.session.layers.radar, 'partial');
+  assert.equal(box.session.layers.data, 'partial');
+  assert.equal(checksFromSession(box.session).find((item) => item.id === 'radar').state, 'partial');
+  assert.equal(checksFromSession(box.session).find((item) => item.id === 'presence').state, 'stale');
+  const row = targetRows(box.session.telemetry, null)[0];
+  assert.equal(row.quality, 'valid');
+  assert.equal(row.sampleMs, sent);
+  box.session.touchClock();
+  assert.equal(box.session.layers.radar, 'partial');
+  assert.equal(checksFromSession(box.session).find((item) => item.id === 'radar').state, 'partial');
+  box.device.emitTelemetry({
+    source_seq: 91,
+    sent_ms: now,
+    origin: 'simulation',
+    presence: { value: null, quality: 'unknown', sample_ms: null },
+    targets_quality: 'unknown',
+    targets_ms: null,
+    targets: null,
+  });
+  assert.notEqual(box.session.layers.data, 'valid');
+  assert.notEqual(checksFromSession(box.session).find((item) => item.id === 'radar').state, 'pass');
+});
+
 function captureCommits(device) {
   const original = device.commit.bind(device);
   const seen = [];

@@ -70,8 +70,11 @@ export default function ConsoleView({ language, session, snapshot, support, onCo
   const display = paused
     ? { presence: 'paused', targets: 'paused', historical: true, live: false, vitalFields: (view.vitalFields || []).map((field) => ({ ...field, state: 'paused', value: null })) }
     : view;
-  const sampleFresh = display.live && view.presence !== 'stale' && view.targets !== 'stale';
-  const rows = targetRows(shown, boundary).map((row) => sampleFresh ? row : { ...row, quality: 'stale' });
+  const rows = targetRows(shown, boundary).map((row) => (
+    !display.live || display.historical || display.targets === 'stale' || display.targets === 'paused'
+      ? { ...row, quality: 'stale' }
+      : row
+  ));
 
   const connect = async () => {
     setMessage('');
@@ -126,8 +129,8 @@ export default function ConsoleView({ language, session, snapshot, support, onCo
       <div className="mt-5 grid gap-3 sm:grid-cols-5">
         <Layer label={t.layers.port} value={snap.layers.port} />
         <Layer label={t.layers.protocol} value={snap.layers.protocol} />
-        <Layer label={t.layers.radar} value={snap.layers.radar} />
-        <Layer label={t.layers.data} value={snap.layers.data} />
+        <Layer label={t.layers.radar} value={t.states[snap.layers.radar] || snap.layers.radar} />
+        <Layer label={t.layers.data} value={t.states[snap.layers.data] || snap.layers.data} />
         <Layer label={t.layers.config} value={snap.layers.config} />
       </div>
       {snap.identity && <div className="soft-surface mt-4 p-4 text-sm leading-7">
@@ -161,6 +164,7 @@ function Quick({ t, checks, reading, snap }) {
     </ul>
     <p className="muted mt-4 text-sm">{t.noHa}</p>
     <p className="muted mt-2 text-xs">{t.states[reading.presence] || reading.presence} · {t.states[reading.targets] || reading.targets}{reading.historical ? ' · ' + t.historical : ''}{snap.telemetry ? ' · seq ' + snap.telemetry.source_seq : ''}</p>
+    {reading.live && reading.presence === 'stale' && reading.targets === 'points' && <p className="notice mt-3" role="status">{t.mixedFresh}</p>}
   </div>;
 }
 

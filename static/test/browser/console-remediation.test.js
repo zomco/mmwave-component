@@ -100,6 +100,28 @@ test('browser page clicks config and shows stale data on the simulated console',
     await click(socket, '实时数据');
     const freshLive = await waitForText(socket, { timeoutMs: 3000, commandTimeoutMs: 1000, match: '报告有人' });
     assert.match(freshLive, /报告有人/);
+    await evaluate(socket, `(() => {
+      const now = window.__mwcp.clock.now(); const sent = now + 20000;
+      window.__mwcp.device.emitTelemetry({
+        source_seq: 90,
+        sent_ms: sent,
+        presence: { value: true, quality: 'valid', sample_ms: now },
+        targets_quality: 'valid',
+        targets_ms: sent,
+        targets: [{ id: '0', local_cm: [12, 34], room_cm: [12, 34], position_quality: 'valid', position_ms: sent, boundary: 'inside', speed_cm_s: null }],
+      });
+      window.__mwcp.session.touchClock();
+      return window.__mwcp.session.layers.radar;
+    })()`);
+    await click(socket, '快速验证');
+    const mixedQuick = await waitForText(socket, { timeoutMs: 3000, commandTimeoutMs: 1000, match: '部分可用' });
+    assert.match(mixedQuick, /已过期 · 有目标/);
+    assert.match(mixedQuick, /目标坐标仍按自己的时间有效/);
+    assert.doesNotMatch(mixedQuick, /报告有人/);
+    await click(socket, '实时数据');
+    const mixedLive = await waitForText(socket, { timeoutMs: 3000, commandTimeoutMs: 1000, match: '12, 34' });
+    assert.match(mixedLive, /有效 · sample/);
+    assert.match(mixedLive, /已过期/);
     await evaluate(socket, `(() => { window.__mwcp.clock.advance(9001); window.__mwcp.session.touchClock(); return window.__mwcp.session.observationView().presence; })()`);
     const staleLive = await waitForText(socket, { timeoutMs: 3000, commandTimeoutMs: 1000, match: '已过期' });
     assert.doesNotMatch(staleLive, /\bvalid\b/);

@@ -101,6 +101,23 @@ export function assessObservation(body, context, qualityOf) {
   return { presence, targets, vitals, vitalFields, live: true, historical: false };
 }
 
+const USABLE_PRESENCE = new Set(['present', 'absent']);
+const USABLE_TARGETS = new Set(['points', 'empty']);
+
+export function summarizeLayers(view) {
+  if (!view || view.live !== true) return { radar: 'stale', data: 'stale', radarCheck: 'stale' };
+  const presenceUsable = USABLE_PRESENCE.has(view.presence);
+  const targetsUsable = USABLE_TARGETS.has(view.targets);
+  const anyStale = view.presence === 'stale' || view.targets === 'stale';
+  if ((presenceUsable || targetsUsable) && anyStale) return { radar: 'partial', data: 'partial', radarCheck: 'partial' };
+  if (presenceUsable || targetsUsable) return { radar: 'healthy', data: 'valid', radarCheck: 'pass' };
+  if (anyStale) return { radar: 'stale', data: 'stale', radarCheck: 'stale' };
+  const data = ['invalid', 'unknown', 'unsupported'].includes(view.presence)
+    ? view.presence
+    : (['invalid', 'unknown', 'unsupported'].includes(view.targets) ? view.targets : 'unknown');
+  return { radar: 'unknown', data, radarCheck: data === 'invalid' ? 'invalid' : 'not_run' };
+}
+
 export function targetRows(body, boundary) {
   const targets = Array.isArray(body && body.targets) ? body.targets : [];
   return targets.map((target, index) => {
@@ -150,8 +167,7 @@ export function checksFromSession(session) {
   const usb = snap.layers.protocol === 'online' && snap.identity ? 'pass' : snap.layers.protocol === 'handshake' ? 'running' : 'not_run';
   let radar = 'not_run';
   if (!snap.telemetry) radar = snap.layers.radar === 'waiting_first_frame' ? 'waiting' : 'not_run';
-  else if (!view.live || view.presence === 'stale' || view.targets === 'stale') radar = 'stale';
-  else radar = 'pass';
+  else radar = summarizeLayers(view).radarCheck;
   const presence = !snap.telemetry ? 'not_run' : view.presence;
   let config = 'not_run';
   if (snap.layers.protocol === 'online') config = snap.configRevision != null ? 'pass' : 'fail';

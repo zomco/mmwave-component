@@ -2,7 +2,7 @@ import { ProtocolClient } from '../protocol/client.js';
 import { createRealClock } from '../protocol/clock.js';
 import { CODE } from '../protocol/limits.js';
 import { validateConfigChanges } from '../protocol/contract.js';
-import { assessObservation } from './observe.js';
+import { assessObservation, summarizeLayers } from './observe.js';
 import {
   SAVE, abandonTracking, applyCommitResult, applyStatusResult, armCommit,
   beginEdit, createSaveState, deviceKey, markUnknown, newOpId, pendingSummary, rememberDevice, redact, saveFlowLocked,
@@ -319,8 +319,7 @@ export class ConsoleSession {
       const body = frame.json;
       this.telemetry = body;
       this.telemetryAt = frame.receivedAt != null ? frame.receivedAt : this.now();
-      this.layers.radar = 'healthy';
-      this.layers.data = classifyData(body);
+      this.syncDataLayers();
       this.observations.push({
         source_seq: body.source_seq,
         sent_ms: body.sent_ms,
@@ -389,18 +388,13 @@ export class ConsoleSession {
   syncDataLayers() {
     if (!this.telemetry) return;
     if (this.layers.protocol !== 'online') {
-      if (this.layers.radar === 'healthy') this.layers.radar = 'stale';
-      if (this.layers.data === 'valid') this.layers.data = 'stale';
+      if (this.layers.radar === 'healthy' || this.layers.radar === 'partial') this.layers.radar = 'stale';
+      if (this.layers.data === 'valid' || this.layers.data === 'partial') this.layers.data = 'stale';
       return;
     }
-    const view = this.observationView();
-    if (!view.live || view.presence === 'stale' || view.targets === 'stale') {
-      this.layers.radar = 'stale';
-      this.layers.data = 'stale';
-      return;
-    }
-    this.layers.radar = 'healthy';
-    this.layers.data = view.presence === 'present' || view.presence === 'absent' ? 'valid' : view.presence;
+    const summary = summarizeLayers(this.observationView());
+    this.layers.radar = summary.radar;
+    this.layers.data = summary.data;
   }
 
   async rehandshake() {
@@ -763,11 +757,7 @@ export class ConsoleSession {
     const frame = await this.call(() => this.client.request(CODE.STATUS_GET, {}));
     if (frame.json && frame.json.ok) {
       this.status = redact(frame.json.result);
-      if (this.status.radar_link === 'healthy') {
-        const view = this.observationView();
-        this.layers.radar = !this.telemetry ? 'waiting_first_frame' : (!view.live || view.presence === 'stale' || view.targets === 'stale' ? 'stale' : 'healthy');
-      }
-      else if (this.status.radar_link) this.layers.radar = this.status.radar_link;
+      this.syncDataLayers();
     }
     this.emit();
     return this.status;
@@ -985,14 +975,6 @@ export class ConsoleSession {
     this.emit();
     return { ok: true, revision, items };
   }
-}
-
-function classifyData(body) {
-  if (!body || !body.presence) return 'unknown';
-  const quality = body.presence.quality;
-  if (quality === 'unknown' || quality === 'unsupported' || quality === 'invalid' || quality === 'stale') return quality;
-  if (quality === 'valid') return 'valid';
-  return 'unknown';
 }
 
 function mergeJob(jobs, next) {
