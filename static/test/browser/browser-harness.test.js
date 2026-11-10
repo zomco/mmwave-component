@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:net';
-import { launchBrowser } from './browser-harness.js';
+import { launchBrowser } from '../browser-harness.js';
 
 async function freePort() {
   const server = createServer();
