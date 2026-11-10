@@ -28,8 +28,14 @@ void R60ABD1Component::loop() {
     process_byte_(byte);
   }
 
-  // Presence watchdog - clear presence if no data for 1000ms
+  // MWCP-enabled builds refresh presence even without a connected USB client.
   uint32_t now = millis();
+  presence_refresh_.initialized = initialized_;
+  presence_refresh_.wanted = host_observer_ != nullptr;
+  presence_refresh_.applying = host_applying_;
+  if (presence_refresh_poll(presence_refresh_, now) == kPresenceRefreshSend)
+    query_presence();
+  // Presence watchdog - clear presence if no data for 1000ms.
   if (now - this->last_rx_ms_ > 1000) {
     if (this->presence_sensor_ != nullptr && this->presence_sensor_->state) {
       this->presence_sensor_->publish_state(false);
@@ -247,8 +253,12 @@ void R60ABD1Component::handle_work_state_frame_() {
     this->set_timeout("init_3", kEnableHeartDelayMs, [this]() { this->enable_heart_rate(); });
     this->set_timeout("init_4", kEnableSleepDelayMs, [this]() { this->enable_sleep(); });
     // One query after enable. Presence is change-only, so a host reboot would
-    // otherwise stay unknown until the next transition. Not periodic, no NVS.
-    this->set_timeout("init_1q", kQueryPresenceDelayMs, [this]() { this->query_presence(); });
+    // otherwise stay unknown until the next transition. MWCP-enabled builds
+    // continue with periodic read-only queries in loop(); neither writes NVS.
+    this->set_timeout("init_1q", kQueryPresenceDelayMs, [this]() {
+      this->query_presence();
+      presence_refresh_note_startup(this->presence_refresh_, millis());
+    });
   }
 }
 
@@ -266,6 +276,7 @@ void R60ABD1Component::handle_presence_frame_() {
       if (cls == kPresenceIgnore)
         break;
       last_raw_presence_ = (cls == kPresencePresent);
+      presence_refresh_note_sample(presence_refresh_);
       R60HostObservation sample;
       sample.kind = 1;
       sample.presence = last_raw_presence_;

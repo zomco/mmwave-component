@@ -151,8 +151,9 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
     send_cmd(CTRL_PRESENCE, 0x00, &d, 1);
   }
   void query_presence() {
-    const uint8_t d = kPresenceQueryData;
-    send_cmd(CTRL_PRESENCE, kPresenceQueryCmd, &d, 1);
+    uint8_t frame[10];
+    write_presence_query(frame);
+    write_array(frame, sizeof(frame));
   }
   void enable_breath() {
     const uint8_t d = 0x01;
@@ -199,6 +200,7 @@ class R60ABD1Component : public Component, public uart::UARTDevice {
   uint8_t checksum_accum_{0};
 
   bool initialized_{false};
+  PresenceRefresh presence_refresh_{};
   uint32_t last_rx_ms_{0};
   uint32_t last_publish_ms_{0};
   uint32_t frame_id_{0};

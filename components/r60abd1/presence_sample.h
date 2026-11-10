@@ -51,5 +51,68 @@ inline bool startup_queries_presence_after_enable() {
          kPresenceCtrl == 0x80 && kPresenceQueryCmd == 0x81 && kPresenceQueryData == 0x0F;
 }
 
+// Manual V3.4 pages 11-12: presence is reported only when it changes.
+// The read-only query is control 0x80 command 0x81 data 0x0F. A same-value
+// reply is still a new sample. The client drops a sample after 8 seconds, so
+// the host asks every 3 seconds once startup has finished. That leaves one
+// missed reply inside the window without polling faster than the module's
+// own 1-2 second position reports. The manual states no minimum interval.
+// A query is not itself a sample. One query is in flight; a 1.5 second
+// silence ends that wait and the next query still respects the 3 second gap.
+static const uint32_t kPresenceRefreshIntervalMs = 3000;
+static const uint32_t kPresenceQueryTimeoutMs = 1500;
+
+struct PresenceRefresh {
+  bool initialized = false;
+  bool wanted = false;
+  bool applying = false;
+  bool startup_sent = false;
+  bool awaiting = false;
+  uint32_t last_sent_ms = 0;
+  uint32_t sent_count = 0;
+};
+
+enum PresenceRefreshAction : uint8_t {
+  kPresenceRefreshWait = 0,
+  kPresenceRefreshSend = 1,
+};
+
+inline void write_presence_query(uint8_t out[10]) {
+  const uint8_t sum =
+      static_cast<uint8_t>(0x53 + 0x59 + kPresenceCtrl + kPresenceQueryCmd + 0x00 + 0x01 + kPresenceQueryData);
+  out[0] = 0x53;
+  out[1] = 0x59;
+  out[2] = kPresenceCtrl;
+  out[3] = kPresenceQueryCmd;
+  out[4] = 0x00;
+  out[5] = 0x01;
+  out[6] = kPresenceQueryData;
+  out[7] = sum;
+  out[8] = 0x54;
+  out[9] = 0x43;
+}
+
+inline void presence_refresh_note_startup(PresenceRefresh &state, uint32_t now) {
+  state.startup_sent = true;
+  state.last_sent_ms = now;
+  state.awaiting = true;
+  state.sent_count++;
+}
+
+inline void presence_refresh_note_sample(PresenceRefresh &state) { state.awaiting = false; }
+
+inline PresenceRefreshAction presence_refresh_poll(PresenceRefresh &state, uint32_t now) {
+  if (!state.initialized || !state.wanted || state.applying || !state.startup_sent)
+    return kPresenceRefreshWait;
+  if (state.awaiting && static_cast<uint32_t>(now - state.last_sent_ms) < kPresenceQueryTimeoutMs)
+    return kPresenceRefreshWait;
+  state.awaiting = false;
+  if (static_cast<uint32_t>(now - state.last_sent_ms) < kPresenceRefreshIntervalMs)
+    return kPresenceRefreshWait;
+  state.last_sent_ms = now;
+  state.awaiting = true;
+  state.sent_count++;
+  return kPresenceRefreshSend;
+}
 }  // namespace r60abd1
 }  // namespace esphome
