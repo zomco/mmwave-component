@@ -79,6 +79,37 @@ class ReleaseTests(unittest.TestCase):
         r.write(self.build / 'manifest.json', self.manifest)
         with self.assertRaisesRegex(ValueError, 'checksum'): self.package()
 
+    def test_single_download_artifact_at_root_uses_project_identity(self):
+        flat = self.root / 'flat'
+        r.shutil.copytree(self.build, flat)
+        manifest = {**self.manifest, 'name': 'mmwave.r60abd1'}
+        r.write(flat / 'manifest.json', manifest)
+        dest = self.root / 'flat-release'
+        r.package(flat, dest, self.version, 'a' * 40, '2026.9.1')
+        r.validate_bundle(r.read(dest / 'release.json'), dest / 'firmware-bundle.zip')
+        with zipfile.ZipFile(dest / 'firmware-bundle.zip') as bundle:
+            self.assertEqual(bundle.read('r60abd1-ESP32-C3/factory.bin'), b'factory')
+        # A root manifest must never satisfy a different model's lookup.
+        with self.assertRaisesRegex(ValueError, 'Expected one manifest'):
+            r.find_build_manifest(flat, 'ld2450')
+        for name in ('mmwave.ld2450', 'R60ABD1', ''):
+            r.write(flat / 'manifest.json', {**manifest, 'name': name})
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, 'Expected one manifest'):
+                r.package(flat, self.root / 'bad-flat', self.version, 'a' * 40, '2026.9.1')
+
+    def test_flat_and_nested_duplicate_is_ambiguous(self):
+        r.write(self.root / 'build/manifest.json', {**self.manifest, 'name': 'mmwave.r60abd1'})
+        with self.assertRaisesRegex(ValueError, 'Expected one manifest'):
+            self.package()
+
+    def test_flat_artifact_still_checks_ota_bytes(self):
+        flat = self.root / 'flat'
+        r.shutil.copytree(self.build, flat)
+        r.write(flat / 'manifest.json', {**self.manifest, 'name': 'mmwave.r60abd1'})
+        (flat / 'ota.bin').write_bytes(b'corrupt')
+        with self.assertRaisesRegex(ValueError, 'checksum'):
+            r.package(flat, self.root / 'bad-flat', self.version, 'a' * 40, '2026.9.1')
+
     def test_duplicate_build_manifests_are_rejected(self):
         r.shutil.copytree(self.build, self.root / 'build/firmware-r60abd1-esp32c3')
         with self.assertRaisesRegex(ValueError, 'Expected one manifest'): self.package()

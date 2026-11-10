@@ -175,6 +175,13 @@ def find_build_manifest(build_dir, radar_id):
     names = {f"{radar_id}-esp32c3", f"{radar_id}-esp32-c3"}
     candidates = [path for path in Path(build_dir).rglob("manifest.json")
                   if path.parent.name.lower().removeprefix("firmware-") in names]
+    # download-artifact v8 flattens a single artifact into the requested root.
+    # With no model directory, require the ESPHome project identity instead of
+    # guessing from the current catalog (which may contain multiple models).
+    root_manifest = Path(build_dir) / "manifest.json"
+    if root_manifest.is_file() and root_manifest not in candidates:
+        if read(root_manifest).get("name") == f"mmwave.{radar_id}":
+            candidates.append(root_manifest)
     if len(candidates) != 1:
         raise ValueError(f"Expected one manifest for {radar_id}, found {candidates}")
     return candidates[0]

@@ -31,23 +31,45 @@ export function findBrowser(env = process.env) {
   return null;
 }
 
-export function launchBrowser({ executable, args = ['--version'], timeoutMs = 2000 } = {}) {
+export async function launchBrowser({ executable, args = ['--version'], timeoutMs = 2000 } = {}) {
+  try {
+    return await launchAttempt({ executable, args, timeoutMs });
+  } catch (error) {
+    // Ubuntu's AppArmor can deny Chrome for Testing user namespaces. Only the
+    // explicit, ephemeral Linux CI opt-in may retry a confirmed sandbox error.
+    if (platform() !== 'linux' || process.env.GITHUB_ACTIONS !== 'true'
+        || process.env.MWCP_CI_SANDBOX_FALLBACK !== '1'
+        || args.includes('--no-sandbox')
+        || !/No usable sandbox|Failed to move to new namespace|Failed to unshare.*(?:Operation not permitted|EPERM)/i.test(error.message)) throw error;
+    console.error(`Chrome sandbox unavailable in CI; retrying local test browser: ${error.message}`);
+    return launchAttempt({ executable, args: ['--no-sandbox', ...args], timeoutMs });
+  }
+}
+
+function launchAttempt({ executable, args, timeoutMs }) {
   const command = executable || findBrowser();
   if (!command) return Promise.reject(new Error('browser not found'));
   return new Promise((resolve, reject) => {
     let settled = false;
     const child = spawn(command, args, {
       windowsHide: true,
-      stdio: 'ignore',
+      stdio: ['ignore', 'ignore', 'pipe'],
       detached: platform() !== 'win32',
     });
+    let stderr = '';
+    child.stderr.on('data', (chunk) => { stderr = (stderr + chunk).slice(-8192); });
     live.add(child);
+    let pollTimer;
+    const controller = new AbortController();
     const timer = setTimeout(() => finish(new Error('browser start timeout')), timeoutMs);
     const finish = (error) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      clearTimeout(pollTimer);
+      controller.abort();
       if (error) {
+        error.message = `${error.message}\n${stderr}`.trim();
         killProcessTree(child).finally(() => reject(error));
         return;
       }
@@ -62,7 +84,20 @@ export function launchBrowser({ executable, args = ['--version'], timeoutMs = 20
     child.once('exit', (code, signal) => {
       if (!settled) finish(new Error(`browser exited ${code ?? signal}`));
     });
-    setTimeout(() => {
+    const port = args.find((arg) => arg.startsWith('--remote-debugging-port='))?.split('=')[1];
+    const checkReady = async () => {
+      if (settled) return;
+      try {
+        const response = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: controller.signal });
+        if (response.ok && typeof (await response.json()).webSocketDebuggerUrl === 'string') {
+          finish(null);
+          return;
+        }
+      } catch { /* Browser may still be starting; process exit and deadline report stderr. */ }
+      if (!settled) pollTimer = setTimeout(checkReady, 50);
+    };
+    if (port) checkReady();
+    else pollTimer = setTimeout(() => {
       if (!settled && child.exitCode == null && child.signalCode == null && !child.killed) finish(null);
     }, 30);
   });
