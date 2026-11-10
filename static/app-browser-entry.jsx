@@ -71,4 +71,6 @@ const serial = {
 };
 Object.defineProperty(navigator, 'serial', { configurable: true, value: serial });
 window.__mwcp = { device, port, serial, observation, simulation: true };
+// Browser assertions use Chinese labels; do not inherit the runner's OS locale.
+localStorage.setItem('mmwave-language', 'zh');
 createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>);
