@@ -349,6 +349,132 @@ test('C7 secrets stay out of the diagnostic export', async () => {
   assert.equal(JSON.stringify(redact({ password, note: 'token=' + password })).includes(password), false);
 });
 
+
+test('wifi status, accepted provisioning and unknown timeout stay distinct', async () => {
+  const box = await online();
+  const status = await box.session.refreshWifi();
+  assert.equal(status.state, 'disconnected');
+  assert.equal(status.current, true);
+  const original = box.device.dispatch.bind(box.device);
+  box.device.dispatch = (frame, now) => {
+    if (frame.code === CODE.WIFI_STATUS) throw new Error('status timeout');
+    return original(frame, now);
+  };
+  const failed = await box.session.refreshWifi();
+  assert.equal(failed.state, 'unknown');
+  assert.notEqual(failed.state, 'unsupported');
+  box.device.dispatch = original;
+  const password = 'lab-pass-1';
+  const accepted = await box.session.provisionWifi({ ssid: 'Lab', password });
+  assert.equal(accepted.accepted, true);
+  assert.equal(accepted.connected, false);
+  assert.equal(JSON.stringify(box.session.snapshot()).includes(password), false);
+  const second = await box.session.provisionWifi({ ssid: 'Lab', password });
+  assert.equal(second.reason, 'provision_busy');
+  const job = [...box.device.activeJobs.values()][0];
+  job.state = 'succeeded';
+  box.device.wifi = { state: 'connected', ssid: 'Lab', ip: '192.168.1.50', rssi_dbm: -40, last_error: null };
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  assert.equal(box.session.wifiTask.phase, 'succeeded');
+  assert.equal(box.session.wifi.state, 'connected');
+  assert.equal(box.session.wifi.ip, '192.168.1.50');
+  await box.session.stop();
+  assert.equal(box.session.wifi.historical, true);
+  assert.equal(box.session.wifi.current, false);
+});
+
+test('a lost provisioning response stays unknown and is not sent again', async () => {
+  const box = await online();
+  const original = box.device.dispatch.bind(box.device);
+  let writes = 0;
+  box.device.dispatch = (frame, now) => {
+    if (frame.code === CODE.WIFI_PROVISION) {
+      writes += 1;
+      throw new Error('acceptance timeout');
+    }
+    return original(frame, now);
+  };
+  const lost = await box.session.provisionWifi({ ssid: 'Lab', password: 'lab-pass-1' });
+  assert.equal(lost.unknown, true);
+  assert.equal(box.session.wifiTask.phase, 'unknown');
+  const again = await box.session.provisionWifi({ ssid: 'Lab', password: 'lab-pass-1' });
+  assert.equal(again.reason, 'provision_busy');
+  assert.equal(writes, 1);
+  box.device.dispatch = original;
+  const seen = await box.session.refreshWifi();
+  assert.equal(seen.state, 'disconnected');
+  assert.notEqual(box.session.wifiTask.phase, 'succeeded');
+});
+
+test('a dropped provision reply is recovered by its original op id', async () => {
+  const box = await online();
+  const original = box.device.dispatch.bind(box.device);
+  let provisions = 0;
+  let jobs = 0;
+  box.device.dispatch = (frame, now) => {
+    if (frame.code === CODE.WIFI_PROVISION) provisions += 1;
+    if (frame.code === CODE.JOB_GET) jobs += 1;
+    const reply = original(frame, now);
+    if (frame.code === CODE.WIFI_PROVISION) box.device.faults.dropResponses += 1;
+    return reply;
+  };
+  const pending = box.session.provisionWifi({ ssid: 'Lab', password: 'lab-pass-1' });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  box.clock.advance(2100);
+  const lost = await pending;
+  assert.equal(lost.unknown, true);
+  assert.equal(box.session.wifiTask.jobId, null);
+  const found = await box.session.queryWifiTask();
+  assert.equal(found.found, true);
+  assert.equal(provisions, 1);
+  assert.equal(jobs >= 1, true);
+  assert.equal(Boolean(box.session.wifiTask.jobId), true);
+  assert.notEqual(box.session.wifiTask.phase, 'succeeded');
+});
+
+test('a busy status read does not turn provisioning into an unknown lock', async () => {
+  const box = await online();
+  box.device.faults.delayMs = 5000;
+  const reading = box.session.refreshWifi();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const raced = await box.session.provisionWifi({ ssid: 'Lab', password: 'lab-pass-1' });
+  assert.equal(raced.reason, 'rpc_inflight');
+  assert.equal(box.session.wifiTask, null);
+  box.device.faults.delayMs = 0;
+  box.clock.advance(5000);
+  await reading;
+  const accepted = await box.session.provisionWifi({ ssid: 'Lab', password: 'lab-pass-1' });
+  assert.equal(accepted.accepted, true);
+});
+
+test('a rate-limited provision is not sent after the session changes', async () => {
+  const box = await online();
+  const original = box.device.dispatch.bind(box.device);
+  let provisions = 0;
+  box.device.dispatch = (frame, now) => {
+    if (frame.code === CODE.WIFI_PROVISION) provisions += 1;
+    return original(frame, now);
+  };
+  const raw = box.clock;
+  box.session.clock = { now: () => raw.now(), setTimeout: (fn, ms) => raw.setTimeout(fn, ms), clearTimeout: (id) => raw.clearTimeout(id) };
+  const now = raw.now();
+  box.session.rpcAt = [now, now, now, now, now, now, now, now];
+  const pending = box.session.provisionWifi({ ssid: 'Lab', password: 'lab-pass-1' });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(provisions, 0);
+  box.session.rpcAt = [];
+  box.session.clock = raw;
+  assert.equal((await box.session.rehandshake()).ok, true);
+  box.clock.advance(1100);
+  const cancelled = await pending;
+  assert.equal(cancelled.sent, false);
+  assert.equal(cancelled.reason, 'session_changed');
+  assert.equal(provisions, 0);
+  assert.equal(box.session.wifiTask, null);
+  const accepted = await box.session.provisionWifi({ ssid: 'Lab', password: 'lab-pass-1' });
+  assert.equal(accepted.accepted, true);
+  assert.equal(provisions, 1);
+});
 function port() {
   const listeners = new Map();
   let readable = { locked: false };

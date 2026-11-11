@@ -132,6 +132,74 @@ test('browser page clicks config and shows stale data on the simulated console',
     const restored = await waitForText(socket, { timeoutMs: 3000, commandTimeoutMs: 1000, match: '报告有人' });
     assert.doesNotMatch(restored, /已过期/);
     await click(socket, '配置');
+    const wifiPanel = await waitForText(socket, { timeoutMs: 3000, commandTimeoutMs: 1000, match: '可选配网' });
+    assert.match(wifiPanel, /USB 调试不依赖 Wi-Fi/);
+    await evaluate(socket, `(() => {
+      const ssid = [...document.querySelectorAll('label')].find((el) => el.textContent.includes('SSID')).querySelector('input');
+      const password = [...document.querySelectorAll('label')].find((el) => el.textContent.includes('密码')).querySelector('input');
+      const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      set.call(ssid, 'Lab');
+      ssid.dispatchEvent(new Event('input', { bubbles: true }));
+      set.call(password, 'lab-pass-1');
+      password.dispatchEvent(new Event('input', { bubbles: true }));
+      return 'filled';
+    })()`);
+    await click(socket, '提交配网');
+    const accepted = await waitForText(socket, { timeoutMs: 3000, commandTimeoutMs: 1000, match: '已受理' });
+    assert.doesNotMatch(accepted, /已联网/);
+    await click(socket, '查询原任务');
+    const queried = await waitForText(socket, { timeoutMs: 3000, commandTimeoutMs: 1000, match: '已受理' });
+    assert.match(queried, /已受理|处理中/);
+    await evaluate(socket, `(() => {
+      const job = [...window.__mwcp.device.activeJobs.values()][0];
+      job.state = 'succeeded';
+      window.__mwcp.device.wifi = { state: 'connected', ssid: 'Lab', ip: '192.168.1.50', rssi_dbm: -40, last_error: null };
+      return 'ready';
+    })()`);
+    const wifiLink = await waitForText(socket, { timeoutMs: 4000, commandTimeoutMs: 1000, match: '192.168.1.50' });
+    assert.match(wifiLink, /已联网/);
+    assert.doesNotMatch(wifiLink, /lab-pass-1/);
+    await evaluate(socket, `(() => {
+      const password = [...document.querySelectorAll('label')].find((el) => el.textContent.includes('密码')).querySelector('input');
+      const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      set.call(password, 'lab-pass-1');
+      password.dispatchEvent(new Event('input', { bubbles: true }));
+      return password.value;
+    })()`);
+    await evaluate(socket, '(() => { window.__mwcp.session.rpcAt = Array(8).fill(window.__mwcp.clock.now()); })()');
+    const stuck = evaluate(socket, `(() => {
+      const password = [...document.querySelectorAll('label')].find((el) => el.textContent.includes('密码')).querySelector('input');
+      const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      set.call(password, 'lab-pass-1');
+      password.dispatchEvent(new Event('input', { bubbles: true }));
+      [...document.querySelectorAll('button')].find((el) => el.textContent.includes('提交配网')).click();
+      return 'submitted';
+    })()`);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    await click(socket, '断开');
+    await evaluate(socket, 'window.__mwcp.device.reboot()');
+    await evaluate(socket, '(() => { window.__mwcp.session.rpcAt = []; })()');
+    await click(socket, '连接设备');
+    await waitForText(socket, { timeoutMs: 5000, commandTimeoutMs: 1000, match: 'online' });
+    const leaked = await evaluate(socket, `(() => {
+      let provisions = 0;
+      window.__mwcp.device.dispatch = ((original) => (frame, now) => {
+        if (frame.code === 0x0052) provisions += 1;
+        return original(frame, now);
+      })(window.__mwcp.device.dispatch.bind(window.__mwcp.device));
+      window.__mwcp.__provisionCount = () => provisions;
+      return provisions;
+    })()`);
+    assert.equal(leaked, 0, 'old credentials must not reach the new session');
+    await stuck;
+    await click(socket, '断开');
+    await evaluate(socket, 'window.__mwcp.device.reboot()');
+    await click(socket, '连接设备');
+    await waitForText(socket, { timeoutMs: 5000, commandTimeoutMs: 1000, match: 'online' });
+    await click(socket, '配置');
+    const cleared = await evaluate(socket, `(() => { const password = [...document.querySelectorAll('label')].find((el) => el.textContent.includes('密码')); return password ? password.querySelector('input').value : 'gone'; })()`);
+    assert.equal(cleared, '');
+    await click(socket, '配置');
     await evaluate(socket, `window.__mwcp.device.faults.delayMs = 60000`);
     await click(socket, '重新读取设备');
     const reading = await evaluate(socket, `(() => new Promise((resolve) => {

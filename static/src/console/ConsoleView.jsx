@@ -330,17 +330,74 @@ function RangeWindow({ t, value, onChange }) {
 function Wifi({ t, session, snap }) {
   const [ssid, setSsid] = useState('');
   const [password, setPassword] = useState('');
-  const declared = snap.capabilities.some((item) => String(item.id || '').startsWith('wifi'));
-  if (!snap.sessionLive) return null;
-  if (!declared) return <p className="muted mt-6 text-sm">{t.wifiUnsupported} {t.wifiSkip}</p>;
+  const [notice, setNotice] = useState('');
+  const [querying, setQuerying] = useState(false);
+  const sessionKey = String(snap.generation || 0) + ':' + String(snap.bootId || '');
+  useEffect(() => {
+    setPassword('');
+    setSsid('');
+    setNotice('');
+  }, [sessionKey]);
+  const wifi = snap.wifi;
+  const task = snap.wifiTask;
+  const denied = snap.capabilities.some((item) => (item.id === 'wifi' || item.id === 'wifi.status' || item.id === 'wifi.provision') && item.supported === false);
+  const unsupported = denied || (wifi && wifi.state === 'unsupported' && wifi.current);
+  const locked = task && (task.phase === 'submitting' || task.phase === 'accepted' || task.phase === 'running' || task.phase === 'querying' || (task.phase === 'unknown' && (task.opId || task.jobId)));
+  const currentKey = () => {
+    const now = session.snapshot ? session.snapshot() : snap;
+    return String(now.generation || 0) + ':' + String(now.bootId || '');
+  };
+  const refresh = async () => {
+    const key = currentKey();
+    setNotice('');
+    const result = await session.refreshWifi();
+    if (currentKey() !== key) return;
+    if (result && result.reason === 'rpc_inflight') setNotice(t.wifiRpcBusy);
+  };
+  const submit = async () => {
+    const key = currentKey();
+    const typed = password;
+    setNotice('');
+    const result = await session.provisionWifi({ ssid, password: typed });
+    if (currentKey() !== key) return;
+    setPassword('');
+    if (!result) return;
+    if (result.reason === 'rpc_inflight') setNotice(t.wifiRpcBusy);
+    else if (result.reason === 'provision_busy') setNotice(t.wifiBusy);
+    else if (result.reason === 'pending_save') setNotice(t.unknownSave);
+    else if (result.unknown) setNotice(t.wifiUnknown);
+    else if (!result.ok) setNotice(t.wifiFailed);
+    else setNotice(t.wifiAccepted);
+  };
+  const query = async () => {
+    if (querying) return;
+    const key = currentKey();
+    setQuerying(true);
+    setNotice('');
+    try { await session.queryWifiTask(); }
+    finally { if (currentKey() === key) setQuerying(false); }
+  };
+  if (!snap.sessionLive) {
+    if (wifi && wifi.historical) return <p className="muted mt-6 text-sm">{t.wifiHistorical}</p>;
+    return null;
+  }
+  if (unsupported) return <div className="mt-6 border-t border-slate-200 pt-5 dark:border-white/10"><h3 className="font-semibold">{t.wifiTitle}</h3><p className="muted mt-1 text-sm">{t.wifiUnsupported} {t.wifiFallback}</p></div>;
+  const connected = wifi && wifi.current && wifi.state === 'connected';
   return <div className="mt-6 border-t border-slate-200 pt-5 dark:border-white/10">
     <h3 className="font-semibold">{t.wifiTitle}</h3>
     <p className="muted mt-1 text-sm">{t.wifiSkip} {t.scanMissing}</p>
+    <p className="mt-3 text-sm" role="status">{t.wifiState}: {wifi && wifi.current ? (t.wifiStates[wifi.state] || wifi.state) : t.wifiStates.unknown}{connected && wifi.ip ? ' · ' + wifi.ip : ''}</p>
+    {task && <p className="muted mt-1 text-sm">{t.wifiTask}: {t.wifiPhases[task.phase] || task.phase}{task.phase === 'unknown' ? ' · ' + t.wifiUnknownNext : ''}</p>}
+    {notice && <p className="notice mt-3" role="status">{notice}</p>}
+    <div className="mt-3 flex flex-wrap gap-2">
+      <button className="secondary-button" onClick={refresh}>{t.wifiRefresh}</button>
+      {task && (task.opId || task.jobId) && task.phase !== 'succeeded' && task.phase !== 'failed' && <button className="secondary-button" disabled={querying} onClick={query}>{t.wifiQuery}</button>}
+    </div>
     <div className="mt-3 grid gap-3 sm:grid-cols-2">
       <label className="text-sm font-semibold">{t.ssid}<input className="field mt-2" value={ssid} autoComplete="off" onChange={(event) => setSsid(event.target.value)} /></label>
       <label className="text-sm font-semibold">{t.password}<input className="field mt-2" type="password" value={password} autoComplete="new-password" onChange={(event) => setPassword(event.target.value)} /></label>
     </div>
-    <button className="secondary-button mt-3" onClick={async () => { await session.provisionWifi({ ssid, password }); setPassword(''); }}>{t.provision}</button>
+    <button className="secondary-button mt-3" disabled={locked} onClick={submit}>{t.provision}</button>
     <JobList t={t} jobs={snap.jobs} />
   </div>;
 }

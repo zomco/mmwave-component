@@ -1,7 +1,7 @@
 import { ProtocolClient } from '../protocol/client.js';
 import { createRealClock } from '../protocol/clock.js';
 import { CODE } from '../protocol/limits.js';
-import { validateConfigChanges } from '../protocol/contract.js';
+import { validateConfigChanges, wifiPasswordIssue } from '../protocol/contract.js';
 import { assessObservation, summarizeLayers } from './observe.js';
 import {
   SAVE, abandonTracking, applyCommitResult, applyStatusResult, armCommit,
@@ -60,6 +60,8 @@ export class ConsoleSession {
     this.logs = [];
     this.status = null;
     this.wifi = null;
+    this.wifiTask = null;
+    this.wifiTimer = null;
     this.actions = [];
     this.jobs = [];
     this.lastError = null;
@@ -114,6 +116,16 @@ export class ConsoleSession {
     this.rpcAt.push(after);
   }
 
+  async ownedRequest(owner, code, body, options) {
+    await this.pace();
+    if (!owner || this.client !== owner.client || !this.wifiOwned(owner.generation, owner.bootId)) {
+      const error = new Error('session_changed');
+      error.sent = false;
+      throw error;
+    }
+    return owner.client.request(code, body, options);
+  }
+
   async call(run, retry = true) {
     let last;
     for (let attempt = 0; attempt < (retry ? 4 : 1); attempt += 1) {
@@ -150,6 +162,7 @@ export class ConsoleSession {
       logs: this.logs.slice(),
       status: this.status,
       wifi: this.wifi ? redact(this.wifi) : null,
+      wifiTask: this.wifiTask ? { phase: this.wifiTask.phase, jobId: this.wifiTask.jobId, opId: this.wifiTask.opId, reason: this.wifiTask.reason || null } : null,
       actions: this.actions,
       jobs: this.jobs,
       lastError: this.lastError,
@@ -181,6 +194,8 @@ export class ConsoleSession {
     this.identity = null;
     this.lastError = null;
     this.telemetry = null;
+    this.wifi = null;
+    this.wifiTask = null;
     this.observations = [];
     this.logs = [];
     this.wifi = null;
@@ -763,13 +778,123 @@ export class ConsoleSession {
     return this.status;
   }
 
-  async refreshWifi() {
+  clearWifiTimer() {
+    if (this.wifiTimer) clearTimeout(this.wifiTimer);
+    this.wifiTimer = null;
+  }
+
+  wifiOwned(generation, bootId) {
+    return Boolean(this.client && this.client.sessionLive && this.generation === generation && this.client.bootId === bootId);
+  }
+
+  scheduleWifiFollow() {
+    this.clearWifiTimer();
+    const task = this.wifiTask;
+    if (!task || task.phase === 'succeeded' || task.phase === 'failed' || task.phase === 'querying') return;
+    if (!task.jobId && !task.opId) return;
+    if ((task.polls || 0) >= 4) {
+      this.wifiTask = Object.assign({}, task, { phase: 'unknown', reason: 'follow_stopped' });
+      this.emit();
+      return;
+    }
+    const generation = this.generation;
+    const bootId = task.bootId;
+    this.wifiTimer = setTimeout(() => {
+      this.wifiTimer = null;
+      this.followWifi(generation, bootId).catch(() => {});
+    }, 1000);
+  }
+
+  async followWifi(generation, bootId) {
+    const task = this.wifiTask;
+    if (!task || task.bootId !== bootId) return { ok: false, reason: 'not_current' };
+    if (!this.wifiOwned(generation, bootId)) {
+      this.clearWifiTimer();
+      this.wifiTask = Object.assign({}, task, { phase: 'unknown', reason: 'session_changed' });
+      this.emit();
+      return { ok: false, reason: 'session_changed' };
+    }
+    if (this.client.inflight && this.client.inflight()) {
+      this.scheduleWifiFollow();
+      return { ok: false, reason: 'rpc_inflight' };
+    }
+    this.wifiTask = Object.assign({}, task, { polls: (task.polls || 0) + 1, phase: 'querying' });
+    this.emit();
     try {
-      const frame = await this.call(() => this.client.request(CODE.WIFI_STATUS, {}));
-      if (frame.json && frame.json.ok) this.wifi = redact(frame.json.result);
-      else this.wifi = { state: 'unsupported' };
+      const selector = task.jobId ? { job_id: task.jobId } : { op_id: task.opId };
+      const owner = { client: this.client, generation, bootId };
+      const frame = await this.ownedRequest(owner, CODE.JOB_GET, selector);
+      if (!this.wifiOwned(generation, bootId) || !this.wifiTask || this.wifiTask.opId !== task.opId) return { ok: false, reason: 'session_changed' };
+      if (!frame || !frame.json || frame.json.ok !== true) {
+        this.wifiTask = Object.assign({}, this.wifiTask, { phase: 'unknown', reason: 'job_get_failed' });
+        this.scheduleWifiFollow();
+        return { ok: false, reason: 'job_get_failed' };
+      }
+      const job = frame.json.result || {};
+      const sameOp = !task.opId || job.op_id === task.opId;
+      const sameJob = !task.jobId || job.job_id === task.jobId;
+      const sameAction = !job.action_id || job.action_id === 'wifi.provision' || job.action_id === 'unknown';
+      if (!job.job_id || job.state === 'unknown' || !sameOp || !sameJob || !sameAction) {
+        this.wifiTask = Object.assign({}, task, { phase: 'unknown', reason: 'job_not_found', polls: this.wifiTask.polls });
+        this.emit();
+        return { ok: true, found: false };
+      }
+      this.jobs = mergeJob(this.jobs, Object.assign({}, job, { verified: job.state === 'succeeded' }));
+      const terminal = job.state === 'succeeded' || job.state === 'failed';
+      this.wifiTask = { opId: job.op_id || task.opId, jobId: job.job_id, phase: terminal ? job.state : 'accepted', bootId, polls: this.wifiTask.polls, reason: null };
+      if (terminal) {
+        this.clearWifiTimer();
+        await this.refreshWifi();
+      } else this.scheduleWifiFollow();
+      this.emit();
+      return { ok: true, found: true, state: job.state };
     } catch (error) {
-      this.wifi = { state: 'unsupported' };
+      if (error && error.sent === false) return { ok: false, reason: 'session_changed', sent: false };
+      if (this.wifiTask && this.wifiTask.opId === task.opId && this.wifiOwned(generation, bootId)) {
+        this.wifiTask = Object.assign({}, this.wifiTask, { phase: 'unknown', reason: 'job_get_failed' });
+        this.scheduleWifiFollow();
+        this.emit();
+      }
+      return { ok: false, reason: 'job_get_failed' };
+    }
+  }
+
+  queryWifiTask() {
+    const task = this.wifiTask;
+    if (!task || (!task.jobId && !task.opId)) return Promise.resolve({ ok: false, reason: 'nothing_to_query' });
+    if (task.phase === 'querying') return Promise.resolve({ ok: false, reason: 'provision_busy' });
+    this.clearWifiTimer();
+    this.wifiTask = Object.assign({}, task, { polls: 0, reason: null });
+    return this.followWifi(this.generation, task.bootId);
+  }
+
+  async refreshWifi() {
+    const generation = this.generation;
+    const bootId = this.client ? this.client.bootId : null;
+    if (!this.client || !this.client.sessionLive) {
+      this.wifi = Object.assign({}, this.wifi || {}, { state: this.wifi && this.wifi.state ? this.wifi.state : 'unknown', current: false, historical: true });
+      this.emit();
+      return this.wifi;
+    }
+    if (this.client.inflight && this.client.inflight()) return { ok: false, reason: 'rpc_inflight', state: this.wifi && this.wifi.state };
+    const owner = { client: this.client, generation, bootId };
+    try {
+      const frame = await this.ownedRequest(owner, CODE.WIFI_STATUS, {});
+      if (!this.wifiOwned(generation, bootId)) return this.wifi;
+      if (!frame || !frame.json) this.wifi = { state: 'unknown', current: false, bootId, read: 'no_response' };
+      else if (frame.json.ok === true) {
+        const result = redact(frame.json.result) || {};
+        this.wifi = Object.assign({}, result, { state: result.state || 'unknown', current: true, historical: false, bootId, read: 'ok' });
+      } else {
+        const code = frame.json.error && frame.json.error.code;
+        this.wifi = { state: code === 'UNSUPPORTED' ? 'unsupported' : 'unknown', current: code === 'UNSUPPORTED', historical: false, bootId, read: code || 'failed' };
+      }
+    } catch (error) {
+      if (error && error.sent === false) return { ok: false, reason: 'session_changed', sent: false };
+      if (!this.wifiOwned(generation, bootId)) return this.wifi;
+      const reason = error && error.message === 'rpc_inflight' ? 'rpc_inflight' : 'failed';
+      if (reason === 'rpc_inflight') return { ok: false, reason, state: this.wifi && this.wifi.state };
+      this.wifi = { state: 'unknown', current: false, historical: false, bootId, read: 'failed' };
     }
     this.emit();
     return this.wifi;
@@ -777,20 +902,58 @@ export class ConsoleSession {
 
   async provisionWifi(input) {
     if (this.save.phase === SAVE.unknown) return { ok: false, reason: 'pending_save' };
-    const opId = newOpId();
-    const frame = await this.call(() => this.client.request(CODE.WIFI_PROVISION, {
-      op_id: opId,
-      ssid: input.ssid,
-      auth: input.auth || 'wpa2_psk',
-      password: input.password,
-    }, { timeoutMs: 2000, retry: false }), false);
-    if (!frame.json || frame.json.ok !== true) {
-      return { ok: false, reason: frame.json && frame.json.error ? frame.json.error.code : 'provision_failed' };
+    if (this.wifi && this.wifi.state === 'unsupported' && this.wifi.current) return { ok: false, reason: 'unsupported' };
+    if (this.wifiTask && (this.wifiTask.phase === 'submitting' || this.wifiTask.phase === 'accepted' || this.wifiTask.phase === 'running' || this.wifiTask.phase === 'querying' || (this.wifiTask.phase === 'unknown' && (this.wifiTask.opId || this.wifiTask.jobId)))) {
+      return { ok: false, reason: 'provision_busy' };
     }
-    const jobId = frame.json.result.job_id;
-    this.jobs = mergeJob(this.jobs, { job_id: jobId, op_id: opId, action_id: 'wifi.provision', state: 'queued', verified: false });
+    if (!this.client || !this.client.sessionLive) return { ok: false, reason: 'offline' };
+    if (this.client.inflight && this.client.inflight()) return { ok: false, reason: 'rpc_inflight' };
+    const body = { ssid: input && input.ssid, auth: input && input.auth ? input.auth : 'wpa2_psk', password: input && input.password };
+    const issue = wifiPasswordIssue(body);
+    if (issue) return { ok: false, reason: issue.code || 'invalid_argument' };
+    const opId = newOpId();
+    const generation = this.generation;
+    const bootId = this.client.bootId;
+    this.wifiTask = { opId, jobId: null, phase: 'submitting', bootId, polls: 0, sent: false };
     this.emit();
-    return { ok: true, job_id: jobId, op_id: opId };
+    const owner = { client: this.client, generation, bootId };
+    try {
+      const frame = await this.ownedRequest(owner, CODE.WIFI_PROVISION, {
+        op_id: opId,
+        ssid: body.ssid,
+        auth: body.auth,
+        password: body.password,
+      }, { timeoutMs: 2000, retry: false });
+      if (!this.wifiOwned(generation, bootId) || !this.wifiTask || this.wifiTask.opId !== opId) return { ok: false, reason: 'session_changed' };
+      if (!frame || !frame.json || frame.json.ok !== true) {
+        const code = frame && frame.json && frame.json.error ? frame.json.error.code : 'provision_failed';
+        this.wifiTask = Object.assign({}, this.wifiTask, { phase: 'failed', reason: code });
+        this.emit();
+        return { ok: false, reason: code };
+      }
+      const jobId = frame.json.result && frame.json.result.job_id;
+      this.jobs = mergeJob(this.jobs, { job_id: jobId, op_id: opId, action_id: 'wifi.provision', state: 'accepted', verified: false });
+      this.wifiTask = Object.assign({}, this.wifiTask, { jobId, phase: 'accepted' });
+      this.emit();
+      this.scheduleWifiFollow();
+      return { ok: true, accepted: true, connected: false, job_id: jobId, op_id: opId };
+    } catch (error) {
+      if (error && error.sent === false) {
+        if (this.wifiTask && this.wifiTask.opId === opId) this.wifiTask = null;
+        this.emit();
+        return { ok: false, reason: 'session_changed', sent: false };
+      }
+      if (!this.wifiTask || this.wifiTask.opId !== opId || !this.wifiOwned(generation, bootId)) return { ok: false, reason: 'session_changed', sent: true };
+      const message = error && error.message;
+      if (message === 'rpc_inflight' || message === 'offline') {
+        this.wifiTask = null;
+        this.emit();
+        return { ok: false, reason: message === 'rpc_inflight' ? 'rpc_inflight' : 'offline' };
+      }
+      this.wifiTask = Object.assign({}, this.wifiTask, { phase: 'unknown', reason: 'acceptance_unknown' });
+      this.emit();
+      return { ok: false, unknown: true, reason: 'acceptance_unknown' };
+    }
   }
 
   async pollJob(jobId) {
@@ -881,6 +1044,9 @@ export class ConsoleSession {
     if (this.detach) {
       try { this.detach(); } catch (error) { /* ignore */ }
     }
+    this.clearWifiTimer();
+    if (this.wifi) this.wifi = Object.assign({}, this.wifi, { current: false, historical: true });
+    this.wifiTask = null;
     this.transport = null;
     this.detach = null;
     this.layers = Object.assign({}, this.layers, {

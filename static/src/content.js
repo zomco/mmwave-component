@@ -39,7 +39,7 @@ export const copy = {
     trouble: [['没有串口 / 无法连接', '换一根 USB 数据线，关闭串口日志；必要时按住 BOOT，按一下 RESET 后松开 BOOT，再连接。'], ['取消了连接', '取消不会安装固件。准备好后重新点击“连接设备并烧录”。'], ['下载或烧录失败', '检查网络与 USB，重新选择同一版本重试。写入中不要拔线。反复失败请附版本、板型与错误日志反馈。'], ['端口仍被占用', 'USB 调试或安装窗口还握着端口时不要再烧录。关闭窗口不等于端口已释放。旧固件没有 MWCP 时，USB 调试不会显示成功。']],
     guideHint: '假设你已部署并熟悉 Home Assistant。不需要安装额外的高级集成。',
     guide: [
-      ['设备联网', '烧录工具报告成功后，使用其 Wi-Fi 配置入口连接 2.4 GHz 网络。若没有入口，连接设备 Fallback 热点并打开 http://192.168.4.1 配网。设备和 HA 必须网络互通。'],
+      ['设备联网', '先完成 USB 调试。需要联网时，在同一页的可选配网里手动填写 2.4 GHz 网络。R60 的 MWCP 固件没有安装器串口配网入口。只有设备明确不支持 USB 配网时，才改用热点 http://192.168.4.1 。页面读到的 IP 只供你在 HA 中手动添加，不能表示 HA 已经接入。'],
       ['添加 ESPHome 设备', 'HA → 设置 → 设备与服务，确认新发现的 ESPHome 设备。未发现时添加 ESPHome 集成，输入设备 IP，端口 6053。仅当设备启用 API 加密时填写对应密钥。确认存在、坐标实体更新。'],
       ['安装 MMWave Card', '通过 HACS 添加 zomco/mmwave-card（Dashboard / Lovelace 类别）并下载，刷新浏览器。手动安装时将 mmwave-card.js 放到 /config/www/，在仪表板资源中添加 /local/mmwave-card.js，类型选 JavaScript 模块。不要重复添加资源。'],
       ['选择设备和卡片选项', '编辑仪表板 → 添加卡片 → MMWave Radar Card，选择雷达型号和 ESPHome 设备，核对自动匹配的实体。填写房间宽深（cm）。绑定雷达局部原始坐标，不要绑定 room_x / room_y 再变换一次。保存；若空白，检查资源加载和实体可用性。'],
@@ -92,7 +92,7 @@ export const copy = {
     trouble: [['No port / cannot connect', 'Use a USB data cable and close serial monitors. If needed, hold BOOT, tap RESET, release BOOT and connect again.'], ['Connection cancelled', 'Cancelling does not install firmware. Click Connect & flash when ready.'], ['Download / flash failed', 'Check network and USB, then retry the same release. Do not unplug while writing. Report version, board and logs for repeated failures.'], ['Port still held', 'Do not flash while USB debug or the installer window holds the port. Closing the window is not a release. Old firmware without MWCP will not show a USB debug success.']],
     guideHint: 'For users who already run Home Assistant. No extra advanced integration is required.',
     guide: [
-      ['Connect Wi-Fi', 'After successful flashing, use the installer Wi-Fi setup to join a 2.4 GHz network. Alternatively, join the device Fallback hotspot and open http://192.168.4.1. HA and the device must be able to reach each other.'],
+      ['Connect the device', 'Finish USB debug first. When a network is needed, type the 2.4 GHz name under optional network setup on the same page. R60 MWCP firmware has no installer serial provisioning screen. Use http://192.168.4.1 only when the device explicitly cannot be provisioned over USB. An IP shown here is only for adding the device in HA. It does not mean HA joined the device.'],
       ['Add ESPHome device', 'HA → Settings → Devices & services: configure the discovered ESPHome device. If missing, add ESPHome using its IP and port 6053. Use an API key only if encryption is enabled. Check presence and coordinates update.'],
       ['Install MMWave Card', 'Add zomco/mmwave-card in HACS as a Dashboard / Lovelace repository, download and refresh. For manual installation, place mmwave-card.js in /config/www/ and add /local/mmwave-card.js as a JavaScript module resource. Avoid duplicate resources.'],
       ['Choose device & options', 'Edit dashboard → Add card → MMWave Radar Card. Select the model and ESPHome device, verify matched entities, and set room dimensions in cm. Bind local raw coordinates, not room_x / room_y, to avoid a double transform. Save; check resources and entities if blank.'],
