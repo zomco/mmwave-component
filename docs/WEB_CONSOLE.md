@@ -34,9 +34,9 @@ The radar UART and the browser USB link are different wires:
 1. **The source contains the protocol.** The component tree includes mmwave_host. The R60ABD1 daily profile `tests/r60abd1-esp32c3.yaml` now includes `tests/common/r60abd1_mwcp.yaml` and enables it. The maintainer host profile is a separate firmware.
 2. **A profile enables it at compile time.** A build of this R60 profile contains the USB console. The other models do not. A file in the repository does not mean the chip is already running it.
 3. **An image was actually flashed.** Which file is on the board is known only from the flash record of that action. This guide does not invent an image identity, and it does not turn an older short test into new coverage.
-4. **A version was published.** The page trusts the release index and a manifest that passes its checks. static/public/releases.json in the repository is an empty list. The factory file still says `version: dev`. A local candidate can be previewed on this computer; it is not an Alpha, a Beta, or a release page. A promoted Beta preserves the tested Alpha binary byte-for-byte without rebuilding, so the device reports the Alpha binary version while the distribution release channel is Beta.
+4. **A version was published.** The page trusts the release index and a manifest that passes its checks. Official Alpha.3 has been published and deployed to Pages. The factory YAML uses `version: dev` as a source placeholder; the release workflow replaces it with the release version. It is not the identity of a published binary. A local candidate can be previewed on this computer; it is not an Alpha, a Beta, or a release page. A promoted Beta preserves the tested Alpha binary byte-for-byte without rebuilding, so the device reports the Alpha binary version while the distribution release channel is Beta.
 
-So compatible firmware is required, and the current preview is limited. This guide has no download link. A flash button, or a source file, is not a published MWCP firmware. With no release, the page says there is no released firmware for this kit. That is not a successful flash. This R60 firmware does not use serial Improv, because that feature needs the same USB port. Use the fallback access point and captive portal when it is not on your Wi-Fi. BLE Improv, if present, is not the USB console. Wi-Fi scan is unavailable on this unpatched build.
+Official Alpha.3 firmware has been published to [GitHub Releases](https://github.com/zomco/mmwave-component/releases/tag/v0.1.0-alpha.3) and deployed to [Pages](https://mmwave.owkor.com/). Select the corresponding version on the page to flash. Verified scope is R60ABD1 + native USB ESP32-C3 only. A flash button, or a source file, is not a published MWCP firmware. With no release, the page says there is no released firmware for this kit. That is not a successful flash. This R60 firmware does not use serial Improv, because that feature needs the same USB port. Use the fallback access point and captive portal when it is not on your Wi-Fi. BLE Improv, if present, is not the USB console. Wi-Fi scan is unavailable on this unpatched build.
 
 ## Opening the page
 
@@ -99,7 +99,7 @@ Do not connect debug while the installer window is open. After that window leave
 | Web Serial is unavailable, or the page is not a secure context | Use desktop Chrome or Edge over HTTPS or localhost. A phone can only read the guide. |
 | The installer holds the port, or the port is being released | Close the installer and wait until the notice is gone. Do not keep clicking connect or flash. |
 | Closing the port failed and it is still held | Choose **Disconnect** again. If it still fails, unplug USB, close other serial programs, and plug it back in. |
-| No console protocol response | Check that the firmware includes MWCP, that you picked the controller USB port, and that the device has finished starting. This does not mean the radar hardware is damaged. The current public factory image does not include this protocol by default. |
+| No console protocol response | Check that the firmware includes MWCP, that you picked the controller USB port, and that the device has finished starting. This does not mean the radar hardware is damaged. The verified published combination is R60ABD1 with native USB ESP32-C3 on v0.1.0-alpha.3; check the release notes for other versions and models. |
 | Session expired | Choose **Handshake again on this port**. The page does not reconnect by itself and does not write again while doing it. |
 | Historical sample, or stale | Connect again before reading it. An old sample is not "nobody there now". |
 | Another client changed the device | The draft is still there. **Read from device**, compare, then decide whether to submit. |
@@ -108,7 +108,7 @@ Do not connect debug while the installer window is open. After that window leave
 
 ## Recording and diagnostics
 
-On **Live data**, choose **Start recording**. Export while the samples are still there: **Export JSONL** or **Export CSV**. **Stop recording** clears the in-memory log. Closing or refreshing the page also drops anything not exported. Only the latest 600 samples stay; older ones are dropped. Recording does not stop by itself at that point.
+On **Live data**, choose **Start recording** to collect new observations. **Stop recording** keeps the samples available for **Export JSONL** or **Export CSV**. Clearing or starting a new recording asks for confirmation; canceling preserves the existing records. Disconnecting stops recording and keeps the records available for export. Closing or refreshing the page loses anything not exported. Only the latest 600 samples stay; older ones are dropped without automatically stopping recording.
 
 Export removes values whose field names look like a password, token, or secret. A target index is not a stable identity of one person.
 

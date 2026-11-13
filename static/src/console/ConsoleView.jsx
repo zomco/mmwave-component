@@ -37,15 +37,40 @@ export default function ConsoleView({ language, session, snapshot, support, onCo
   const [includeNetwork, setIncludeNetwork] = useState(false);
   const [paused, setPaused] = useState(false);
   const [frozen, setFrozen] = useState(null);
+  /** Recording lifecycle: 'idle' → 'recording' → 'stopped'. */
+  const [recordState, setRecordState] = useState('idle');
   const [recording, setRecording] = useState([]);
-  const [recordOn, setRecordOn] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  /** Ownership captured at recording start: generation + bootId. */
+  const [recordOwner, setRecordOwner] = useState(null);
+  /** Telemetry boundary: skip appending the sample that was already visible at start. */
+  const recordBoundary = React.useRef(null);
   const snap = snapshot;
   const sim = snap.simulation;
 
+  // RDE-2: append only when recording is active AND the sample belongs to the
+  // owning session. Ownership is checked synchronously before appending; no
+  // follow-up effect can retroactively stop after a bad sample entered.
   useEffect(() => {
-    if (!recordOn || !snap.telemetry) return;
+    if (recordState !== 'recording' || !snap.telemetry) return;
+    if (!snap.sessionLive) return;
+    if (recordOwner == null) return;
+    if (snap.generation !== recordOwner.generation) return;
+    if (recordOwner.bootId != null && snap.bootId !== recordOwner.bootId) return;
+    // RDE-R2-A: skip the telemetry that was already visible when recording started.
+    if (snap.telemetry === recordBoundary.current) return;
+    recordBoundary.current = snap.telemetry;
     setRecording((rows) => rows.concat([{ at: Date.now(), body: snap.telemetry }]).slice(-600));
-  }, [recordOn, snap.telemetry]);
+  }, [recordState, snap.telemetry, snap.sessionLive, snap.generation, snap.bootId, recordOwner]);
+
+  // RDE-4: auto-stop on disconnect / generation change / boot change; keep data.
+  useEffect(() => {
+    if (recordState !== 'recording' || !recordOwner) return;
+    if (!snap.sessionLive) setRecordState('stopped');
+    else if (snap.generation !== recordOwner.generation) setRecordState('stopped');
+    else if (recordOwner.bootId != null && snap.bootId !== recordOwner.bootId) setRecordState('stopped');
+  }, [recordState, snap.sessionLive, snap.generation, snap.bootId, recordOwner]);
 
   useEffect(() => {
     const onHide = (event) => {
@@ -86,6 +111,45 @@ export default function ConsoleView({ language, session, snapshot, support, onCo
     else if (result && (result.reason === 'port_busy' || result.reason === 'peer_holds_port')) setMessage(t.busy);
     else if (result && result.reason === 'timeout') setMessage(t.noResponse);
     else if (result && !result.ok) setMessage(result.reason || t.noResponse);
+  };
+
+  /** RDE-3: request clear (goes through confirmation); only when not recording. */
+  const clearRecords = () => {
+    if (recordState === 'recording') return;
+    setConfirmDiscard(true);
+    setConfirmAction('clear');
+  };
+
+  /** RDE-3: confirm discard and start a new recording in the current session. */
+  const confirmNewRecording = () => {
+    if (!snap.sessionLive) return;
+    recordBoundary.current = snap.telemetry;
+    setRecording([]);
+    setConfirmDiscard(false);
+    setRecordState('recording');
+    setRecordOwner({ generation: snap.generation, bootId: snap.bootId });
+  };
+
+  /** Start recording (only if session is live); sets owner and boundary. */
+  const startRecording = () => {
+    if (!snap.sessionLive) return;
+    recordBoundary.current = snap.telemetry;
+    setRecordState('recording');
+    setRecordOwner({ generation: snap.generation, bootId: snap.bootId });
+  };
+
+  /** Stop recording; data stays for export. */
+  const stopRecording = () => {
+    setRecordState('stopped');
+  };
+
+  /** RDE-3: confirmed clear (after user confirms via the confirm UI). */
+  const confirmClear = () => {
+    if (recordState === 'recording') return;
+    setRecording([]);
+    setConfirmDiscard(false);
+    setConfirmAction(null);
+    setRecordState('idle');
   };
 
   const rehandshake = async () => {
@@ -144,7 +208,31 @@ export default function ConsoleView({ language, session, snapshot, support, onCo
       </div>
       <div className="mt-6" role="tabpanel">
         {tab === 'quick' && <Quick t={t} checks={checks} reading={view} snap={snap} />}
-        {tab === 'live' && <Live t={t} snap={snap} shown={shown} rows={rows} reading={display} paused={paused} onPause={() => { setFrozen(snap.telemetry); setPaused(true); }} onResume={() => setPaused(false)} recordOn={recordOn} recording={recording} onRecord={() => { setRecordOn((v) => !v); if (recordOn) setRecording([]); }} />}
+        {tab === 'live' && <Live
+    t={t}
+    snap={snap}
+    shown={shown}
+    rows={rows}
+    reading={display}
+    paused={paused}
+    onPause={() => { setFrozen(snap.telemetry); setPaused(true); }}
+    onResume={() => setPaused(false)}
+    recordState={recordState}
+    recording={recording}
+    confirmDiscard={confirmDiscard}
+    onRecord={() => {
+      if (recordState === 'recording') stopRecording();
+      else if (confirmDiscard) confirmNewRecording();
+      else if (recording.length) { setConfirmDiscard(true); setConfirmAction('newRecording'); }
+      else startRecording();
+    }}
+    onClear={clearRecords}
+    confirmAction={confirmAction}
+    onConfirmClear={confirmClear}
+    onConfirmDiscard={() => { setConfirmDiscard(false); }}
+    onClearNow={() => { setRecording([]); setConfirmDiscard(false); setRecordState('idle'); }}
+    onConfirmNew={() => confirmNewRecording()}
+  />}
         {tab === 'config' && <Config t={t} session={session} snap={snap} />}
         {tab === 'diag' && <Diag t={t} session={session} snap={snap} includeNetwork={includeNetwork} setIncludeNetwork={setIncludeNetwork} />}
       </div>
@@ -173,17 +261,24 @@ function Mark({ state, label }) {
   return <span className={"inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-sm font-semibold " + (good ? 'text-brand-700 dark:text-brand-300' : '')}>{good ? <Check size={16} /> : <Circle size={14} />}{label}</span>;
 }
 
-function Live({ t, snap, shown, rows, reading, paused, onPause, onResume, recordOn, recording, onRecord }) {
+function Live({ t, snap, shown, rows, reading, paused, onPause, onResume, recordState, recording, confirmDiscard, confirmAction, onRecord, onClear, onConfirmDiscard, onClearNow, onConfirmNew, onConfirmClear }) {
   const oneD = rows.some((row) => row.oneD) || (snap.identity && snap.identity.dimension === '1D');
   return <div>
     <p className="muted text-sm leading-7">{t.liveLead}</p>
     <div className="mt-4 flex flex-wrap gap-2">
       <button className="secondary-button" onClick={paused ? onResume : onPause}>{paused ? t.resume : t.pause}</button>
-      <button className="secondary-button" onClick={onRecord}>{recordOn ? t.stopRecord : t.record}</button>
+      <button className="secondary-button" onClick={onRecord}>{recordState === 'recording' ? t.stopRecord : (recording.length ? t.recordNew : t.record)}</button>
+      <button className="secondary-button" disabled={!recording.length || recordState === 'recording'} onClick={onClear}>{t.clearRecord}</button>
       <button className="secondary-button" disabled={!recording.length} onClick={() => download('mmwave-observations.jsonl', recording.map((row) => JSON.stringify(redactExport(row))).join('\n'), 'application/x-ndjson')}><Download size={16} />{t.exportJson}</button>
       <button className="secondary-button" disabled={!recording.length} onClick={() => download('mmwave-observations.csv', toCsv(recording), 'text/csv')}><Download size={16} />{t.exportCsv}</button>
     </div>
-    <p className="muted mt-3 text-xs">{t.recordLimit} {t.idUnstable}</p>
+    <p className="muted mt-3 text-xs">{recordState === 'recording' ? t.recordingActive : recordState === 'stopped' ? t.recordingStopped : t.recordIdle} · {recording.length}{t.recordCountSuffix}{t.recordLimit} {t.idUnstable}</p>
+    {confirmDiscard && recording.length > 0 && <div className="notice mt-3" role="status">
+      {t.recordDiscardConfirm}
+      <button className="secondary-button ml-2" onClick={confirmAction === 'clear' ? onConfirmClear : onConfirmNew}>{confirmAction === 'clear' ? t.recordConfirmClear : t.recordDiscardConfirmNew}</button>
+      <button className="secondary-button ml-2" onClick={onClearNow}>{t.recordClearNow}</button>
+      <button className="secondary-button ml-2" onClick={onConfirmDiscard}>{t.recordDiscardCancel}</button>
+    </div>}
     {paused && <p className="notice mt-4" role="status">{t.pausedView}</p>}
     {!paused && reading.historical && <p className="notice mt-4" role="status">{t.historical}</p>}
     <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
