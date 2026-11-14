@@ -2,8 +2,8 @@ name: CI
 
 # Validates that every firmware configuration in tests/ compiles on every PR.
 #
-# docs/ is the datasheet tree (~186MB) and static/ is the installer. Neither
-# is read here. tests/*.py and tests/*.cpp are not executed by this workflow;
+# docs/ is the datasheet tree (~186MB), not a firmware build input.
+# tests/*.py and tests/*.cpp are not executed by this workflow;
 # ignoring them is the same trade-off as the workspace cases/ filter. If a job
 # starts running those tests, drop them from paths-ignore.
 on:
@@ -12,7 +12,6 @@ on:
       - main
     paths-ignore: &firmware-ignore
       - 'docs/**'
-      - 'static/**'
       - 'assets/**'
       - 'blueprints/**'
       - '.agents/**'

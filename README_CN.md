@@ -8,6 +8,8 @@
 
 [English](./README.md)
 
+在线烧录页面与 Web Serial 上位机已迁至 [mmwave-flasher](https://github.com/zomco/mmwave-flasher)。本仓库维护 ESPHome 组件与固件，发布步骤见 [RELEASES.md](docs/RELEASES.md)。
+
 16 款毫米波雷达的 ESPHome 固件，目标平台 **ESP32-C3**。数据到达 Home Assistant 之前，设备把雷达读数换成房间坐标，并丢掉你所画房间之外的目标。这样位置才能直接拿去写自动化，穿墙目标也不会把灯打开。
 
 ## 快速使用

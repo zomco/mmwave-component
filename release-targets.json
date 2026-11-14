@@ -1,0 +1,22 @@
+{
+  "radars": [
+    {
+      "id": "r60abd1",
+      "name": "R60ABD1",
+      "dimension": "2D",
+      "status": "Completed",
+      "chipFamily": "ESP32-C3",
+      "config": "tests/r60abd1-esp32c3.factory.yaml"
+    }
+  ],
+  "boards": [
+    {
+      "id": "esp32-c3-supermini",
+      "chipFamily": "ESP32-C3",
+      "uart": {
+        "tx": 21,
+        "rx": 20
+      }
+    }
+  ]
+}

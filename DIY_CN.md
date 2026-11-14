@@ -233,10 +233,10 @@ flowchart LR
 │   └── workflows/
 │       ├── ci.yml                # PR 检查：编译所有 tests/*.yaml
 │       ├── publish.yml           # 构建固件，上传产物
-│       └── publish-pages.yml     # 部署 GitHub Pages（与固件构建分离）
+│       └── release-checks.yml    # Firmware packaging regression checks
 ├── components/{radar_model}/     # ESPHome 外部组件（__init__.py、.h、.cpp）
 ├── docs/{radar_model}/           # 规格书、协议 PDF、接线图、README.md
-├── static/                       # GitHub Pages 源文件 (Jekyll)
+├── release-targets.json          # Firmware targets; website lives in mmwave-flasher
 │   ├── _config.yml
 │   └── index.html                # ESP Web Tools 安装页
 ├── tests/

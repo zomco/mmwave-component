@@ -8,6 +8,8 @@
 
 [中文文档](./README_CN.md)
 
+The installer and Web Serial console are maintained in [mmwave-flasher](https://github.com/zomco/mmwave-flasher). This repository owns ESPHome components and firmware; see [firmware release instructions](docs/RELEASES.md).
+
 ESPHome firmware for 16 millimetre-wave radars on **ESP32-C3**. Before Home Assistant sees a value, the device converts the radar reading into room coordinates and drops targets outside the room you draw. That is what makes a position usable in an automation, and what stops a through-wall ghost from turning on a light.
 
 ## Quick start

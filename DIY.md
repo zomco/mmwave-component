@@ -263,10 +263,10 @@ flowchart LR
 │   └── workflows/
 │       ├── ci.yml                # PR check: compiles all tests/*.yaml
 │       ├── publish.yml           # Builds firmware, uploads artifacts
-│       └── publish-pages.yml     # Deploys GitHub Pages (separate from firmware build)
+│       └── release-checks.yml    # Firmware packaging regression checks
 ├── components/{radar_model}/     # ESPHome external component (__init__.py, .h, .cpp)
 ├── docs/{radar_model}/           # Datasheets, protocol PDFs, wiring images, README.md
-├── static/                       # GitHub Pages source (Jekyll)
+├── release-targets.json          # Firmware targets; website lives in mmwave-flasher
 │   ├── _config.yml
 │   └── index.html                # ESP Web Tools install page
 ├── tests/

@@ -5,7 +5,7 @@ Python and proven byte-exact against the shared golden vectors
 (protocol/fixtures/protocol-vectors.json) at client construction time, so the
 client cannot silently diverge from the frozen contract. Payload-level schema
 validation happens in a separate Node pass (tools/g2/validate_frames.mjs) that
-imports the real JS validators from static/src/protocol.
+imports the flasher JS validators via explicit MMWAVE_FLASHER_ROOT.
 
 Safety model (G2 execution handoff, section C):
 - The port must be named explicitly (--port COM9). No scanning, no opening of

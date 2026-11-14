@@ -24,7 +24,7 @@ The **authoritative radar model status table** lives in `README.md`. The AI must
 │   └── workflows/
 │       ├── ci.yml                     # PR: compiles all tests/*.yaml
 │       ├── publish.yml                # Builds firmware, uploads artifacts
-│       └── publish-pages.yml          # Deploys GitHub Pages (separate concern)
+│       └── release-checks.yml         # Validates firmware packaging
 ├── components/
 │   ├── r60abd1/                        # ✅ Reference implementation
 │   │   ├── __init__.py                 # CONFIG_SCHEMA, to_code, DEPENDENCIES,
@@ -40,10 +40,7 @@ The **authoritative radar model status table** lives in `README.md`. The AI must
 │       ├── <datasheet>.pdf            # Product documentation
 │       ├── <protocol>.pdf             # Communication protocol
 │       └── {radar_model}-*.{png|jpg}  # Reference images; curate before storefront use
-├── static/
-│   ├── device-catalog.json            # Accepted storefront models and boards
-│   ├── src/                           # React + Tailwind installer
-│   └── index.html                     # Vite entry; dist/ is deployed directly
+├── release-targets.json               # Accepted firmware targets (no UI metadata)
 ├── tests/
 │   ├── common/_device.yaml                    # ← Device-level entities every model gets:
 │   │                                          #   diagnostics, restart, safe mode,
@@ -137,44 +134,17 @@ No AI-initiated changes unless explicitly requested.
 
 ## CI/CD Pipeline
 
-The workflows separate validation, explicit firmware releases and Pages deployment.
-The current release contract and operator steps are documented in
-`docs/FLASHER.md` / `docs/FLASHER_CN.md`; do not restore daily firmware publishing.
+Firmware validation and explicit Alpha/Beta releases stay in this repository.
+See docs/RELEASES.md. publish.yml validates release-targets.json against README
+Completed status, factory configs and TX21/RX20. Alpha builds explicitly; Beta
+promotes tested Alpha bytes with evidence. Daily commits never publish firmware.
 
-### `ci.yml` — PR Validation
-
-- **Trigger:** Push to main; pull requests targeting main, subject to workflow path filters.
-- **What it does:** Checks C++ formatting and compiles **all** top-level `tests/*.yaml` files (both base and factory configs) in parallel using `esphome/build-action@v7`. Fails if any config does not compile.
-- **Does not** build artifacts or deploy anything.
-
-### `publish.yml` — Explicit Alpha / Beta releases
-
-- **Trigger:** `workflow_dispatch` on `main` only. Ordinary pushes never publish firmware.
-- **What it does:**
-  1. Validates `static/device-catalog.json` against README Completed status, factory configs and TX21/RX20.
-  2. Alpha: stamps `vX.Y.Z-alpha.N`, builds only catalog models with an explicitly pinned ESPHome version.
-  3. Beta: requires hardware acceptance evidence and promotes a published Alpha ZIP without rebuilding or altering bytes. Device/OTA version remains the tested Alpha binary version.
-  4. Publishes permanent `release.json` and `firmware-bundle.zip` release assets; per-build Actions artifacts are transport only.
-- **Does not** touch GitHub Pages. Base `*.yaml` files are not built here — they are for user adoption via `dashboard_import`, compiled only by CI.
-
-### `publish-pages.yml` — GitHub Pages Deployment
-
-- **Trigger:** Successful `publish.yml` on `main`; storefront/tooling changes; `workflow_dispatch`.
-- **What it does:**
-  1. Tests and builds the React + Tailwind site from `static/` to `static/dist/`.
-  2. Fetches published release bundles, validates hashes, versions and safe paths.
-  3. Does not fetch the old Pages site or retain legacy test firmware; the maintainer waived pre-release OTA compatibility.
-  4. Generates `releases.json` and immutable `firmware/<tag>/` paths.
-  5. Generates model OTA aliases and `models.json` only from the newest Beta, never Alpha.
-  6. Deploys the complete `static/dist/` atomically. A failed assembly leaves the current site untouched.
-- **Triggered independently** from `publish.yml`: static content (wiring images, install page) can be redeployed without rebuilding firmware.
-
-**Device images** are curated in `static/device-artwork/` and referenced by the catalog. Do not treat filename “front” as antenna-face evidence or a CAD layout as universal physical pin certification. Unknown images use a visibly labeled placeholder. `web.yml` tests/builds the installer on relevant PRs and pushes without publishing firmware.
-
-### Enabling GitHub Pages
-
-1. **Settings → Pages → Source → GitHub Actions.**
-2. Run `publish-pages.yml` to deploy the site. Publish Alpha explicitly when hardware and build inputs are ready.
+The React/Tailwind installer, Web Serial UI, device catalog, artwork, npm tests,
+and Pages workflow now live in https://github.com/zomco/mmwave-flasher.
+Do not recreate static/ or a Pages workflow here. After a firmware release,
+separately run the flasher Pages workflow to refresh the public version index.
+The canonical protocol and C++ implementation stay here; flasher pins a component
+revision for compatibility testing and tracks two verified JSON snapshots.
 
 ---
 
@@ -320,7 +290,7 @@ esp32_improv:
 - `esphome.project.name` follows the pattern `"mmwave-radar.{radar_model}"`.
 - `esphome.project.version` must be the literal string `"dev"` — `publish.yml` replaces it with the release tag at build time.
 - `http_request:` must appear before `ota` and `update` blocks that depend on it.
-- `update.source` URL must match the path where `publish-pages.yml` places the manifest: `https://{owner}.github.io/{repo}/{esphome.name}-{chipFamily}/manifest.json`. Replace `{owner}`, `{repo}`, and use the exact chip-family string produced by `build-action` (e.g. `ESP32-C3`, `ESP32-S3`).
+- `update.source` must match the stable Beta alias served by mmwave-flasher Pages. Preserve the deployed public domain during the repository cutover; do not derive the website URL from the component repository name. See mmwave-flasher/docs/PUBLISHING.md.
 - `dashboard_import.package_import_url` must point to the base yaml in the repository.
 - `improv_serial` and `esp32_improv` are always included for ESP32-family targets.
 
@@ -525,7 +495,7 @@ Entity sub-schemas: `sensor.SENSOR_SCHEMA`, `binary_sensor.BINARY_SENSOR_SCHEMA`
 ## Adding a New Radar Model
 
 1. Add `docs/{radar_model}/` with the product datasheet and communication protocol.
-2. Optionally add wiring references named `{radar_model}-*.png` (or `.jpg`) to the same folder. Storefront images must be separately reviewed, curated into `static/device-artwork/`, and referenced by the accepted catalog.
+2. Optionally add wiring references named `{radar_model}-*.png` (or `.jpg`) to the same folder. Storefront images must be separately reviewed in mmwave-flasher/static/device-artwork/ and referenced by that repository's accepted catalog.
 3. Add a `Planned` row to the Radar Model Status table in `README.md`.
 4. Ask the AI to generate the component. It reads the docs, generates `components/{radar_model}/` and `tests/{radar_model}-{platform}.yaml` + `tests/{radar_model}-{platform}.factory.yaml`, and updates the status to `Developing`.
 5. Flash and test on hardware; report errors to the AI.
@@ -541,15 +511,13 @@ CI auto-discovers `tests/*.yaml`; publishing uses only the validated Completed c
 |---|---|---|
 | **CI** (`ci.yml`) | PR to main / main push | Formatting and all top-level `tests/*.yaml` — validation only |
 | **Publish** (`publish.yml`) | Explicit manual request on main | Builds Alpha or promotes tested Alpha to Beta |
-| **Publish Pages** (`publish-pages.yml`) | After Publish / storefront changes | Validates release history, generates Beta OTA aliases, deploys Pages |
-| **Web checks** (`web.yml`) | Relevant PR / main push | Tests release tooling and React app, no firmware release |
+| **Release checks** (`release-checks.yml`) | Relevant PR / main push | Tests firmware target inventory and packaging |
 
-Firmware build and Pages deployment are **intentionally separate**: a firmware build failure never breaks the live install site, and wiring diagram updates or install page changes deploy instantly without a full firmware rebuild.
+Website checks and Pages deployment run in mmwave-flasher. Website updates do not compile firmware. After publishing firmware here, explicitly refresh Pages there.
 
 ### Enabling GitHub Pages
 
-1. Go to **Settings → Pages → Source → GitHub Actions**.
-2. Run `publish-pages.yml` for the first deploy; firmware releases are a separate explicit action.
+Configure Pages only in mmwave-flasher, following its docs/PUBLISHING.md. Do not enable a second Pages publisher in this component repository.
 
 ---
 

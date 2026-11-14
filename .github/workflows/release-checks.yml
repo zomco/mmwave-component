@@ -1,0 +1,16 @@
+name: Firmware release tooling checks
+on:
+  pull_request:
+    paths: ['scripts/**', 'tests/test_releases.py', 'release-targets.json', 'README.md', '.github/workflows/release-checks.yml']
+  push:
+    branches: [main]
+    paths: ['scripts/**', 'tests/test_releases.py', 'release-targets.json', 'README.md', '.github/workflows/release-checks.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 scripts/releases.py catalog
+      - run: python3 -m unittest discover -s tests -p test_releases.py -v

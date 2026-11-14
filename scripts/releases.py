@@ -1,4 +1,4 @@
-"""Versioned firmware bundles, Alpha promotion and Pages assembly (stdlib only)."""
+"""Versioned firmware bundles and Alpha promotion (stdlib only)."""
 from __future__ import annotations
 
 import argparse
@@ -8,7 +8,6 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
-import tempfile
 from datetime import datetime, timezone
 import zipfile
 
@@ -77,7 +76,7 @@ def candidate_channel(version):
 
 
 def catalog(root=ROOT):
-    data = read(root / "static/device-catalog.json")
+    data = read(root / "release-targets.json")
     status = (root / "README.md").read_text(encoding="utf-8")
     models = []
     for radar in data["radars"]:
@@ -298,74 +297,6 @@ def download_release(repo, tag, directory):
     return meta
 
 
-def assemble(repo, output, local_releases=None):
-    models, _ = catalog()
-    eligible = {m["id"] for m in models}
-    output = Path(output)
-    # The pre-release test fleet has no legacy OTA retention requirement.
-    # A fresh Vite build supplies the site; GitHub Releases supplies firmware.
-    releases = []
-    if local_releases:
-        local_dir = Path(local_releases)
-        release_dirs = []
-        if (local_dir / "release.json").is_file():
-            release_dirs.append(local_dir)
-        elif local_dir.is_dir():
-            for child in sorted(local_dir.iterdir()):
-                if child.is_dir() and (child / "release.json").is_file():
-                    release_dirs.append(child)
-        for r_dir in release_dirs:
-            meta = read(r_dir / "release.json")
-            validate_bundle(meta, r_dir / "firmware-bundle.zip")
-            tag = meta["version"]
-            with zipfile.ZipFile(r_dir / "firmware-bundle.zip") as bundle:
-                bundle.extractall(output / "firmware" / tag)
-            meta["firmware"] = [f for f in meta["firmware"] if f["radarId"] in eligible]
-            if meta["firmware"]:
-                releases.append(meta)
-    else:
-        with tempfile.TemporaryDirectory() as temp:
-            page = 1
-            while True:
-                batch = json.loads(gh("api", f"repos/{repo}/releases?per_page=100&page={page}"))
-                for release in batch:
-                    if release["draft"]:
-                        continue
-                    assets = {a["name"] for a in release["assets"]}
-                    if not ({"release.json", "firmware-bundle.zip"} & assets):
-                        continue  # Older releases remain outside the new channel index.
-                    if not {"release.json", "firmware-bundle.zip"} <= assets:
-                        raise ValueError("Incomplete release assets")
-                    tag = release["tag_name"]
-                    meta = download_release(repo, tag, Path(temp) / tag)
-                    meta["publishedAt"] = release["published_at"]
-                    with zipfile.ZipFile(Path(temp) / tag / "firmware-bundle.zip") as bundle:
-                        bundle.extractall(output / "firmware" / tag)  # validated safe paths above
-                    meta["firmware"] = [f for f in meta["firmware"] if f["radarId"] in eligible]
-                    if meta["firmware"]:
-                        releases.append(meta)
-                if len(batch) < 100:
-                    break
-                page += 1
-    releases.sort(key=lambda r: (r["publishedAt"], r["version"]), reverse=True)
-    assigned = set()
-    for release in releases:
-        if release["channel"] != "beta":
-            continue
-        for target in release["firmware"]:
-            model = target["radarId"]
-            if model in assigned:
-                continue
-            assigned.add(model)
-            folder = f"{model}-ESP32-C3"
-            shutil.copytree(output / "firmware" / release["version"] / folder, output / folder, dirs_exist_ok=True)
-    # Only validated Beta releases create stable OTA aliases.
-    by_path = {}
-    for model in sorted(assigned):
-        path = f"{model}-ESP32-C3/manifest.json"
-        by_path[path] = {"id": f"{model}-ESP32-C3", "manifest": path}
-    write(output / "models.json", list(by_path.values()))
-    write(output / "releases.json", {"schemaVersion": 1, "releases": releases})
 
 
 def main():
@@ -382,15 +313,11 @@ def main():
     p = sub.add_parser("download")
     for name in ("repo", "tag", "directory"):
         p.add_argument(name)
-    p = sub.add_parser("assemble")
-    for name in ("repo", "output"):
-        p.add_argument(name)
-    p.add_argument("--local-releases", default=None, help="Directory containing local release folders")
     args = vars(parser.parse_args()); command = args.pop("command")
     if command == "catalog":
         print(json.dumps([r["config"] for r in catalog()[0]]))
     else:
-        {"stamp": stamp, "package": package, "promote": promote, "download": download_release, "assemble": assemble}[command](**args)
+        {"stamp": stamp, "package": package, "promote": promote, "download": download_release}[command](**args)
 
 
 if __name__ == "__main__":
